@@ -1,0 +1,15 @@
+# Protect all directories outside public/ from direct web access.
+# The web server document root should point to public/ — this is a safety net.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Redirect all requests to public/ if document root is the project root
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ /public/$1 [L,QSA]
+</IfModule>
+
+# Block access to sensitive directories
+<DirectoryMatch "^.*(data|md|mappings|storage|src|vendor)">
+    Require all denied
+</DirectoryMatch>

@@ -1,0 +1,27 @@
+Options -Indexes
+ServerSignature Off
+
+# Block access to hidden files
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Security headers via Apache (complement PHP-side headers)
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always unset Server
+    Header always unset X-Powered-By
+</IfModule>
+
+# Restrict PHP file access to known entry points
+<FilesMatch "\.php$">
+    Require all granted
+</FilesMatch>
+
+# Block direct access to non-public PHP includes if any slip into public/
+<FilesMatch "^(bootstrap|config|helpers)\.php$">
+    Require all denied
+</FilesMatch>

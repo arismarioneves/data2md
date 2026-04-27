@@ -1,0 +1,9 @@
+/vendor/
+/data/pdf/*
+!/data/pdf/.gitkeep
+/md/*
+!/md/.gitkeep
+/mappings/mappings.json
+/mappings/.mappings.lock
+/storage/rate_limits/
+composer.lock
