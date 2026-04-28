@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 define('BASE_PATH', dirname(__DIR__));
+require BASE_PATH . '/config.php';
+
+@ini_set('max_execution_time', (string) APP_MAX_EXECUTION_TIME);
+@ini_set('memory_limit', APP_MEMORY_LIMIT);
+
 require BASE_PATH . '/vendor/autoload.php';
 
 use Data2Md\Converter\PdfConverter;
@@ -38,14 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $mappingStorage = new MappingStorage(BASE_PATH . '/mappings');
 $fileStorage    = new FileStorage(BASE_PATH . '/data', BASE_PATH . '/md', $mappingStorage);
 $validator      = new Validator();
-$rateLimiter    = new RateLimiter(BASE_PATH . '/storage/rate_limits', 20, 60);
+$rateLimiter    = new RateLimiter(BASE_PATH . '/storage/rate_limits', RATE_LIMIT_API, RATE_LIMIT_WINDOW);
 
 // ── Rate limit ───────────────────────────────────────────────────────────────
 $clientIp = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0')[0]);
 
 if (!$rateLimiter->isAllowed($clientIp)) {
-    header('Retry-After: 60');
-    ApiResponse::error('Rate limit exceeded. Maximum 20 requests per minute.', 429);
+    header('Retry-After: ' . RATE_LIMIT_WINDOW);
+    ApiResponse::error('Rate limit exceeded. Maximum ' . RATE_LIMIT_API . ' requests per minute.', 429);
 }
 
 // ── Validate file ────────────────────────────────────────────────────────────
@@ -89,7 +94,7 @@ try {
         'format'        => $format,
         'lines'         => substr_count($markdown, "\n") + 1,
         'characters'    => mb_strlen($markdown),
-        'download_url'  => '/download.php?hash=' . urlencode($hash),
+        'download_url'  => '/download?hash=' . urlencode($hash),
         'markdown'      => $markdown,
     ], 201);
 
@@ -131,7 +136,7 @@ function renderDocs(): void
             <h2>Endpoint</h2>
             <div class="endpoint-pill">
                 <span class="method">POST</span>
-                <code><?= $base ?>/api.php</code>
+                <code><?= $base ?>/api</code>
             </div>
             <p>Content-Type: <code>multipart/form-data</code></p>
         </section>
@@ -141,7 +146,7 @@ function renderDocs(): void
             <table class="docs-table">
                 <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
                 <tbody>
-                    <tr><td><code>file</code></td><td>file</td><td>Yes</td><td>The file to convert. Max 20 MB.</td></tr>
+                    <tr><td><code>file</code></td><td>file</td><td>Yes</td><td>The file to convert. Max <?= MAX_FILE_SIZE_LABEL ?>.</td></tr>
                     <tr><td><code>format</code></td><td>string</td><td>No</td><td>File format. Default: <code>pdf</code>. Currently supported: <code>pdf</code>.</td></tr>
                 </tbody>
             </table>
@@ -156,7 +161,7 @@ function renderDocs(): void
   "format": "pdf",
   "lines": 148,
   "characters": 9342,
-  "download_url": "/download.php?hash=a3f9c12b84e7d01",
+  "download_url": "/download?hash=a3f9c12b84e7d01",
   "markdown": "# Report Title\n\n..."
 }</pre>
         </section>
@@ -172,35 +177,36 @@ function renderDocs(): void
 
         <section class="docs-section">
             <h2>Rate limits</h2>
-            <p>20 requests per minute per IP. Exceeding returns <code>429 Too Many Requests</code> with a <code>Retry-After: 60</code> header.</p>
+            <p><?= RATE_LIMIT_API ?> requests per minute per IP. Exceeding returns <code>429 Too Many Requests</code> with a <code>Retry-After: <?= RATE_LIMIT_WINDOW ?></code> header.</p>
         </section>
 
         <section class="docs-section">
             <h2>Examples</h2>
 
             <h3>cURL</h3>
-            <pre class="code-block">curl -X POST <?= $base ?>/api.php \
+            <pre class="code-block">curl -X POST <?= $base ?>/api \
   -F "file=@document.pdf" \
   -F "format=pdf"</pre>
 
             <h3>PHP (stream)</h3>
-            <pre class="code-block">$response = file_get_contents('<?= $base ?>/api.php', false, stream_context_create([
-    'http' => [
-        'method'  => 'POST',
-        'header'  => 'Content-Type: multipart/form-data; boundary=boundary',
-        'content' => '--boundary\r\nContent-Disposition: form-data; name="format"\r\n\r\npdf\r\n'
-                   . '--boundary\r\nContent-Disposition: form-data; name="file"; filename="doc.pdf"\r\n'
-                   . 'Content-Type: application/pdf\r\n\r\n' . file_get_contents('doc.pdf') . '\r\n--boundary--',
+            <pre class="code-block">$ch = curl_init('<?= $base ?>/api');
+curl_setopt_array($ch, [
+    CURLOPT_POST           => true,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_POSTFIELDS     => [
+        'file'   => new CURLFile('document.pdf', 'application/pdf', 'document.pdf'),
+        'format' => 'pdf',
     ],
-]));
-$data = json_decode($response, true);
+]);
+$data = json_decode(curl_exec($ch), true);
+curl_close($ch);
 echo $data['markdown'];</pre>
 
             <h3>Python (requests)</h3>
             <pre class="code-block">import requests
 
 with open('document.pdf', 'rb') as f:
-    r = requests.post('<?= $base ?>/api.php', files={'file': f}, data={'format': 'pdf'})
+    r = requests.post('<?= $base ?>/api', files={'file': f}, data={'format': 'pdf'})
 
 data = r.json()
 print(data['markdown'])</pre>

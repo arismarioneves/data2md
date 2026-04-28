@@ -6,8 +6,6 @@ namespace Data2Md\Security;
 
 class Validator
 {
-    private const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
-
     private const ALLOWED = [
         'pdf' => [
             'extensions' => ['pdf'],
@@ -32,8 +30,8 @@ class Validator
             return ["Unsupported format: $format"];
         }
 
-        if ($file['size'] > self::MAX_FILE_SIZE) {
-            $errors[] = 'File exceeds the maximum allowed size of 20 MB.';
+        if ($file['size'] > \MAX_FILE_SIZE) {
+            $errors[] = 'File exceeds the maximum allowed size of ' . \MAX_FILE_SIZE_LABEL . '.';
         }
 
         if (!is_uploaded_file($file['tmp_name'])) {

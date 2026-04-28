@@ -1,12 +1,10 @@
 Options -Indexes
 ServerSignature Off
 
-# Block access to hidden files
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
 
-# Security headers via Apache (complement PHP-side headers)
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "DENY"
@@ -16,12 +14,26 @@ ServerSignature Off
     Header always unset X-Powered-By
 </IfModule>
 
-# Restrict PHP file access to known entry points
-<FilesMatch "\.php$">
-    Require all granted
-</FilesMatch>
+# Allow large PDF uploads (Apache + mod_php only; PHP-FPM users must set these in php.ini)
+<IfModule mod_php.c>
+    php_value upload_max_filesize 500M
+    php_value post_max_size       510M
+    php_value max_execution_time  360
+    php_value memory_limit        -1
+</IfModule>
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 500M
+    php_value post_max_size       510M
+    php_value max_execution_time  360
+    php_value memory_limit        -1
+</IfModule>
 
-# Block direct access to non-public PHP includes if any slip into public/
-<FilesMatch "^(bootstrap|config|helpers)\.php$">
-    Require all denied
-</FilesMatch>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Hide .php extension from URLs
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.+)$ $1.php [L,QSA]
+</IfModule>

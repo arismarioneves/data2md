@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 define('BASE_PATH', dirname(__DIR__));
+require BASE_PATH . '/config.php';
 require BASE_PATH . '/vendor/autoload.php';
 
 use Data2Md\Security\Validator;
