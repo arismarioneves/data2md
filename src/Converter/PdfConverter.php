@@ -223,6 +223,13 @@ class PdfConverter implements ConverterInterface
     private function normaliseText(string $text): string
     {
         $text = str_replace(["\r\n", "\r"], "\n", $text);
+
+        // Trim each line individually — pdftotext -layout pads lines with
+        // spaces to simulate column alignment, leaving large left margins.
+        $lines = explode("\n", $text);
+        $lines = array_map('trim', $lines);
+        $text  = implode("\n", $lines);
+
         $text = preg_replace('/\n{3,}/', "\n\n", $text);
         return trim($text);
     }
