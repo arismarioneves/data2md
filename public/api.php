@@ -123,7 +123,7 @@ function renderDocs(): void
     <div class="container">
         <div class="header-inner">
             <a href="/" class="logo"><span class="logo-mark">d2md</span></a>
-            <nav><a href="/" class="nav-link">Converter</a></nav>
+            <nav><a href="/app" class="nav-link">Converter</a></nav>
         </div>
     </div>
 </header>
@@ -213,7 +213,7 @@ print(data['markdown'])</pre>
         </section>
     </div>
 </main>
-<footer class="footer"><div class="container"><p>data2md API &mdash; <a href="/" class="nav-link">Back to converter</a></p></div></footer>
+<footer class="footer"><div class="container"><p>data2md API &mdash; <a href="/app" class="nav-link">Back to converter</a></p></div></footer>
 </body>
 </html>
     <?php

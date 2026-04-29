@@ -3,6 +3,14 @@
 var fullMarkdown  = '';
 var PREVIEW_LIMIT = 8000;
 
+function formatBytes(bytes) {
+    if (!bytes && bytes !== 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+
 (function () {
     var form        = document.getElementById('upload-form');
     var fileInput   = document.getElementById('file-input');
@@ -54,6 +62,8 @@ var PREVIEW_LIMIT = 8000;
 
     function applyFile(file) {
         if (dzFilename) dzFilename.textContent = file.name;
+        var dzSize = document.getElementById('dz-size');
+        if (dzSize) dzSize.textContent = formatBytes(file.size);
         if (dzIdle)     dzIdle.hidden     = true;
         if (dzSelected) dzSelected.hidden = false;
         if (convertBtn) convertBtn.disabled = false;
@@ -83,7 +93,7 @@ var PREVIEW_LIMIT = 8000;
         var fakeTimer = null;
         var fakePct   = 65;
 
-        overlayShow(file.name);
+        overlayShow(file.name, file.size);
         overlaySet('Uploading…', 0);
 
         var fd = new FormData();
@@ -215,6 +225,8 @@ var PREVIEW_LIMIT = 8000;
             if (dzIdle)     dzIdle.hidden     = false;
             if (dzSelected) dzSelected.hidden = true;
             if (convertBtn) convertBtn.disabled = true;
+            var dzSize = document.getElementById('dz-size');
+            if (dzSize) dzSize.textContent = '';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
@@ -270,10 +282,12 @@ var PREVIEW_LIMIT = 8000;
         if (tipTimer) { clearInterval(tipTimer); tipTimer = null; }
     }
 
-    function overlayShow(filename) {
+    function overlayShow(filename, sizeBytes) {
         var overlay = document.getElementById('loading-overlay');
         var fnEl    = document.getElementById('loading-filename');
+        var szEl    = document.getElementById('loading-size');
         if (fnEl)    fnEl.textContent  = filename;
+        if (szEl)    szEl.textContent  = sizeBytes ? formatBytes(sizeBytes) : '';
         if (overlay) overlay.hidden    = false;
         document.body.style.overflow   = 'hidden';
         startTips();
@@ -330,7 +344,7 @@ function legacyCopy(text, btn) {
 function flashCopied(btn) {
     var orig = btn.textContent;
     btn.textContent = 'Copied!';
-    btn.style.color = '#86efac';
+    btn.style.color = '#ea580c';
     setTimeout(function () { btn.textContent = orig; btn.style.color = ''; }, 2000);
 }
 
