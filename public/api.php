@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 define('BASE_PATH', dirname(__DIR__));
 require BASE_PATH . '/config.php';
+require BASE_PATH . '/src/I18n/bootstrap.php';
 
 @ini_set('max_execution_time', (string) APP_MAX_EXECUTION_TIME);
 @ini_set('memory_limit', APP_MEMORY_LIMIT);
@@ -11,6 +12,7 @@ require BASE_PATH . '/config.php';
 require BASE_PATH . '/vendor/autoload.php';
 
 use Data2Md\Converter\PdfConverter;
+use Data2Md\I18n\I18n;
 use Data2Md\Response\ApiResponse;
 use Data2Md\Security\RateLimiter;
 use Data2Md\Security\Validator;
@@ -112,13 +114,14 @@ function renderDocs(): void
     header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:");
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $base   = $scheme . '://' . htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'localhost', ENT_QUOTES);
+    $back   = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/api'), ENT_QUOTES);
     ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= I18n::current() ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>data2md — API Reference</title>
+    <title><?= htmlspecialchars(t('api.title'), ENT_QUOTES) ?></title>
     <link rel="stylesheet" href="/assets/css/landing.css">
     <link rel="stylesheet" href="/assets/css/docs.css">
 </head>
@@ -132,12 +135,17 @@ function renderDocs(): void
                 <span class="l-logo-name">data2md</span>
             </a>
             <nav class="l-nav">
-                <a href="/" class="l-nav-link" data-hide-sm>About</a>
-                <a href="/api" class="l-nav-link">API</a>
+                <a href="/" class="l-nav-link" data-hide-sm><?= t('nav.about') ?></a>
+                <a href="/api" class="l-nav-link"><?= t('nav.api') ?></a>
                 <a href="/app" class="l-nav-cta">
-                    Open app
+                    <?= t('nav.app') ?>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                 </a>
+                <span class="l-lang" role="group" aria-label="<?= htmlspecialchars(t('lang.aria'), ENT_QUOTES) ?>">
+                    <a href="/lang?to=en&amp;back=<?= $back ?>" class="<?= I18n::current() === 'en' ? 'is-active' : '' ?>"><?= t('lang.label.en') ?></a>
+                    <span class="l-lang-sep" aria-hidden="true">·</span>
+                    <a href="/lang?to=pt&amp;back=<?= $back ?>" class="<?= I18n::current() === 'pt' ? 'is-active' : '' ?>"><?= t('lang.label.pt') ?></a>
+                </span>
             </nav>
         </div>
     </div>
@@ -149,38 +157,35 @@ function renderDocs(): void
             <article class="docs">
 
                 <header class="docs-hero">
-                    <span class="docs-eyebrow">// rest api</span>
-                    <h1 class="docs-title">API <em>Reference</em></h1>
-                    <p class="docs-sub">
-                        Integrate data2md in your workflow with a single HTTP POST.
-                        Streamed conversion via <code>pdftotext</code>, max <?= MAX_FILE_SIZE_LABEL ?> per request.
-                    </p>
+                    <span class="docs-eyebrow"><?= t('api.eyebrow') ?></span>
+                    <h1 class="docs-title"><?= t('api.heading') ?></h1>
+                    <p class="docs-sub"><?= t('api.lead', MAX_FILE_SIZE_LABEL) ?></p>
                 </header>
 
                 <section class="docs-section">
-                    <h2>Endpoint</h2>
+                    <h2><?= t('api.section.endpoint') ?></h2>
                     <div class="endpoint-pill">
                         <span class="method">POST</span>
                         <code class="endpoint-url"><?= $base ?>/api</code>
                     </div>
-                    <p>Content-Type: <code>multipart/form-data</code></p>
+                    <p><?= t('api.endpoint.ct') ?></p>
                 </section>
 
                 <section class="docs-section">
-                    <h2>Request fields</h2>
+                    <h2><?= t('api.section.fields') ?></h2>
                     <table class="docs-table">
-                        <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+                        <thead><tr><th><?= t('api.field.col.field') ?></th><th><?= t('api.field.col.type') ?></th><th><?= t('api.field.col.required') ?></th><th><?= t('api.field.col.desc') ?></th></tr></thead>
                         <tbody>
-                            <tr><td><code>file</code></td><td>file</td><td>Yes</td><td>The file to convert. Max <?= MAX_FILE_SIZE_LABEL ?>.</td></tr>
-                            <tr><td><code>format</code></td><td>string</td><td>No</td><td>File format. Default: <code>pdf</code>. Currently supported: <code>pdf</code>.</td></tr>
+                            <tr><td><code>file</code></td><td>file</td><td><?= t('api.field.required.yes') ?></td><td><?= t('api.field.file.desc', MAX_FILE_SIZE_LABEL) ?></td></tr>
+                            <tr><td><code>format</code></td><td>string</td><td><?= t('api.field.required.no') ?></td><td><?= t('api.field.format.desc') ?></td></tr>
                         </tbody>
                     </table>
                 </section>
 
                 <section class="docs-section">
-                    <h2>Success response <span class="code-tag">201 Created</span></h2>
+                    <h2><?= t('api.section.success') ?> <span class="code-tag"><?= t('api.tag.success') ?></span></h2>
                     <div class="code-block-wrap">
-                        <button type="button" class="code-copy" data-copy>Copy</button>
+                        <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block">{
   <span class="ck">"success"</span>: <span class="cn">true</span>,
   <span class="ck">"hash"</span>: <span class="cs">"a3f9c12b84e7d01"</span>,
@@ -195,9 +200,9 @@ function renderDocs(): void
                 </section>
 
                 <section class="docs-section">
-                    <h2>Error response <span class="code-tag code-tag--err">4xx · 5xx</span></h2>
+                    <h2><?= t('api.section.error') ?> <span class="code-tag code-tag--err"><?= t('api.tag.error') ?></span></h2>
                     <div class="code-block-wrap">
-                        <button type="button" class="code-copy" data-copy>Copy</button>
+                        <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block">{
   <span class="ck">"success"</span>: <span class="cn">false</span>,
   <span class="ck">"message"</span>: <span class="cs">"Validation failed."</span>,
@@ -207,19 +212,16 @@ function renderDocs(): void
                 </section>
 
                 <section class="docs-section">
-                    <h2>Rate limits</h2>
-                    <p>
-                        <?= RATE_LIMIT_API ?> requests per minute per IP. Exceeding returns
-                        <code>429 Too Many Requests</code> with a <code>Retry-After: <?= RATE_LIMIT_WINDOW ?></code> header.
-                    </p>
+                    <h2><?= t('api.section.rate') ?></h2>
+                    <p><?= t('api.rate.body', RATE_LIMIT_API, RATE_LIMIT_WINDOW) ?></p>
                 </section>
 
                 <section class="docs-section">
-                    <h2>Examples</h2>
+                    <h2><?= t('api.section.examples') ?></h2>
 
                     <h3>cURL</h3>
                     <div class="code-block-wrap">
-                        <button type="button" class="code-copy" data-copy>Copy</button>
+                        <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block">curl -X POST <?= $base ?>/api \
   -F <span class="cs">"file=@document.pdf"</span> \
   -F <span class="cs">"format=pdf"</span></pre>
@@ -227,7 +229,7 @@ function renderDocs(): void
 
                     <h3>PHP</h3>
                     <div class="code-block-wrap">
-                        <button type="button" class="code-copy" data-copy>Copy</button>
+                        <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block"><span class="cm">// stream a file via cURL</span>
 $ch = curl_init(<span class="cs">'<?= $base ?>/api'</span>);
 curl_setopt_array($ch, [
@@ -245,7 +247,7 @@ curl_close($ch);
 
                     <h3>Python</h3>
                     <div class="code-block-wrap">
-                        <button type="button" class="code-copy" data-copy>Copy</button>
+                        <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block"><span class="ck">import</span> requests
 
 <span class="ck">with</span> <span class="ck">open</span>(<span class="cs">'document.pdf'</span>, <span class="cs">'rb'</span>) <span class="ck">as</span> f:
@@ -264,12 +266,10 @@ data = r.json()
 <footer class="l-footer">
     <div class="l-container">
         <div class="l-footer-inner">
-            <p class="l-footer-text">
-                <strong>data2md</strong> API — anonymous by design.
-            </p>
+            <p class="l-footer-text"><?= t('footer.api.text') ?></p>
             <nav class="l-footer-links">
-                <a href="/">Home</a>
-                <a href="/app">Converter</a>
+                <a href="/"><?= t('footer.home') ?></a>
+                <a href="/app"><?= t('footer.converter') ?></a>
             </nav>
         </div>
     </div>
@@ -292,7 +292,7 @@ data = r.json()
             var text = pre.textContent;
             var done = function(){
                 var orig = btn.textContent;
-                btn.textContent = 'Copied';
+                btn.textContent = <?= json_encode(t('api.copied'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_APOS) ?>;
                 btn.classList.add('is-copied');
                 setTimeout(function(){
                     btn.textContent = orig;

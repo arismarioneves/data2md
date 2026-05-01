@@ -11,6 +11,19 @@ function formatBytes(bytes) {
     return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 }
 
+// ── i18n helpers ──────────────────────────────────────────────────────────────
+function tr(key, fallback) {
+    var dict = (window.D2MD && window.D2MD.i18n) || {};
+    return Object.prototype.hasOwnProperty.call(dict, key) ? dict[key] : fallback;
+}
+function trf(key, fallback) {
+    // sprintf-light: replaces successive %s in the looked-up string
+    var template = tr(key, fallback);
+    var args = Array.prototype.slice.call(arguments, 2);
+    var i = 0;
+    return template.replace(/%s/g, function () { return args[i++]; });
+}
+
 (function () {
     var form        = document.getElementById('upload-form');
     var fileInput   = document.getElementById('file-input');
@@ -93,8 +106,10 @@ function formatBytes(bytes) {
         var fakeTimer = null;
         var fakePct   = 65;
 
+        var uploadingMsg = tr('app.loading.uploading', 'Uploading…');
+
         overlayShow(file.name, file.size);
-        overlaySet('Uploading…', 0);
+        overlaySet(uploadingMsg, 0);
 
         var fd = new FormData();
         fd.append('file', file, file.name);
@@ -105,15 +120,15 @@ function formatBytes(bytes) {
         // Real upload progress → 0 to 60 %
         xhr.upload.addEventListener('progress', function (ev) {
             if (!ev.lengthComputable) return;
-            overlaySet('Uploading…', Math.round((ev.loaded / ev.total) * 60));
+            overlaySet(uploadingMsg, Math.round((ev.loaded / ev.total) * 60));
         });
 
         // Upload finished — server is converting → fake crawl 65 → 93 %
         var convertMsgs = [
-            'Extracting text…',
-            'Structuring document…',
-            'Building Markdown…',
-            'Finalising output…',
+            tr('app.loading.extracting',  'Extracting text…'),
+            tr('app.loading.structuring', 'Structuring document…'),
+            tr('app.loading.building',    'Building Markdown…'),
+            tr('app.loading.finalising',  'Finalising output…'),
         ];
         xhr.upload.addEventListener('load', function () {
             overlaySet(convertMsgs[0], 65);
@@ -130,7 +145,7 @@ function formatBytes(bytes) {
         // Response received
         xhr.addEventListener('load', function () {
             clearInterval(fakeTimer);
-            overlaySet('Done', 100);
+            overlaySet(tr('app.loading.done', 'Done'), 100);
 
             var data;
             try { data = JSON.parse(xhr.responseText); }
@@ -144,7 +159,7 @@ function formatBytes(bytes) {
                 } else {
                     var errs = (data && (data.errors || data.message))
                         ? (data.errors || [data.message])
-                        : ['Conversion failed. Please try again.'];
+                        : [tr('app.error.failed', 'Conversion failed. Please try again.')];
                     showErrors(errs);
                 }
             }, 400);
@@ -153,13 +168,13 @@ function formatBytes(bytes) {
         xhr.addEventListener('error', function () {
             clearInterval(fakeTimer);
             overlayHide();
-            showErrors(['Network error. Please check your connection and try again.']);
+            showErrors([tr('app.error.network', 'Network error. Please check your connection and try again.')]);
         });
 
         xhr.addEventListener('timeout', function () {
             clearInterval(fakeTimer);
             overlayHide();
-            showErrors(['The request timed out. The file may be too large or the server is busy.']);
+            showErrors([tr('app.error.timeout', 'The request timed out. The file may be too large or the server is busy.')]);
         });
 
         xhr.timeout = (window.D2MD && D2MD.timeout) ? D2MD.timeout : 420000;
@@ -186,7 +201,7 @@ function formatBytes(bytes) {
         }
 
         if (hashEl)     hashEl.textContent  = data.hash || '';
-        if (charsEl)    charsEl.textContent = (data.characters || 0).toLocaleString() + ' chars';
+        if (charsEl)    charsEl.textContent = trf('app.result.preview.chars', '%s chars', (data.characters || 0).toLocaleString());
         if (outputEl)   outputEl.textContent = preview;
         if (downloadEl) downloadEl.href     = data.download_url || '#';
 
@@ -195,10 +210,12 @@ function formatBytes(bytes) {
         if (truncEl) {
             truncEl.hidden = !truncated;
             if (truncated && truncMsg) {
-                truncMsg.textContent =
-                    'Preview limited to the first ' + preview.length.toLocaleString() +
-                    ' of ' + fullMarkdown.length.toLocaleString() +
-                    ' characters — use Download to get the full file.';
+                truncMsg.textContent = trf(
+                    'app.error.preview_truncated',
+                    'Preview limited to the first %s of %s characters — use Download to get the full file.',
+                    preview.length.toLocaleString(),
+                    fullMarkdown.length.toLocaleString()
+                );
             }
         }
 
@@ -252,11 +269,11 @@ function formatBytes(bytes) {
     var tipTimer = null;
 
     var tips = [
-        'Markdown uses far fewer tokens than HTML — ideal for large AI context windows.',
-        'Claude, ChatGPT and Gemini all read Markdown natively, no extra prompting needed.',
-        'A 50 MB PDF can shrink to a tiny plain-text file that every editor can open.',
-        'Markdown files diff cleanly in Git — great for tracking document changes over time.',
-        'Structured headings help AI models locate and cite specific sections accurately.',
+        tr('app.tip.0', 'Markdown uses far fewer tokens than HTML — ideal for large AI context windows.'),
+        tr('app.tip.1', 'Claude, ChatGPT and Gemini all read Markdown natively, no extra prompting needed.'),
+        tr('app.tip.2', 'A 50 MB PDF can shrink to a tiny plain-text file that every editor can open.'),
+        tr('app.tip.3', 'Markdown files diff cleanly in Git — great for tracking document changes over time.'),
+        tr('app.tip.4', 'Structured headings help AI models locate and cite specific sections accurately.'),
     ];
 
     function startTips() {
@@ -343,7 +360,7 @@ function legacyCopy(text, btn) {
 
 function flashCopied(btn) {
     var orig = btn.textContent;
-    btn.textContent = 'Copied!';
+    btn.textContent = tr('app.result.copied', 'Copied!');
     btn.style.color = '#ea580c';
     setTimeout(function () { btn.textContent = orig; btn.style.color = ''; }, 2000);
 }

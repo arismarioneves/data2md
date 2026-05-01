@@ -140,6 +140,38 @@ button{font-family:inherit}
 }
 .l-nav-cta:hover{background:var(--accent);transform:translateY(-1px)}
 
+/* ── Language switcher ──────────────────────────────────────── */
+.l-lang{
+  display:inline-flex;
+  align-items:center;
+  gap:.4rem;
+  font-family:var(--mono);
+  font-size:.72rem;
+  letter-spacing:.06em;
+  color:var(--faint);
+  padding:.32rem .6rem;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.4);
+}
+.l-lang a{
+  color:var(--muted);
+  font-weight:600;
+  transition:color .15s;
+  padding:0 .15rem;
+}
+.l-lang a:hover{color:var(--ink)}
+.l-lang a.is-active{color:var(--ink);position:relative}
+.l-lang a.is-active::after{
+  content:'';
+  position:absolute;
+  left:0;right:0;bottom:-3px;
+  height:1.5px;
+  background:var(--accent);
+  border-radius:2px;
+}
+.l-lang-sep{color:var(--line-2);user-select:none}
+
 /* ── Buttons ────────────────────────────────────────────────── */
 .l-btn{
   display:inline-flex;
@@ -700,8 +732,9 @@ button{font-family:inherit}
 @media(max-width:680px){
   .l-hero{padding:3rem 0 2.5rem}
   .l-section{padding:4rem 0}
-  .l-nav{gap:1rem}
+  .l-nav{gap:.6rem}
   .l-nav-link[data-hide-sm]{display:none}
+  .l-lang{padding:.25rem .5rem;font-size:.68rem}
   .l-hero-cta{flex-direction:column;align-items:stretch}
   .l-hero-cta .l-btn{width:100%}
   .l-demo-frame{padding:.75rem}
