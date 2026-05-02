@@ -17,16 +17,16 @@ return [
     'nav.performance'   => 'Performance',
 
     // ── Rodapé (landing) ───────────────────────────────────────
-    'footer.text'       => '<strong>data2md</strong> — arquivos guardados sob identificadores anônimos.',
+    'footer.text'       => '<strong>%s</strong> — arquivos guardados sob identificadores anônimos.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'Sobre o .md',
     'footer.home'       => 'Início',
     'footer.converter'  => 'Conversor',
-    'footer.api.text'   => '<strong>data2md</strong> API — anônimo por design.',
+    'footer.api.text'   => '<strong>%s</strong> API — anônimo por design.',
 
     // ── Landing — meta ─────────────────────────────────────────
-    'landing.title'     => 'data2md — Documentos, destilados em Markdown',
+    'landing.title'     => '%s — Documentos, destilados em Markdown',
     'landing.meta.desc' => 'Solte um PDF. Receba Markdown limpo e pronto pra IA. Feito pra arquivos grandes, preserva a estrutura e é grátis.',
 
     // ── Landing — hero ─────────────────────────────────────────
@@ -62,7 +62,7 @@ return [
 
     // ── Landing — performance ──────────────────────────────────
     'landing.perf.eyebrow' => '// arquivos grandes são bem-vindos',
-    'landing.perf.title'   => 'Um PDF de <em>500&nbsp;MB</em> não nos assusta.',
+    'landing.perf.title'   => 'Um PDF de <em>%s</em> não nos assusta.',
     'landing.perf.lead'    => 'Conversão por streaming via <code>pdftotext</code> mantém memória constante independente do tamanho. O navegador nunca trava — progresso de upload e extração no servidor são acompanhados em tempo real, com dicas amigáveis enquanto você espera.',
     'landing.perf.stat1.lbl' => 'upload máximo',
     'landing.perf.stat2.lbl' => 'memória',
@@ -83,7 +83,7 @@ return [
     'landing.signin.alt'     => 'Continuar sem cadastro',
 
     // ── Conversor (/app) ───────────────────────────────────────
-    'app.title'           => 'data2md — Converter',
+    'app.title'           => '%s — Converter',
     'app.eyebrow'         => '// nova conversão',
     'app.heading'         => 'Solte um arquivo. Receba <em>Markdown</em>.',
 
@@ -104,6 +104,7 @@ return [
     'app.result.badge'    => 'Convertido',
     'app.result.idlbl'    => 'ID',
     'app.result.copy'     => 'Copiar Markdown',
+    'app.result.copying'  => 'Copiando…',
     'app.result.copied'   => 'Copiado!',
     'app.result.download' => 'Baixar .md',
     'app.result.preview.label' => 'Pré-visualização do Markdown',
@@ -133,10 +134,10 @@ return [
     'app.tip.4' => 'Títulos estruturados ajudam modelos de IA a localizar e citar seções específicas com precisão.',
 
     // ── API docs (/api) ────────────────────────────────────────
-    'api.title'      => 'data2md — Referência da API',
+    'api.title'      => '%s — Referência da API',
     'api.eyebrow'    => '// rest api',
     'api.heading'    => 'Referência da <em>API</em>',
-    'api.lead'       => 'Integre o data2md no seu fluxo com um único HTTP POST. Conversão por streaming via <code>pdftotext</code>, máximo de %s por requisição.',
+    'api.lead'       => 'Integre o %s no seu fluxo com um único HTTP POST. Conversão por streaming via <code>pdftotext</code>, máximo de %s por requisição.',
 
     'api.section.endpoint' => 'Endpoint',
     'api.endpoint.ct'      => 'Content-Type: <code>multipart/form-data</code>',
@@ -153,6 +154,7 @@ return [
 
     'api.section.success'   => 'Resposta de sucesso',
     'api.tag.success'       => '201 Created',
+    'api.success.note'      => '<code>preview</code> traz até ~8 KB de Markdown cortado num final de linha. <code>preview_truncated</code> indica se o arquivo é maior; busque o documento completo via <code>download_url</code>.',
     'api.section.error'     => 'Resposta de erro',
     'api.tag.error'         => '4xx · 5xx',
 

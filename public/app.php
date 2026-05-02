@@ -24,7 +24,7 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/app'), 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars(t('app.title'), ENT_QUOTES) ?></title>
+    <title><?= htmlspecialchars(t('app.title', APP_NAME), ENT_QUOTES) ?></title>
     <link rel="stylesheet" href="/assets/css/landing.css">
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
@@ -34,9 +34,9 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/app'), 
 <header class="l-header" id="l-header">
     <div class="l-container">
         <div class="l-header-inner">
-            <a href="/" class="l-logo" aria-label="data2md home">
+            <a href="/" class="l-logo" aria-label="<?= htmlspecialchars(APP_NAME, ENT_QUOTES) ?> home">
                 <span class="l-logo-mark" aria-hidden="true"></span>
-                <span class="l-logo-name">data2md</span>
+                <span class="l-logo-name"><?= htmlspecialchars(APP_NAME) ?></span>
             </a>
             <nav class="l-nav">
                 <a href="/" class="l-nav-link" data-hide-sm><?= t('nav.about') ?></a>

@@ -98,6 +98,7 @@ final class I18n
             'app.error.timeout',
             'app.error.failed',
             'app.error.preview_truncated',
+            'app.result.copying',
             'app.result.copied',
             'app.result.preview.chars',
             'app.tip.0',

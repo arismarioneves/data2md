@@ -1,7 +1,10 @@
 'use strict';
 
-var fullMarkdown  = '';
-var PREVIEW_LIMIT = 8000;
+// The preview comes pre-truncated from the server now. fullMarkdown is fetched
+// lazily from download_url when the user clicks Copy.
+var lastResult     = null;        // holds the latest API response
+var fullMarkdown   = '';          // populated on demand by fetchFullMarkdown()
+var fetchInFlight  = null;        // pending Promise<string> when a fetch is mid-flight
 
 function formatBytes(bytes) {
     if (!bytes && bytes !== 0) return '';
@@ -190,18 +193,17 @@ function trf(key, fallback) {
         var outputEl   = document.getElementById('md-output');
         var downloadEl = document.getElementById('res-download');
 
-        fullMarkdown = data.markdown || '';
+        // Reset cached state for this conversion
+        lastResult    = data;
+        fullMarkdown  = '';
+        fetchInFlight = null;
 
-        // Truncate preview at a clean line boundary
-        var truncated = fullMarkdown.length > PREVIEW_LIMIT;
-        var preview   = fullMarkdown;
-        if (truncated) {
-            var breakAt = fullMarkdown.lastIndexOf('\n', PREVIEW_LIMIT);
-            preview = fullMarkdown.slice(0, breakAt > 0 ? breakAt : PREVIEW_LIMIT);
-        }
+        var preview   = data.preview || '';
+        var truncated = !!data.preview_truncated;
+        var totalChars = data.characters || preview.length;
 
         if (hashEl)     hashEl.textContent  = data.hash || '';
-        if (charsEl)    charsEl.textContent = trf('app.result.preview.chars', '%s chars', (data.characters || 0).toLocaleString());
+        if (charsEl)    charsEl.textContent = trf('app.result.preview.chars', '%s chars', totalChars.toLocaleString());
         if (outputEl)   outputEl.textContent = preview;
         if (downloadEl) downloadEl.href     = data.download_url || '#';
 
@@ -214,7 +216,7 @@ function trf(key, fallback) {
                     'app.error.preview_truncated',
                     'Preview limited to the first %s of %s characters — use Download to get the full file.',
                     preview.length.toLocaleString(),
-                    fullMarkdown.length.toLocaleString()
+                    totalChars.toLocaleString()
                 );
             }
         }
@@ -236,7 +238,9 @@ function trf(key, fallback) {
             document.getElementById('error-section').hidden  = true;
             document.getElementById('upload-section').hidden = false;
 
-            fullMarkdown = '';
+            lastResult    = null;
+            fullMarkdown  = '';
+            fetchInFlight = null;
             form.reset();
             try { fileInput.value = ''; } catch (_) {}
             if (dzIdle)     dzIdle.hidden     = false;
@@ -327,39 +331,76 @@ function trf(key, fallback) {
 })();
 
 // ── Copy markdown ─────────────────────────────────────────────────────────────
-// Uses the full (untruncated) markdown stored in fullMarkdown.
+// Fetches the full file from download_url on demand (the API only returns a
+// truncated preview now to keep the response small).
+
+function fetchFullMarkdown() {
+    if (fullMarkdown) {
+        return Promise.resolve(fullMarkdown);
+    }
+    if (fetchInFlight) {
+        return fetchInFlight;
+    }
+    var url = lastResult && lastResult.download_url;
+    if (!url) {
+        // Fallback: copy whatever is in the preview pane
+        var el = document.getElementById('md-output');
+        return Promise.resolve(el ? el.textContent : '');
+    }
+    fetchInFlight = fetch(url, { credentials: 'same-origin' })
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(function (text) {
+            fullMarkdown  = text;
+            fetchInFlight = null;
+            return text;
+        })
+        .catch(function (err) {
+            fetchInFlight = null;
+            throw err;
+        });
+    return fetchInFlight;
+}
 
 function copyMarkdown() {
     var btn  = document.getElementById('copy-btn');
     if (!btn) return;
 
-    var text = fullMarkdown || (function () {
-        var el = document.getElementById('md-output');
-        return el ? el.textContent : '';
-    }());
+    var orig = btn.textContent;
+    btn.textContent = tr('app.result.copying', 'Copying…');
+    btn.disabled = true;
 
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text)
-            .then(function () { flashCopied(btn); })
-            .catch(function () { legacyCopy(text, btn); });
-    } else {
-        legacyCopy(text, btn);
-    }
+    fetchFullMarkdown().then(function (text) {
+        btn.disabled = false;
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text)
+                .then(function () { flashCopied(btn, orig); })
+                .catch(function () { legacyCopy(text, btn, orig); });
+        } else {
+            legacyCopy(text, btn, orig);
+        }
+    }).catch(function () {
+        btn.disabled = false;
+        btn.textContent = orig;
+        showErrors([tr('app.error.network', 'Network error. Please check your connection and try again.')]);
+    });
 }
 
-function legacyCopy(text, btn) {
+function legacyCopy(text, btn, origLabel) {
     var ta = document.createElement('textarea');
     ta.value = text;
     ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
     document.body.appendChild(ta);
     ta.focus();
     ta.select();
-    try { document.execCommand('copy'); flashCopied(btn); } catch (_) {}
+    try { document.execCommand('copy'); flashCopied(btn, origLabel); } catch (_) {}
     document.body.removeChild(ta);
 }
 
-function flashCopied(btn) {
-    var orig = btn.textContent;
+function flashCopied(btn, origLabel) {
+    var orig = origLabel || btn.textContent;
     btn.textContent = tr('app.result.copied', 'Copied!');
     btn.style.color = '#ea580c';
     setTimeout(function () { btn.textContent = orig; btn.style.color = ''; }, 2000);

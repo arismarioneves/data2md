@@ -17,16 +17,16 @@ return [
     'nav.performance'   => 'Performance',
 
     // ── Footer (landing) ───────────────────────────────────────
-    'footer.text'       => '<strong>data2md</strong> — files are stored under anonymous identifiers.',
+    'footer.text'       => '<strong>%s</strong> — files are stored under anonymous identifiers.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'About .md',
     'footer.home'       => 'Home',
     'footer.converter'  => 'Converter',
-    'footer.api.text'   => '<strong>data2md</strong> API — anonymous by design.',
+    'footer.api.text'   => '<strong>%s</strong> API — anonymous by design.',
 
     // ── Landing — meta ─────────────────────────────────────────
-    'landing.title'     => 'data2md — Documents, distilled into Markdown',
+    'landing.title'     => '%s — Documents, distilled into Markdown',
     'landing.meta.desc' => 'Drop a PDF. Get clean, AI-ready Markdown. Built for large files, structure-preserving, and free to use.',
 
     // ── Landing — hero ─────────────────────────────────────────
@@ -62,7 +62,7 @@ return [
 
     // ── Landing — performance ──────────────────────────────────
     'landing.perf.eyebrow' => '// big files welcome',
-    'landing.perf.title'   => 'A <em>500&nbsp;MB</em> PDF doesn\'t scare us.',
+    'landing.perf.title'   => 'A <em>%s</em> PDF doesn\'t scare us.',
     'landing.perf.lead'    => 'Streaming conversion via <code>pdftotext</code> means constant memory regardless of file size. The browser never freezes — upload progress and server-side extraction are tracked in real time, with friendly tips while you wait.',
     'landing.perf.stat1.lbl' => 'max upload',
     'landing.perf.stat2.lbl' => 'memory footprint',
@@ -83,7 +83,7 @@ return [
     'landing.signin.alt'     => 'Continue without an account',
 
     // ── Converter (/app) ───────────────────────────────────────
-    'app.title'           => 'data2md — Convert',
+    'app.title'           => '%s — Convert',
     'app.eyebrow'         => '// new conversion',
     'app.heading'         => 'Drop a file. Get <em>Markdown</em>.',
 
@@ -104,6 +104,7 @@ return [
     'app.result.badge'    => 'Converted',
     'app.result.idlbl'    => 'ID',
     'app.result.copy'     => 'Copy Markdown',
+    'app.result.copying'  => 'Copying…',
     'app.result.copied'   => 'Copied!',
     'app.result.download' => 'Download .md',
     'app.result.preview.label' => 'Markdown preview',
@@ -133,10 +134,10 @@ return [
     'app.tip.4' => 'Structured headings help AI models locate and cite specific sections accurately.',
 
     // ── API docs (/api) ────────────────────────────────────────
-    'api.title'      => 'data2md — API Reference',
+    'api.title'      => '%s — API Reference',
     'api.eyebrow'    => '// rest api',
     'api.heading'    => 'API <em>Reference</em>',
-    'api.lead'       => 'Integrate data2md in your workflow with a single HTTP POST. Streamed conversion via <code>pdftotext</code>, max %s per request.',
+    'api.lead'       => 'Integrate %s in your workflow with a single HTTP POST. Streamed conversion via <code>pdftotext</code>, max %s per request.',
 
     'api.section.endpoint' => 'Endpoint',
     'api.endpoint.ct'      => 'Content-Type: <code>multipart/form-data</code>',
@@ -153,6 +154,7 @@ return [
 
     'api.section.success'   => 'Success response',
     'api.tag.success'       => '201 Created',
+    'api.success.note'      => '<code>preview</code> contains up to ~8 KB of Markdown trimmed at a line boundary. <code>preview_truncated</code> tells you whether the file is larger; fetch the full document via <code>download_url</code>.',
     'api.section.error'     => 'Error response',
     'api.tag.error'         => '4xx · 5xx',
 

@@ -11,6 +11,13 @@ class PdfConverter implements ConverterInterface
 {
     private const GC_EVERY_N_PAGES = 20;
 
+    private MarkdownSanitizer $sanitizer;
+
+    public function __construct(?MarkdownSanitizer $sanitizer = null)
+    {
+        $this->sanitizer = $sanitizer ?? new MarkdownSanitizer();
+    }
+
     public function convert(string $filePath): string
     {
         $bin = $this->findPdfToText();
@@ -20,14 +27,14 @@ class PdfConverter implements ConverterInterface
                 $result = $this->convertWithPdfToText($filePath, $bin);
                 // Empty means image-only PDF; fall through to smalot for metadata attempt
                 if (trim($result) !== '') {
-                    return $result;
+                    return $this->sanitizer->clean($result);
                 }
             } catch (\Throwable) {
                 // Binary present but failed (corrupted PDF, etc.) — try smalot
             }
         }
 
-        return $this->convertWithSmalot($filePath);
+        return $this->sanitizer->clean($this->convertWithSmalot($filePath));
     }
 
     // ── pdftotext / Poppler (primary) ─────────────────────────────────────────

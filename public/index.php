@@ -21,7 +21,7 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/'), ENT
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars(t('landing.title'), ENT_QUOTES) ?></title>
+    <title><?= htmlspecialchars(t('landing.title', APP_NAME), ENT_QUOTES) ?></title>
     <meta name="description" content="<?= htmlspecialchars(t('landing.meta.desc'), ENT_QUOTES) ?>">
     <link rel="stylesheet" href="/assets/css/landing.css">
 </head>
@@ -31,9 +31,9 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/'), ENT
 <header class="l-header" id="l-header">
     <div class="l-container">
         <div class="l-header-inner">
-            <a href="/" class="l-logo" aria-label="data2md home">
+            <a href="/" class="l-logo" aria-label="<?= htmlspecialchars(APP_NAME, ENT_QUOTES) ?> home">
                 <span class="l-logo-mark" aria-hidden="true"></span>
-                <span class="l-logo-name">data2md</span>
+                <span class="l-logo-name"><?= htmlspecialchars(APP_NAME) ?></span>
             </a>
             <nav class="l-nav">
                 <a href="#why" class="l-nav-link" data-hide-sm><?= t('nav.why') ?></a>
@@ -207,7 +207,7 @@ driven by enterprise contracts in EMEA.
 
                 <div>
                     <span class="l-eyebrow"><?= t('landing.perf.eyebrow') ?></span>
-                    <h2 class="l-h2"><?= t('landing.perf.title') ?></h2>
+                    <h2 class="l-h2"><?= t('landing.perf.title', str_replace(' ', "\u{00A0}", MAX_FILE_SIZE_LABEL)) ?></h2>
                     <p class="l-lead"><?= t('landing.perf.lead') ?></p>
 
                     <div class="l-perf-stat-row">
@@ -253,7 +253,7 @@ driven by enterprise contracts in EMEA.
                         <span class="l-perf-row-time">18.6 s</span>
                     </div>
                     <div class="l-perf-row">
-                        <span class="l-perf-row-name">corpus.pdf <span class="l-pill">500 MB</span></span>
+                        <span class="l-perf-row-name">corpus.pdf <span class="l-pill"><?= MAX_FILE_SIZE_LABEL ?></span></span>
                         <span class="l-perf-bar"><span class="l-perf-bar-fill" style="--w:100%"></span></span>
                         <span class="l-perf-row-time">29.4 s</span>
                     </div>
@@ -308,7 +308,7 @@ driven by enterprise contracts in EMEA.
 <footer class="l-footer">
     <div class="l-container">
         <div class="l-footer-inner">
-            <p class="l-footer-text"><?= t('footer.text') ?></p>
+            <p class="l-footer-text"><?= t('footer.text', htmlspecialchars(APP_NAME)) ?></p>
             <nav class="l-footer-links">
                 <a href="/app"><?= t('footer.app') ?></a>
                 <a href="/api"><?= t('footer.api') ?></a>

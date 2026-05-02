@@ -90,14 +90,27 @@ try {
     $markdown = $converter->convert($filePath);
     $fileStorage->storeMarkdown($hash, $markdown);
 
+    // Truncate inline preview at a clean line boundary so the JSON payload
+    // stays small even for huge documents. Full markdown is always available
+    // via download_url.
+    $previewLimit = 8000;
+    $totalChars   = mb_strlen($markdown);
+    $truncated    = $totalChars > $previewLimit;
+    $preview      = $markdown;
+    if ($truncated) {
+        $breakAt = strrpos(substr($markdown, 0, $previewLimit), "\n");
+        $preview = substr($markdown, 0, $breakAt !== false && $breakAt > 0 ? $breakAt : $previewLimit);
+    }
+
     ApiResponse::success([
-        'hash'          => $hash,
-        'original_name' => $originalName,
-        'format'        => $format,
-        'lines'         => substr_count($markdown, "\n") + 1,
-        'characters'    => mb_strlen($markdown),
-        'download_url'  => '/download?hash=' . urlencode($hash),
-        'markdown'      => $markdown,
+        'hash'              => $hash,
+        'original_name'     => $originalName,
+        'format'            => $format,
+        'lines'             => substr_count($markdown, "\n") + 1,
+        'characters'        => $totalChars,
+        'download_url'      => '/download?hash=' . urlencode($hash),
+        'preview'           => $preview,
+        'preview_truncated' => $truncated,
     ], 201);
 
 } catch (\Exception $e) {
@@ -121,7 +134,7 @@ function renderDocs(): void
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars(t('api.title'), ENT_QUOTES) ?></title>
+    <title><?= htmlspecialchars(t('api.title', APP_NAME), ENT_QUOTES) ?></title>
     <link rel="stylesheet" href="/assets/css/landing.css">
     <link rel="stylesheet" href="/assets/css/docs.css">
 </head>
@@ -130,9 +143,9 @@ function renderDocs(): void
 <header class="l-header" id="l-header">
     <div class="l-container">
         <div class="l-header-inner">
-            <a href="/" class="l-logo" aria-label="data2md home">
+            <a href="/" class="l-logo" aria-label="<?= htmlspecialchars(APP_NAME, ENT_QUOTES) ?> home">
                 <span class="l-logo-mark" aria-hidden="true"></span>
-                <span class="l-logo-name">data2md</span>
+                <span class="l-logo-name"><?= htmlspecialchars(APP_NAME) ?></span>
             </a>
             <nav class="l-nav">
                 <a href="/" class="l-nav-link" data-hide-sm><?= t('nav.about') ?></a>
@@ -159,7 +172,7 @@ function renderDocs(): void
                 <header class="docs-hero">
                     <span class="docs-eyebrow"><?= t('api.eyebrow') ?></span>
                     <h1 class="docs-title"><?= t('api.heading') ?></h1>
-                    <p class="docs-sub"><?= t('api.lead', MAX_FILE_SIZE_LABEL) ?></p>
+                    <p class="docs-sub"><?= t('api.lead', htmlspecialchars(APP_NAME), MAX_FILE_SIZE_LABEL) ?></p>
                 </header>
 
                 <section class="docs-section">
@@ -184,6 +197,7 @@ function renderDocs(): void
 
                 <section class="docs-section">
                     <h2><?= t('api.section.success') ?> <span class="code-tag"><?= t('api.tag.success') ?></span></h2>
+                    <p><?= t('api.success.note') ?></p>
                     <div class="code-block-wrap">
                         <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block">{
@@ -194,7 +208,8 @@ function renderDocs(): void
   <span class="ck">"lines"</span>: <span class="cn">148</span>,
   <span class="ck">"characters"</span>: <span class="cn">9342</span>,
   <span class="ck">"download_url"</span>: <span class="cs">"/download?hash=a3f9c12b84e7d01"</span>,
-  <span class="ck">"markdown"</span>: <span class="cs">"# Report Title\n\n..."</span>
+  <span class="ck">"preview"</span>: <span class="cs">"# Report Title\n\n..."</span>,
+  <span class="ck">"preview_truncated"</span>: <span class="cn">false</span>
 }</pre>
                     </div>
                 </section>
@@ -266,7 +281,7 @@ data = r.json()
 <footer class="l-footer">
     <div class="l-container">
         <div class="l-footer-inner">
-            <p class="l-footer-text"><?= t('footer.api.text') ?></p>
+            <p class="l-footer-text"><?= t('footer.api.text', htmlspecialchars(APP_NAME)) ?></p>
             <nav class="l-footer-links">
                 <a href="/"><?= t('footer.home') ?></a>
                 <a href="/app"><?= t('footer.converter') ?></a>
