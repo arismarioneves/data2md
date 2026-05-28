@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 // ── Upload limits ─────────────────────────────────────────────────────────────
-define('MAX_FILE_SIZE',       500 * 1024 * 1024); // bytes — change here to affect all validation
-define('MAX_FILE_SIZE_LABEL', '500 MB');
+define('MAX_FILE_SIZE',       200 * 1024 * 1024); // bytes — change here to affect all validation
+define('MAX_FILE_SIZE_LABEL', '200 MB');
 
 // ── PHP runtime ───────────────────────────────────────────────────────────────
 // Applied at entry points so large files (e.g. 400 MB PDFs) don't time out.
