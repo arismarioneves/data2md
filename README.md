@@ -1,3 +1,5 @@
+<img src="public/assets/img/logo.png" alt="data2md" width="300">
+
 # data2md
 
 Convert documents to clean, structured Markdown via a web interface or HTTP API.

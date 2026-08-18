@@ -5,6 +5,12 @@ ServerSignature Off
     Require all denied
 </FilesMatch>
 
+# Apache does not know .webmanifest out of the box; without this it goes out as
+# an unknown type and some browsers refuse to apply it.
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "DENY"

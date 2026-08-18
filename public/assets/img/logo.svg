@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 264 64" width="264" height="64" role="img" aria-label="data2md">
+  <title>data2md</title>
+  <!-- Horizontal lockup. Ratios lifted from the header .l-logo: mark 30 :
+       font-size 18.4 : gap 6.4, scaled to a 64px mark. Wordmark baseline is
+       aligned to the M's baseline inside the mark (y=45).
+       Mark paths are duplicated from icon.svg — keep the two in sync. -->
+  <g>
+    <rect width="64" height="64" rx="17" fill="#15110d"/>
+    <g transform="translate(-1.5 0)"><path fill="#f8f5ee" d="M8 19H18L24.4 38.5L31.5 19H40V21.8H38.5V42.2H40V45H30V42.2H31.5V32.4L26.5 45H21.6L15.5 28.5V42.2H17.5V45H8V42.2H11V21.8H8Z"/></g>
+    <path fill="#ea580c" d="M46.25 21H52.75V32H57L49.5 45L42 32H46.25Z"/>
+  </g>
+  <!-- Georgia leads the stack here (the CSS uses ui-serif first) so this file
+       matches the rasterised PNGs shipped alongside it. -->
+  <text x="77.7" y="45" fill="#15110d" font-family="Georgia, 'Iowan Old Style', Charter, 'Times New Roman', serif"
+        font-size="39.2" font-weight="700" font-style="italic" letter-spacing="-.785">data2md</text>
+</svg>

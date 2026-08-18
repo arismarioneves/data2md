@@ -99,24 +99,15 @@ button{font-family:inherit}
   letter-spacing:-.02em;
   color:var(--ink);
 }
+/* The mark is /assets/img/icon.svg, so the header and the favicon can never
+   drift apart. It used to be two CSS ::before/::after glyphs, which rendered
+   with whatever mono font and arrow glyph the OS happened to have. */
 .l-logo-mark{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
+  align-self:center;
   width:30px;
   height:30px;
-  background:var(--ink);
-  color:var(--paper);
-  border-radius:8px;
-  font-family:var(--mono);
-  font-size:.86rem;
-  font-weight:800;
-  letter-spacing:-.04em;
   margin-right:.1rem;
-  line-height:1;
 }
-.l-logo-mark::before{content:'M';color:var(--paper)}
-.l-logo-mark::after{content:'↓';color:var(--accent);margin-left:1px;font-weight:700}
 .l-logo-name{font-style:italic;color:var(--ink)}
 .l-nav{display:flex;align-items:center;gap:1.75rem}
 .l-nav-link{

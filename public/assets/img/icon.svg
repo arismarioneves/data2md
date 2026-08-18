@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="data2md">
+  <title>data2md</title>
+  <desc>Serif M with an amber downward arrow on an ink rounded square.</desc>
+  <rect width="64" height="64" rx="17" fill="#15110d"/>
+  <!-- Serif M. Proportions taken from Georgia's M, stroke contrast reduced:
+       Georgia's 2.9-unit thin strokes fall below half a pixel at 16px. -->
+  <g transform="translate(-1.5 0)"><path fill="#f8f5ee" d="M8 19H18L24.4 38.5L31.5 19H40V21.8H38.5V42.2H40V45H30V42.2H31.5V32.4L26.5 45H21.6L15.5 28.5V42.2H17.5V45H8V42.2H11V21.8H8Z"/></g>
+  <!-- Solid wedge, not a stroked arrow: a 2px stroke greys out at small sizes. -->
+  <path fill="#ea580c" d="M46.25 21H52.75V32H57L49.5 45L42 32H46.25Z"/>
+</svg>

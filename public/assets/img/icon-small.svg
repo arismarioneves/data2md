@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="data2md">
+  <title>data2md</title>
+  <desc>Small-size variant: serif M alone on an ink rounded square.</desc>
+  <!-- 16px variant. Side by side, M and arrow get ~7px each and both turn to
+       mush; the M alone stays legible. Same corner radius (26.6%) as icon.svg. -->
+  <rect width="64" height="64" rx="17" fill="#15110d"/>
+  <g transform="translate(2 -8) scale(1.25)"><path fill="#f8f5ee" d="M8 19H18L24.4 38.5L31.5 19H40V21.8H38.5V42.2H40V45H30V42.2H31.5V32.4L26.5 45H21.6L15.5 28.5V42.2H17.5V45H8V42.2H11V21.8H8Z"/></g>
+</svg>

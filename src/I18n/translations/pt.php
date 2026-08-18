@@ -28,6 +28,7 @@ return [
     // ── Landing — meta ─────────────────────────────────────────
     'landing.title'     => '%s — Documentos, destilados em Markdown',
     'landing.meta.desc' => 'Solte um PDF. Receba Markdown limpo e pronto pra IA. Feito pra arquivos grandes, preserva a estrutura e é grátis.',
+    'og.image.alt'      => 'O logo do data2md ao lado de uma amostra de Markdown convertido.',
 
     // ── Landing — hero ─────────────────────────────────────────
     'landing.hero.eyebrow' => 'Grátis · Sem cadastro · Até %s',
@@ -84,6 +85,7 @@ return [
 
     // ── Conversor (/app) ───────────────────────────────────────
     'app.title'           => '%s — Converter',
+    'app.meta.desc'       => 'Envie um PDF e receba Markdown limpo e estruturado. Sem conta, sem cadastro, e o arquivo convertido fica sempre disponível pra baixar.',
     'app.eyebrow'         => '// nova conversão',
     'app.heading'         => 'Solte um arquivo. Receba <em>Markdown</em>.',
 
@@ -135,6 +137,7 @@ return [
 
     // ── API docs (/api) ────────────────────────────────────────
     'api.title'      => '%s — Referência da API',
+    'api.meta.desc'  => 'Endpoint REST para converter PDF em Markdown: um POST, resposta em JSON e os limites de uso documentados por completo.',
     'api.eyebrow'    => '// rest api',
     'api.heading'    => 'Referência da <em>API</em>',
     'api.lead'       => 'Integre o %s no seu fluxo com um único HTTP POST. Conversão por streaming via <code>pdftotext</code>, máximo de %s por requisição.',

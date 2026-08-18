@@ -134,7 +134,11 @@ function renderDocs(): void
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars(t('api.title', APP_NAME), ENT_QUOTES) ?></title>
+    <?php
+    $metaTitle = t('api.title', APP_NAME);
+    $metaDesc  = t('api.meta.desc');
+    require BASE_PATH . '/src/View/head-meta.php';
+    ?>
     <link rel="stylesheet" href="/assets/css/landing.css">
     <link rel="stylesheet" href="/assets/css/docs.css">
 </head>
@@ -144,7 +148,7 @@ function renderDocs(): void
     <div class="l-container">
         <div class="l-header-inner">
             <a href="/" class="l-logo" aria-label="<?= htmlspecialchars(APP_NAME, ENT_QUOTES) ?> home">
-                <span class="l-logo-mark" aria-hidden="true"></span>
+                <img class="l-logo-mark" src="/assets/img/icon.svg" width="30" height="30" alt="" aria-hidden="true">
                 <span class="l-logo-name"><?= htmlspecialchars(APP_NAME) ?></span>
             </a>
             <nav class="l-nav">

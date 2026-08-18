@@ -36,3 +36,9 @@ define('PDFTOTEXT_BIN', 'pdftotext');
 // ── Application ───────────────────────────────────────────────────────────────
 define('APP_NAME',    'data2md');
 define('APP_VERSION', '1.0.0');
+
+// ── Public origin ─────────────────────────────────────────────────────────────
+// Absolute base URL used by the social preview tags (og:image and og:url must be
+// absolute — scrapers discard relative paths). Leave empty to derive it from the
+// request; set it when running behind a proxy or CDN that rewrites Host.
+define('APP_URL', '');

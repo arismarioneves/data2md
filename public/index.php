@@ -21,8 +21,11 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/'), ENT
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars(t('landing.title', APP_NAME), ENT_QUOTES) ?></title>
-    <meta name="description" content="<?= htmlspecialchars(t('landing.meta.desc'), ENT_QUOTES) ?>">
+    <?php
+    $metaTitle = t('landing.title', APP_NAME);
+    $metaDesc  = t('landing.meta.desc');
+    require BASE_PATH . '/src/View/head-meta.php';
+    ?>
     <link rel="stylesheet" href="/assets/css/landing.css">
 </head>
 <body>
@@ -32,7 +35,7 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/'), ENT
     <div class="l-container">
         <div class="l-header-inner">
             <a href="/" class="l-logo" aria-label="<?= htmlspecialchars(APP_NAME, ENT_QUOTES) ?> home">
-                <span class="l-logo-mark" aria-hidden="true"></span>
+                <img class="l-logo-mark" src="/assets/img/icon.svg" width="30" height="30" alt="" aria-hidden="true">
                 <span class="l-logo-name"><?= htmlspecialchars(APP_NAME) ?></span>
             </a>
             <nav class="l-nav">
