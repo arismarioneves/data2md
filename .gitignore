@@ -12,7 +12,9 @@ composer.lock
 
 /storage/rate_limits/
 
-/docs/
+/docs/**/*.png
+/docs/**/*.jpg
+
 /md.test/
 
 /.claude/
