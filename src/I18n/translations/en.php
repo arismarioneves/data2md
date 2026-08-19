@@ -11,29 +11,29 @@ return [
 
     'nav.about'         => 'About',
     'nav.api'           => 'API',
-    'nav.app'           => 'Open app',
+    'nav.app'           => 'APP',
     'nav.signin'        => 'Sign in',
     'nav.why'           => 'Why Markdown',
     'nav.performance'   => 'Performance',
 
     // ── Footer (landing) ───────────────────────────────────────
-    'footer.text'       => '<strong>%s</strong> — files are stored under anonymous identifiers.',
+    'footer.text'       => '<strong>%s</strong>. Files are stored under anonymous identifiers.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'About .md',
     'footer.home'       => 'Home',
     'footer.converter'  => 'Converter',
-    'footer.api.text'   => '<strong>%s</strong> API — anonymous by design.',
+    'footer.api.text'   => '<strong>%s</strong> API. Anonymous by design.',
 
     // ── Landing — meta ─────────────────────────────────────────
-    'landing.title'     => '%s — Documents, distilled into Markdown',
+    'landing.title'     => '%s · Documents, distilled into Markdown',
     'landing.meta.desc' => 'Drop a PDF. Get clean, AI-ready Markdown. Built for large files, structure-preserving, and free to use.',
     'og.image.alt'      => 'The data2md logo beside a sample of converted Markdown.',
 
     // ── Landing — hero ─────────────────────────────────────────
     'landing.hero.eyebrow' => 'Free · No account · Up to %s',
     'landing.hero.title'   => 'Documents, <em>distilled</em> into Markdown.',
-    'landing.hero.sub'     => 'Drop a PDF. Get clean, structured Markdown — ready to paste into ChatGPT, Claude, or any model. Large files welcome.',
+    'landing.hero.sub'     => 'Drop a PDF. Get clean, structured Markdown, ready to paste into ChatGPT, Claude, or any model. Large files welcome.',
     'landing.hero.cta'     => 'Convert a file',
     'landing.hero.cta2'    => 'Sign in',
     'landing.hero.meta1'   => 'Anonymous by design',
@@ -43,14 +43,14 @@ return [
     // ── Landing — why markdown ─────────────────────────────────
     'landing.why.eyebrow' => '// why markdown',
     'landing.why.title'   => 'Plain text the way <em>machines</em> were meant to read it.',
-    'landing.why.lead'    => 'Markdown is the lingua franca of modern AI tools, version control and documentation. Convert once — use everywhere.',
+    'landing.why.lead'    => 'Markdown is the lingua franca of modern AI tools, version control and documentation. Convert once, use everywhere.',
 
     'landing.why.card1.title' => 'Built for AI models.',
     'landing.why.card1.desc'  => 'LLMs understand Markdown natively. Structured text uses fewer tokens, fits larger context windows, and produces measurably more accurate answers than raw binary.',
     'landing.why.card1.tag'   => '~30% fewer tokens vs raw PDF text',
 
     'landing.why.card2.title' => 'Structure preserved.',
-    'landing.why.card2.desc'  => 'Pages, headings and paragraphs survive the conversion. Your document keeps its logical flow — readable by humans and machines alike, without binary noise or encoding artefacts.',
+    'landing.why.card2.desc'  => 'Pages, headings and paragraphs survive the conversion. Your document keeps its logical flow, readable by humans and machines alike, without binary noise or encoding artefacts.',
     'landing.why.card2.tag'   => 'page-aware extraction',
 
     'landing.why.card3.title' => 'Universal format.',
@@ -64,7 +64,7 @@ return [
     // ── Landing — performance ──────────────────────────────────
     'landing.perf.eyebrow' => '// big files welcome',
     'landing.perf.title'   => 'A <em>%s</em> PDF doesn\'t scare us.',
-    'landing.perf.lead'    => 'Streaming conversion via <code>pdftotext</code> means constant memory regardless of file size. The browser never freezes — upload progress and server-side extraction are tracked in real time, with friendly tips while you wait.',
+    'landing.perf.lead'    => 'Streaming conversion via <code>pdftotext</code> means constant memory regardless of file size. The browser never freezes. Upload progress and server-side extraction are tracked in real time, with friendly tips while you wait.',
     'landing.perf.stat1.lbl' => 'max upload',
     'landing.perf.stat2.lbl' => 'memory footprint',
     'landing.perf.stat3.lbl' => 'UI freezes',
@@ -76,7 +76,7 @@ return [
     'landing.signin.title'   => 'Save your <em>conversions</em>.',
     'landing.signin.lead'    => 'Sign in to keep a private library of your converted documents, share download links and access them from anywhere.',
     'landing.signin.card.title' => 'Create your library',
-    'landing.signin.card.lead'  => 'One click with Google. We\'ll never share your data — files remain anonymous.',
+    'landing.signin.card.lead'  => 'One click with Google. We\'ll never share your data, and files remain anonymous.',
     'landing.signin.btn'     => 'Continue with Google',
     'landing.signin.tooltip' => 'Google sign-in is coming soon',
     'landing.signin.soon'    => 'Authentication arriving soon',
@@ -84,7 +84,7 @@ return [
     'landing.signin.alt'     => 'Continue without an account',
 
     // ── Converter (/app) ───────────────────────────────────────
-    'app.title'           => '%s — Convert',
+    'app.title'           => '%s · Convert',
     'app.meta.desc'       => 'Upload a PDF and get clean, structured Markdown back. No account needed, and the full converted file is always yours to download.',
     'app.eyebrow'         => '// new conversion',
     'app.heading'         => 'Drop a file. Get <em>Markdown</em>.',
@@ -127,16 +127,16 @@ return [
     'app.error.network'  => 'Network error. Please check your connection and try again.',
     'app.error.timeout'  => 'The request timed out. The file may be too large or the server is busy.',
     'app.error.failed'   => 'Conversion failed. Please try again.',
-    'app.error.preview_truncated' => 'Preview limited to the first %s of %s characters — use Download to get the full file.',
+    'app.error.preview_truncated' => 'Preview limited to the first %s of %s characters. Use Download to get the full file.',
 
-    'app.tip.0' => 'Markdown uses far fewer tokens than HTML — ideal for large AI context windows.',
+    'app.tip.0' => 'Markdown uses far fewer tokens than HTML, ideal for large AI context windows.',
     'app.tip.1' => 'Claude, ChatGPT and Gemini all read Markdown natively, no extra prompting needed.',
     'app.tip.2' => 'A 50 MB PDF can shrink to a tiny plain-text file that every editor can open.',
-    'app.tip.3' => 'Markdown files diff cleanly in Git — great for tracking document changes over time.',
+    'app.tip.3' => 'Markdown files diff cleanly in Git, great for tracking document changes over time.',
     'app.tip.4' => 'Structured headings help AI models locate and cite specific sections accurately.',
 
     // ── API docs (/api) ────────────────────────────────────────
-    'api.title'      => '%s — API Reference',
+    'api.title'      => '%s · API Reference',
     'api.meta.desc'  => 'REST endpoint for converting PDFs to Markdown: one POST, a JSON response, and the rate limits documented in full.',
     'api.eyebrow'    => '// rest api',
     'api.heading'    => 'API <em>Reference</em>',

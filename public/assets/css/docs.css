@@ -146,6 +146,7 @@
 }
 
 /* ── Table ──────────────────────────────────────────────── */
+.docs-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .docs-table{
   width:100%;
   border-collapse:collapse;
@@ -239,6 +240,8 @@
   .docs-section h2{font-size:1.3rem}
   .docs-table{font-size:.82rem}
   .docs-table th,.docs-table td{padding:.55rem .7rem}
+  .endpoint-pill{max-width:100%;flex-wrap:wrap}
+  .endpoint-url{overflow-wrap:anywhere}
   .code-block{padding:1rem;font-size:.74rem}
   .code-copy{top:.4rem;right:.4rem;padding:.28rem .55rem;font-size:.65rem}
 }

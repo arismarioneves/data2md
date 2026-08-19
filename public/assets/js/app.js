@@ -214,7 +214,7 @@ function trf(key, fallback) {
             if (truncated && truncMsg) {
                 truncMsg.textContent = trf(
                     'app.error.preview_truncated',
-                    'Preview limited to the first %s of %s characters — use Download to get the full file.',
+                    'Preview limited to the first %s of %s characters. Use Download to get the full file.',
                     preview.length.toLocaleString(),
                     totalChars.toLocaleString()
                 );
@@ -273,10 +273,10 @@ function trf(key, fallback) {
     var tipTimer = null;
 
     var tips = [
-        tr('app.tip.0', 'Markdown uses far fewer tokens than HTML — ideal for large AI context windows.'),
+        tr('app.tip.0', 'Markdown uses far fewer tokens than HTML, ideal for large AI context windows.'),
         tr('app.tip.1', 'Claude, ChatGPT and Gemini all read Markdown natively, no extra prompting needed.'),
         tr('app.tip.2', 'A 50 MB PDF can shrink to a tiny plain-text file that every editor can open.'),
-        tr('app.tip.3', 'Markdown files diff cleanly in Git — great for tracking document changes over time.'),
+        tr('app.tip.3', 'Markdown files diff cleanly in Git, great for tracking document changes over time.'),
         tr('app.tip.4', 'Structured headings help AI models locate and cite specific sections accurately.'),
     ];
 

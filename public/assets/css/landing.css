@@ -99,9 +99,6 @@ button{font-family:inherit}
   letter-spacing:-.02em;
   color:var(--ink);
 }
-/* The mark is /assets/img/icon.svg, so the header and the favicon can never
-   drift apart. It used to be two CSS ::before/::after glyphs, which rendered
-   with whatever mono font and arrow glyph the OS happened to have. */
 .l-logo-mark{
   align-self:center;
   width:30px;
@@ -528,9 +525,10 @@ button{font-family:inherit}
   gap:4rem;
   align-items:center;
 }
+.l-perf-grid > *{min-width:0}
 .l-perf-stat-row{
   display:flex;
-  gap:2rem;
+  gap:1.4rem;
   margin-top:2rem;
   flex-wrap:wrap;
 }
@@ -730,5 +728,21 @@ button{font-family:inherit}
   .l-hero-cta .l-btn{width:100%}
   .l-demo-frame{padding:.75rem}
   .l-demo-body{padding:1rem}
-  .l-perf-bar{flex-basis:100px}
+  .l-perf-bar{flex-basis:50px}
+  .l-perf-card{padding:1.1rem}
+  .l-perf-row{gap:.6rem;font-size:.8rem}
+  .l-perf-row-time{min-width:48px;font-size:.72rem}
+  .l-perf-row-name .l-pill{white-space:nowrap}
+}
+@media(max-width:420px){
+  .l-logo{flex:0 0 auto;font-size:1.02rem}
+  .l-logo-mark{width:26px;height:26px}
+  .l-nav{gap:.4rem}
+  .l-nav-link{font-size:.8rem}
+  .l-nav-cta{padding:.5rem .6rem;font-size:.78rem}
+  .l-nav-cta svg{display:none}
+  .l-lang{gap:.25rem;padding:.2rem .3rem;font-size:.6rem}
+}
+@media(max-width:340px){
+  .l-perf-bar{display:none}
 }

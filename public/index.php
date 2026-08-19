@@ -236,7 +236,7 @@ driven by enterprise contracts in EMEA.
                     </div>
 
                     <div class="l-perf-row">
-                        <span class="l-perf-row-name">whitepaper.pdf <span class="l-pill">2 MB</span></span>
+                        <span class="l-perf-row-name">doc.pdf <span class="l-pill">2 MB</span></span>
                         <span class="l-perf-bar"><span class="l-perf-bar-fill" style="--w:14%"></span></span>
                         <span class="l-perf-row-time">0.4 s</span>
                     </div>
