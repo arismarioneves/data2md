@@ -62,6 +62,14 @@ final class MarkdownStreamWriterTest extends TestCase
             'empty input'       => [''],
             'only blanks'       => ["\n\n\n"],
             'only garbage'      => ["eJERFGMEMfMfeJNFEQ\nGSVWJJGTGMUEN\nRFGMEMfMfXY"],
+
+            // isGarbage() returns true for each of these three lines (unlike
+            // eJERFGMEMfMfeJNFEQ above), so they actually drive skipRun to 3
+            // at the very start of the document.
+            'real garbage at start, text after' => ["GSVWJJGTGMUEN\nRFGMEMfMfXY\n;<='& >??#A\nReal text."],
+            'real garbage only'                 => ["GSVWJJGTGMUEN\nRFGMEMfMfXY\n;<='& >??#A"],
+            'real garbage at start and end'      => ["GSVWJJGTGMUEN\nRFGMEMfMfXY\n;<='& >??#A\nReal text.\nGSVWJJGTGMUEN\nRFGMEMfMfXY\n;<='& >??#A"],
+            'two real garbage lines, no marker'  => ["GSVWJJGTGMUEN\nRFGMEMfMfXY\nReal text."],
         ];
     }
 
@@ -92,6 +100,58 @@ final class MarkdownStreamWriterTest extends TestCase
 
         rewind($out);
         self::assertStringContainsString('eJERFGMEMfMfeJNFEQ', (string) stream_get_contents($out));
+        fclose($out);
+    }
+
+    public function testWriteRawEmptyLineIsBufferedAsABlank(): void
+    {
+        $out    = fopen('php://memory', 'r+');
+        $writer = new MarkdownStreamWriter($out, new MarkdownSanitizer());
+
+        $writer->writeLine('Real text.');
+        $writer->blankLine();
+        $writer->writeRaw('');
+        $writer->writeLine('More text.');
+        $writer->finish();
+
+        rewind($out);
+        self::assertSame("Real text.\n\nMore text.", (string) stream_get_contents($out));
+        fclose($out);
+    }
+
+    public function testWriteRawEmptyLineAtStartLeavesNoLeadingBlank(): void
+    {
+        $out    = fopen('php://memory', 'r+');
+        $writer = new MarkdownStreamWriter($out, new MarkdownSanitizer());
+
+        $writer->writeRaw('');
+        $writer->writeLine('Real text.');
+        $writer->finish();
+
+        rewind($out);
+        self::assertSame('Real text.', (string) stream_get_contents($out));
+        fclose($out);
+    }
+
+    public function testWriteRawInterleavedWithWriteLineAndBlankLine(): void
+    {
+        $out    = fopen('php://memory', 'r+');
+        $writer = new MarkdownStreamWriter($out, new MarkdownSanitizer());
+
+        $writer->writeRaw('## Page 1');
+        $writer->blankLine();
+        $writer->writeLine('Real content.');
+        $writer->blankLine();
+        $writer->writeRaw('## Page 2');
+        $writer->blankLine();
+        $writer->writeLine('More content.');
+        $writer->finish();
+
+        rewind($out);
+        self::assertSame(
+            "## Page 1\n\nReal content.\n\n## Page 2\n\nMore content.",
+            (string) stream_get_contents($out)
+        );
         fclose($out);
     }
 

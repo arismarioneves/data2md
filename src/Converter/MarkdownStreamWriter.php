@@ -59,7 +59,10 @@ final class MarkdownStreamWriter
         $this->emit($line);
     }
 
-    /** Write a line verbatim, bypassing the garbage heuristic. */
+    /**
+     * Write a line verbatim, bypassing the garbage heuristic. A blank line
+     * is buffered and collapsed the same way as one coming from writeLine().
+     */
     public function writeRaw(string $line): void
     {
         if ($this->skipRun >= 3) {
@@ -67,7 +70,14 @@ final class MarkdownStreamWriter
         }
         $this->skipRun = 0;
 
-        $this->emit(rtrim($this->sanitizer->stripControlChars($line)));
+        $line = rtrim($this->sanitizer->stripControlChars($line));
+
+        if (trim($line) === '') {
+            $this->pendingBlanks++;
+            return;
+        }
+
+        $this->emit($line);
     }
 
     public function blankLine(): void
@@ -90,7 +100,7 @@ final class MarkdownStreamWriter
 
     private function emitMarker(): void
     {
-        if (!$this->wroteAnything || $this->lastEmittedWasMarker) {
+        if ($this->lastEmittedWasMarker) {
             return;
         }
 
