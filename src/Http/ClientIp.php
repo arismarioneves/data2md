@@ -83,7 +83,18 @@ final class ClientIp
             return false; // mixing IPv4 and IPv6 never matches
         }
 
-        $prefix = (int) $bits;
+        // Fail closed on a malformed prefix (missing, non-numeric, negative,
+        // or beyond the address family's width) — never treat it as trusted.
+        if (!preg_match('/^\d+$/', $bits)) {
+            return false;
+        }
+
+        $maxBits = strlen($packedNet) * 8; // 32 for IPv4, 128 for IPv6
+        $prefix  = (int) $bits;
+        if ($prefix > $maxBits) {
+            return false;
+        }
+
         if ($prefix === 0) {
             return true;
         }

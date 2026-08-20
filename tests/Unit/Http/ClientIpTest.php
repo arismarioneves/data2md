@@ -81,6 +81,16 @@ final class ClientIpTest extends TestCase
         self::assertSame('0.0.0.0', $this->resolver()->resolve([]));
     }
 
+    public function testTrustedChainWithoutForwardedForHeaderFallsBackToRemoteAddr(): void
+    {
+        $ip = $this->resolver()->resolve([
+            'REMOTE_ADDR' => '10.11.0.5',
+            // HTTP_X_FORWARDED_FOR key absent entirely, not merely empty.
+        ]);
+
+        self::assertSame('10.11.0.5', $ip);
+    }
+
     public function testIpv6ProxyAndChain(): void
     {
         // Deliberately narrower than 2001:db8::/32: that wider block also
@@ -115,7 +125,52 @@ final class ClientIpTest extends TestCase
             ['203.0.113.1',   '0.0.0.0/0',     true],
             ['2001:db8::1',   '2001:db8::/32', true],
             ['2001:db9::1',   '2001:db8::/32', false],
+            // Family mismatch, both directions: an IPv6 address never matches
+            // an IPv4 CIDR, and an IPv4 address never matches an IPv6 CIDR.
             ['2001:db8::1',   '172.16.0.0/12', false],
+            ['203.0.113.1',   '2001:db8::/32', false],
         ];
+    }
+
+    /**
+     * A malformed prefix must fail closed — never fall through to a
+     * "trusted" result. Before this fix, an out-of-range or non-numeric
+     * prefix drove $wholeBytes to zero/negative and the partial-byte mask to
+     * 0, collapsing the final comparison into 0 === 0, i.e. always trusted.
+     * A single malformed entry in TRUSTED_PROXIES would then make the whole
+     * X-Forwarded-For header trusted — the exact hole this class exists to
+     * close.
+     *
+     * @dataProvider malformedPrefixes
+     */
+    public function testMalformedPrefixNeverTrusts(string $ip, string $cidr): void
+    {
+        self::assertFalse(
+            (new ClientIp([$cidr]))->isTrusted($ip),
+            "a malformed prefix must fail closed: $cidr"
+        );
+    }
+
+    public static function malformedPrefixes(): array
+    {
+        return [
+            'negative prefix'               => ['203.0.113.77', '10.0.0.0/-1'],
+            'empty prefix'                  => ['203.0.113.77', '10.0.0.0/'],
+            'non-numeric prefix'             => ['203.0.113.77', '10.0.0.0/abc'],
+            'ipv4 prefix far beyond width'   => ['203.0.113.77', '10.0.0.0/99'],
+            'ipv4 prefix one beyond width'   => ['203.0.113.77', '10.0.0.0/33'],
+            'ipv6 prefix beyond width'       => ['2001:db8::1',  '2001:db8::/129'],
+        ];
+    }
+
+    public function testPrefixBeyondFamilyWidthDoesNotEmitAWarning(): void
+    {
+        // /33 on IPv4 (33 > 32) and /129 on IPv6 (129 > 128) used to index one
+        // byte past the packed address — an "Uninitialized string offset"
+        // warning. phpunit.xml has failOnWarning="true", so a regression here
+        // fails the suite on its own; asserted explicitly so the intent is on
+        // the record rather than an accident of configuration.
+        self::assertFalse(ClientIp::inCidr('203.0.113.77', '10.0.0.0/33'));
+        self::assertFalse(ClientIp::inCidr('2001:db8::1', '2001:db8::/129'));
     }
 }
