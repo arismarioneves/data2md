@@ -1,0 +1,123 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Data2Md\Log;
+
+/**
+ * Two channels, because they answer different questions and deserve different
+ * retention:
+ *
+ *   app.jsonl   — operational. No PII. Mirrored to stderr, which the official
+ *                 PHP image forwards to `docker logs` and therefore to the
+ *                 EasyPanel log viewer, with no setup at all.
+ *   audit.jsonl — "who converted what, when". Mode 0640, short retention.
+ *
+ * The split is not bureaucracy: filenames routinely carry personal data in any
+ * domain — CVs, contracts, statements, reports. A single log would force the
+ * whole operational history to be handled with the care its most sensitive
+ * line demands.
+ */
+final class Logger
+{
+    public const CHANNEL_APP   = 'app';
+    public const CHANNEL_AUDIT = 'audit';
+
+    public function __construct(
+        private readonly string $logDir,
+        private readonly int $maxBytes = 10_485_760,
+        private readonly bool $mirrorToStderr = true,
+    ) {
+    }
+
+    /** @param array<string,mixed> $fields */
+    public function app(string $event, array $fields = [], string $level = 'info'): void
+    {
+        $entry = ['ts' => self::now(), 'lvl' => $level, 'evt' => $event] + $fields;
+        $line  = $this->encode($entry);
+
+        $this->write(self::CHANNEL_APP, $line, 0640);
+
+        if ($this->mirrorToStderr) {
+            error_log('[data2md] ' . $line);
+        }
+    }
+
+    /** @param array<string,mixed> $fields */
+    public function audit(array $fields): void
+    {
+        $entry = ['ts' => self::now()] + $fields;
+        $this->write(self::CHANNEL_AUDIT, $this->encode($entry), 0640);
+    }
+
+    /**
+     * Coarsen an address enough to spot abuse without keeping an identifier:
+     * IPv4 to /24, IPv6 to /48.
+     */
+    public static function truncateIp(string $ip): string
+    {
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+            $parts = explode('.', $ip);
+            $parts[3] = '0';
+            return implode('.', $parts);
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+            $packed = inet_pton($ip);
+            if ($packed === false) {
+                return 'invalid';
+            }
+            $masked = substr($packed, 0, 6) . str_repeat("\0", 10);
+            return (string) inet_ntop($masked);
+        }
+
+        return 'invalid';
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function encode(array $entry): string
+    {
+        return (string) json_encode(
+            $entry,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+        );
+    }
+
+    private function write(string $channel, string $line, int $mode): void
+    {
+        $path = $this->logDir . '/' . $channel . '.jsonl';
+
+        $this->rotateIfNeeded($path);
+
+        $existed = file_exists($path);
+        file_put_contents($path, $line . "\n", FILE_APPEND | LOCK_EX);
+
+        if (!$existed) {
+            @chmod($path, $mode);
+        }
+    }
+
+    /**
+     * Size-based rotation, kept in the Logger because the container has neither
+     * cron nor logrotate. Only one generation is retained; the GC removes the
+     * rotated file once it is past retention.
+     */
+    private function rotateIfNeeded(string $path): void
+    {
+        if (!file_exists($path)) {
+            return;
+        }
+
+        clearstatcache(true, $path);
+        if (filesize($path) < $this->maxBytes) {
+            return;
+        }
+
+        @rename($path, $path . '.1');
+    }
+
+    private static function now(): string
+    {
+        return gmdate('Y-m-d\TH:i:s\Z');
+    }
+}
