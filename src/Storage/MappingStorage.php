@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Data2Md\Storage;
 
 /**
- * Registry of hash → original file. The record is the authority on which
- * hashes are taken, so hash generation lives here rather than scanning the
- * filesystem for collisions.
+ * Registry of hash → original file.
  */
 final class MappingStorage
 {

@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Data2Md\Storage;
 
 /**
- * The uploaded PDF never gets a permanent home: it lands in tmp/, is converted,
- * and is removed in a finally block — including when the conversion fails. Only
- * the markdown persists.
+ * The uploaded file is stored in tmp/, converted, and removed in a finally
+ * block regardless of outcome. Only the resulting markdown persists.
  */
 final class FileStorage
 {

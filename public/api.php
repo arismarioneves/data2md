@@ -88,9 +88,8 @@ try {
     $markdown = $converter->convert($filePath);
     $fileStorage->storeMarkdown($hash, $markdown);
 
-    // Truncate inline preview at a clean line boundary so the JSON payload
-    // stays small even for huge documents. Full markdown is always available
-    // via download_url.
+    // Truncate the inline preview at a clean line boundary. Full markdown is
+    // always available via download_url.
     $previewLimit = 8000;
     $totalChars   = mb_strlen($markdown);
     $truncated    = $totalChars > $previewLimit;

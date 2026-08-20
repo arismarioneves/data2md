@@ -1,7 +1,7 @@
 'use strict';
 
-// The preview comes pre-truncated from the server now. fullMarkdown is fetched
-// lazily from download_url when the user clicks Copy.
+// The preview is pre-truncated by the server. fullMarkdown is fetched lazily
+// from download_url when the user clicks Copy.
 var lastResult     = null;        // holds the latest API response
 var fullMarkdown   = '';          // populated on demand by fetchFullMarkdown()
 var fetchInFlight  = null;        // pending Promise<string> when a fetch is mid-flight
@@ -331,8 +331,8 @@ function trf(key, fallback) {
 })();
 
 // ── Copy markdown ─────────────────────────────────────────────────────────────
-// Fetches the full file from download_url on demand (the API only returns a
-// truncated preview now to keep the response small).
+// Fetches the full file from download_url on demand; the API response only
+// includes a truncated preview.
 
 function fetchFullMarkdown() {
     if (fullMarkdown) {

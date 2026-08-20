@@ -93,11 +93,8 @@ final class ClientIpTest extends TestCase
 
     public function testIpv6ProxyAndChain(): void
     {
-        // Deliberately narrower than 2001:db8::/32: that wider block also
-        // covers the "external client" address below (both share the first
-        // 32 bits, 2001:0db8), which would make it indistinguishable from a
-        // trusted hop. /48 keeps the proxy hops (2001:db8:1::x) inside the
-        // trust boundary while the client (2001:db8:ffff::9) falls outside it.
+        // The trusted /48 covers the proxy hop (2001:db8:1::x) but not the
+        // client address (2001:db8:ffff::9).
         $ip = $this->resolver(['2001:db8:1::/48'])->resolve([
             'REMOTE_ADDR'          => '2001:db8:1::5',
             'HTTP_X_FORWARDED_FOR' => '2001:db8:ffff::9, 2001:db8:1::2',
@@ -133,13 +130,7 @@ final class ClientIpTest extends TestCase
     }
 
     /**
-     * A malformed prefix must fail closed — never fall through to a
-     * "trusted" result. Before this fix, an out-of-range or non-numeric
-     * prefix drove $wholeBytes to zero/negative and the partial-byte mask to
-     * 0, collapsing the final comparison into 0 === 0, i.e. always trusted.
-     * A single malformed entry in TRUSTED_PROXIES would then make the whole
-     * X-Forwarded-For header trusted — the exact hole this class exists to
-     * close.
+     * A malformed prefix must fail closed — never treated as trusted.
      *
      * @dataProvider malformedPrefixes
      */
@@ -165,11 +156,8 @@ final class ClientIpTest extends TestCase
 
     public function testPrefixBeyondFamilyWidthDoesNotEmitAWarning(): void
     {
-        // /33 on IPv4 (33 > 32) and /129 on IPv6 (129 > 128) used to index one
-        // byte past the packed address — an "Uninitialized string offset"
-        // warning. phpunit.xml has failOnWarning="true", so a regression here
-        // fails the suite on its own; asserted explicitly so the intent is on
-        // the record rather than an accident of configuration.
+        // /33 on IPv4 and /129 on IPv6 are one bit beyond the address width;
+        // this must return false without emitting a PHP warning.
         self::assertFalse(ClientIp::inCidr('203.0.113.77', '10.0.0.0/33'));
         self::assertFalse(ClientIp::inCidr('2001:db8::1', '2001:db8::/129'));
     }

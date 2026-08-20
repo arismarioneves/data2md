@@ -9,12 +9,11 @@ namespace Data2Md\Http;
  *
  * X-Forwarded-For is appended to by each hop, so entries to the LEFT can be
  * forged freely by the client — only the rightmost entries, written by proxies
- * we control, are trustworthy. The rule is therefore: walk right to left and
- * take the first address that is not one of our own proxies.
+ * we control, are trustworthy. Walks right to left and returns the first
+ * address that is not one of the trusted proxies.
  *
  * If REMOTE_ADDR itself is not a trusted proxy, the header is ignored
- * completely. Without this the rate limiter is decorative: any client can pick
- * its own bucket by sending a header.
+ * completely.
  */
 final class ClientIp
 {

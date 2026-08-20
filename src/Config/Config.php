@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Data2Md\Config;
 
 /**
- * Every key is required. Nothing here invents a value: production defaults are
- * declared as ENV in the Dockerfile, which is the single source of truth for
- * them. A missing or invalid key aborts the boot with every problem listed at
- * once, so whoever is configuring the panel sees the full picture in one pass.
+ * Every key is required; there are no defaults in code. Production values are
+ * declared as ENV in the Dockerfile. A missing or invalid key aborts boot,
+ * reporting every problem at once.
  */
 final class Config
 {

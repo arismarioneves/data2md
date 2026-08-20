@@ -117,11 +117,9 @@ final class LoggerTest extends TestCase
     {
         $logger = $this->logger(maxBytes: 200);
 
-        // Write until the first rotation happens. The write that triggers it
-        // also appends its own line right after, so the live file is small
-        // again by construction the moment the loop stops — exactly the
-        // "already below threshold" state this test needs, with no guessing
-        // about exact byte counts.
+        // Loop until app.jsonl.1 appears (first rotation). The triggering
+        // write also appends its own line right after, so the live file is
+        // already small again by the time the loop stops.
         for ($i = 0; $i < 20 && !file_exists($this->dir . '/app.jsonl.1'); $i++) {
             $logger->app('convert.ok', ['n' => $i, 'pad' => str_repeat('x', 40)]);
         }

@@ -5,18 +5,12 @@ declare(strict_types=1);
 namespace Data2Md\Log;
 
 /**
- * Two channels, because they answer different questions and deserve different
- * retention:
+ * Two log channels:
  *
- *   app.jsonl   — operational. No PII. Mirrored to stderr, which the official
- *                 PHP image forwards to `docker logs` and therefore to the
- *                 EasyPanel log viewer, with no setup at all.
- *   audit.jsonl — "who converted what, when". Mode 0640, short retention.
- *
- * The split is not bureaucracy: filenames routinely carry personal data in any
- * domain — CVs, contracts, statements, reports. A single log would force the
- * whole operational history to be handled with the care its most sensitive
- * line demands.
+ *   app.jsonl   — operational, no PII. Mirrored to stderr, which the official
+ *                 PHP image forwards to `docker logs` and the EasyPanel log
+ *                 viewer.
+ *   audit.jsonl — who converted what, when. Mode 0640, short retention.
  */
 final class Logger
 {

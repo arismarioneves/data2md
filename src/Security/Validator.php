@@ -11,7 +11,6 @@ class Validator
             'extensions' => ['pdf'],
             'mime_types' => ['application/pdf'],
         ],
-        // Additional formats registered here as they are implemented
     ];
 
     public function validateUpload(array $file, string $format = 'pdf'): array

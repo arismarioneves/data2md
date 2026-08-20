@@ -9,8 +9,7 @@ declare(strict_types=1);
  *   $metaTitle — full, already-translated page title
  *   $metaDesc  — already-translated page description
  *
- * og:title reuses $metaTitle rather than carrying its own translation key, so
- * the tab and the shared card can never disagree.
+ * og:title always mirrors $metaTitle; it has no separate translation key.
  */
 
 use Data2Md\I18n\I18n;
@@ -40,9 +39,9 @@ $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES);
     <title><?= $esc($metaTitle) ?></title>
     <meta name="description" content="<?= $esc($metaDesc) ?>">
 
-    <?php /* No SVG favicon on purpose: browsers prefer an SVG icon at every
-             size, and the M+arrow lockup is unreadable at 16px. The .ico holds
-             per-size art instead — 16 is the M alone, 32 and 48 add the arrow. */ ?>
+    <?php /* No SVG favicon: the M+arrow mark is unreadable at 16px. The .ico
+             holds separate art per size — 16 is the M alone, 32 and 48 add
+             the arrow. */ ?>
     <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
     <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest">

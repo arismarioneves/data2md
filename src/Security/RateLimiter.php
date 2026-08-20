@@ -7,9 +7,8 @@ namespace Data2Md\Security;
 /**
  * Sliding-window limiter, one file per identifier.
  *
- * The data file is its own lock: opening it 'c+' and holding an exclusive flock
- * for the read-modify-write cycle removes the separate .lock file the previous
- * implementation left behind for every address it ever saw.
+ * The data file is its own lock: opened 'c+' with an exclusive flock held for
+ * the whole read-modify-write cycle.
  */
 final class RateLimiter
 {
