@@ -29,11 +29,15 @@ final class Database
             \PDO::ATTR_EMULATE_PREPARES   => false,
         ]);
 
-        // WAL lets /download read while /api writes; without it the reader
-        // blocks on every conversion. busy_timeout covers the brief moments
-        // when two writers do collide.
-        $pdo->exec('PRAGMA journal_mode = WAL');
+        // busy_timeout must be set before any statement that can find the
+        // database locked -- including the journal_mode pragma itself. On a
+        // genuinely concurrent cold start (a rolling deploy where the old and
+        // new containers share the volume), WAL is exactly the pragma that
+        // can hit a lock, so it must not run before the timeout is armed.
         $pdo->exec('PRAGMA busy_timeout = 5000');
+        // WAL lets /download read while /api writes; without it the reader
+        // blocks on every conversion.
+        $pdo->exec('PRAGMA journal_mode = WAL');
         $pdo->exec('PRAGMA synchronous = NORMAL');
         $pdo->exec('PRAGMA foreign_keys = ON');
 

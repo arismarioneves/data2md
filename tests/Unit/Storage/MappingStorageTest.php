@@ -57,10 +57,14 @@ final class MappingStorageTest extends TestCase
 
     public function testSaveIsIdempotentOnTheSameHash(): void
     {
-        $this->storage->save('a1b2c3d4e5f6789', 'first.pdf', 'pdf', 1);
-        $this->storage->save('a1b2c3d4e5f6789', 'second.pdf', 'pdf', 2);
+        $now = time();
+        $this->storage->save('a1b2c3d4e5f6789', 'first.pdf', 'pdf', 1, $now - 1000);
+        $this->storage->save('a1b2c3d4e5f6789', 'second.pdf', 'pdf', 2, $now);
 
-        self::assertSame('second.pdf', $this->storage->find('a1b2c3d4e5f6789')['original_name']);
+        $found = $this->storage->find('a1b2c3d4e5f6789');
+
+        self::assertSame('second.pdf', $found['original_name']);
+        self::assertSame($now, $found['created_at'], 'ON CONFLICT overwrites created_at too, since the real path never collides -- generateUniqueHash() guarantees a fresh hash before insert -- and hashesOlderThan() must key off whichever row is on record.');
     }
 
     public function testGeneratedHashMatchesTheValidatorPattern(): void
