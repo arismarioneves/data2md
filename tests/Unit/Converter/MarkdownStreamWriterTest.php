@@ -73,6 +73,49 @@ final class MarkdownStreamWriterTest extends TestCase
         ];
     }
 
+    public function testStreamingMatchesTheInMemorySanitizerOnRandomDocuments(): void
+    {
+        $sanitizer = new MarkdownSanitizer();
+
+        $garbageLines = ['GSVWJJGTGMUEN', 'RFGMEMfMfXY', ";<='& >??#A"];
+        foreach ($garbageLines as $line) {
+            self::assertTrue($sanitizer->isGarbage($line), "pool line must be garbage: $line");
+        }
+
+        $nonGarbageTrap = 'eJERFGMEMfMfeJNFEQ';
+        self::assertFalse($sanitizer->isGarbage($nonGarbageTrap), 'pool trap line must not be garbage');
+
+        $pool = array_merge($garbageLines, [
+            'Real sentence about ordinary things.',
+            'Another perfectly plain line of text.',
+            '',
+            '## Section heading',
+            '- a list item',
+            '---',
+            $nonGarbageTrap,
+        ]);
+
+        mt_srand(424242);
+
+        for ($doc = 0; $doc < 300; $doc++) {
+            $lines = [];
+            for ($i = 0, $count = mt_rand(0, 9); $i < $count; $i++) {
+                $lines[] = $pool[mt_rand(0, count($pool) - 1)];
+            }
+            $input = implode("\n", $lines);
+
+            $expected = $sanitizer->clean($input);
+            [$actual] = $this->stream($input);
+
+            self::assertSame($expected, $actual, sprintf(
+                "input: %s\nexpected: %s\nactual: %s",
+                var_export($input, true),
+                var_export($expected, true),
+                var_export($actual, true)
+            ));
+        }
+    }
+
     public function testStatsCountLinesAndCharacters(): void
     {
         [$output, $stats] = $this->stream("Hello world.\nSecond line.");
