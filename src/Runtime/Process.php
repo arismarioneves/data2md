@@ -59,14 +59,26 @@ final class Process
         }
 
         fclose($pipes[0]);
-        stream_set_blocking($pipes[1], false);
-        stream_set_blocking($pipes[2], false);
+
+        // Non-blocking pipes are what let the poll loop below honour the
+        // deadline; if either pipe cannot be switched, that guarantee is
+        // gone, so this is treated as a failed start rather than run with
+        // pipes that might block forever.
+        if (!stream_set_blocking($pipes[1], false) || !stream_set_blocking($pipes[2], false)) {
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            proc_terminate($process, 9);
+            proc_close($process);
+
+            return new ProcessResult(127, '', 'Failed to set pipes non-blocking: ' . $full[0], false);
+        }
 
         $stdout   = '';
         $stderr   = '';
         $started  = microtime(true);
         $timedOut = false;
         $exitCode = -1;
+        $survived = false;
 
         while (true) {
             $status = proc_get_status($process);
@@ -87,6 +99,10 @@ final class Process
             if ((microtime(true) - $started) >= $this->timeoutSeconds) {
                 $timedOut = true;
                 $exitCode = $this->terminate($process, $pipes, $stdout, $stderr);
+                // terminate() gives up after SIGKILL is also ignored (e.g. a
+                // child stuck in an uninterruptible I/O wait). When that
+                // happens the process is still alive here.
+                $survived = (bool) proc_get_status($process)['running'];
                 break;
             }
 
@@ -98,7 +114,14 @@ final class Process
 
         fclose($pipes[1]);
         fclose($pipes[2]);
-        proc_close($process);
+
+        // proc_close() waits for the child to exit. Calling it on a process
+        // that survived SIGKILL would block this method forever, which is
+        // the exact slot-leak this class exists to prevent. Skipping it
+        // leaves a zombie for PHP to reap when the resource is destroyed.
+        if (!$survived) {
+            proc_close($process);
+        }
 
         return new ProcessResult($exitCode, $stdout, $stderr, $timedOut);
     }
