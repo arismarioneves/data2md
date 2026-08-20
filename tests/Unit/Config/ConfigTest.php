@@ -122,4 +122,52 @@ final class ConfigTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         Config::fromArray(self::valid())->string('NOPE');
     }
+
+    public function testOriginListAcceptsValidOriginsAndBuildsList(): void
+    {
+        $config = Config::fromArray(self::valid(['CORS_ALLOWED_ORIGINS' => 'https://app.example.com']));
+        self::assertSame(['https://app.example.com'], $config->list('CORS_ALLOWED_ORIGINS'));
+
+        $config = Config::fromArray(self::valid(['CORS_ALLOWED_ORIGINS' => 'http://localhost:8080']));
+        self::assertSame(['http://localhost:8080'], $config->list('CORS_ALLOWED_ORIGINS'));
+
+        $config = Config::fromArray(self::valid([
+            'CORS_ALLOWED_ORIGINS' => 'https://a.example.com, https://b.example.com',
+        ]));
+        self::assertSame(
+            ['https://a.example.com', 'https://b.example.com'],
+            $config->list('CORS_ALLOWED_ORIGINS')
+        );
+    }
+
+    /**
+     * @dataProvider invalidOrigins
+     */
+    public function testOriginListRejectsInvalidEntries(string $origin): void
+    {
+        $this->expectException(ConfigError::class);
+        Config::fromArray(self::valid(['CORS_ALLOWED_ORIGINS' => $origin]));
+    }
+
+    /** @return array<string,array{string}> */
+    public static function invalidOrigins(): array
+    {
+        return [
+            'missing scheme' => ['app.example.com'],
+            'wrong scheme'   => ['ftp://app.example.com'],
+            'with path'      => ['https://app.example.com/'],
+        ];
+    }
+
+    public function testIntegerBelowRangeFails(): void
+    {
+        $this->expectException(ConfigError::class);
+        Config::fromArray(self::valid(['CONVERT_TIMEOUT_SECONDS' => '10']));
+    }
+
+    public function testStringExceedingMaxLengthFails(): void
+    {
+        $this->expectException(ConfigError::class);
+        Config::fromArray(self::valid(['APP_NAME' => str_repeat('a', 65)]));
+    }
 }
