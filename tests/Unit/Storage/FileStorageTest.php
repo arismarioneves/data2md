@@ -138,4 +138,147 @@ final class FileStorageTest extends TestCase
     {
         self::assertSame(0, $this->storage->markdownSize('a1b2c3d4e5f6789'));
     }
+
+    public function testDeleteOriginalRefusesASiblingDirectoryWithCommonPrefix(): void
+    {
+        $siblingDir = $this->root . '/tmpevil';
+        mkdir($siblingDir);
+        $target = $siblingDir . '/x';
+        file_put_contents($target, 'keep me');
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            $this->storage->deleteOriginal($target);
+        } finally {
+            self::assertFileExists($target);
+            unlink($target);
+            rmdir($siblingDir);
+        }
+    }
+
+    public function testDeleteOriginalRefusesTheTmpDirectoryItself(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->storage->deleteOriginal($this->root . '/tmp');
+    }
+
+    public function testDeleteOriginalRefusesASymlinkInsideTmpPointingOutside(): void
+    {
+        $outsideTarget = $this->root . '/outside-secret.txt';
+        file_put_contents($outsideTarget, 'keep me');
+        $link = $this->root . '/tmp/escape-link';
+
+        if (!@symlink($outsideTarget, $link)) {
+            unlink($outsideTarget);
+            self::markTestSkipped('symlink() is not available in this environment.');
+        }
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->storage->deleteOriginal($link);
+        } finally {
+            self::assertFileExists($outsideTarget);
+            @unlink($link);
+            @unlink($outsideTarget);
+        }
+    }
+
+    public function testStaleTempFilesReturnsOldFilesButNotRecentOnes(): void
+    {
+        $old    = $this->root . '/tmp/old.original';
+        $recent = $this->root . '/tmp/recent.original';
+        file_put_contents($old, 'x');
+        file_put_contents($recent, 'x');
+        touch($old, time() - 3600);
+        touch($recent, time() - 1);
+
+        $stale = $this->storage->staleTempFiles(time() - 60);
+
+        self::assertSame([$old], $stale);
+
+        unlink($old);
+        unlink($recent);
+    }
+
+    public function testStaleTempFilesSkipsLockFiles(): void
+    {
+        $lock = $this->root . '/tmp/session.lock';
+        file_put_contents($lock, 'x');
+        touch($lock, time() - 3600);
+
+        $stale = $this->storage->staleTempFiles(time() - 60);
+
+        self::assertSame([], $stale);
+
+        unlink($lock);
+    }
+
+    public function testStaleTempFilesSkipsBySuffixNotSubstring(): void
+    {
+        $path = $this->root . '/tmp/slot.lock.original';
+        file_put_contents($path, 'x');
+        touch($path, time() - 3600);
+
+        $stale = $this->storage->staleTempFiles(time() - 60);
+
+        self::assertSame([$path], $stale);
+
+        unlink($path);
+    }
+
+    public function testStaleTempFilesIgnoresDirectories(): void
+    {
+        $dir = $this->root . '/tmp/subdir';
+        mkdir($dir);
+        touch($dir, time() - 3600);
+
+        $stale = $this->storage->staleTempFiles(time() - 60);
+
+        self::assertSame([], $stale);
+
+        rmdir($dir);
+    }
+
+    public function testStaleTempFilesReturnsEmptyListWhenTmpIsEmpty(): void
+    {
+        self::assertSame([], $this->storage->staleTempFiles(time()));
+    }
+
+    public function testReadMarkdownPrefixWithBytesLargerThanFileReturnsWholeFile(): void
+    {
+        $path = $this->storage->markdownPath('a1b2c3d4e5f6789');
+        file_put_contents($path, 'short content');
+
+        $prefix = $this->storage->readMarkdownPrefix('a1b2c3d4e5f6789', 10_000);
+
+        self::assertSame('short content', $prefix);
+    }
+
+    public function testReadMarkdownPrefixOnEmptyFileReturnsEmptyString(): void
+    {
+        $path = $this->storage->markdownPath('a1b2c3d4e5f6789');
+        file_put_contents($path, '');
+
+        self::assertSame('', $this->storage->readMarkdownPrefix('a1b2c3d4e5f6789', 100));
+    }
+
+    public function testReadMarkdownPrefixWithZeroOrNegativeBytesReturnsEmptyString(): void
+    {
+        $path = $this->storage->markdownPath('a1b2c3d4e5f6789');
+        file_put_contents($path, 'some content');
+
+        self::assertSame('', $this->storage->readMarkdownPrefix('a1b2c3d4e5f6789', 0));
+        self::assertSame('', $this->storage->readMarkdownPrefix('a1b2c3d4e5f6789', -5));
+    }
+
+    public function testReadMarkdownPrefixKeepsACharacterThatEndsExactlyAtTheBoundary(): void
+    {
+        $path = $this->storage->markdownPath('a1b2c3d4e5f6789');
+        // 'é' is two bytes (0xC3 0xA9); the boundary falls exactly after it.
+        file_put_contents($path, 'aaaaébbbb');
+
+        $prefix = $this->storage->readMarkdownPrefix('a1b2c3d4e5f6789', 6);
+
+        self::assertSame('aaaaé', $prefix);
+    }
 }
