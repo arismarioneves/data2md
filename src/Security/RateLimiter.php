@@ -4,52 +4,94 @@ declare(strict_types=1);
 
 namespace Data2Md\Security;
 
-class RateLimiter
+/**
+ * Sliding-window limiter, one file per identifier.
+ *
+ * The data file is its own lock: opening it 'c+' and holding an exclusive flock
+ * for the read-modify-write cycle removes the separate .lock file the previous
+ * implementation left behind for every address it ever saw.
+ */
+final class RateLimiter
 {
     public function __construct(
         private readonly string $storageDir,
-        private readonly int $maxRequests = 10,
-        private readonly int $windowSeconds = 60
+        private readonly int $maxRequests,
+        private readonly int $windowSeconds,
     ) {
-        if (!is_dir($storageDir) && !mkdir($storageDir, 0750, true)) {
+        if (!is_dir($storageDir) && !mkdir($storageDir, 0750, true) && !is_dir($storageDir)) {
             throw new \RuntimeException("Cannot create rate limiter storage: $storageDir");
         }
     }
 
     public function isAllowed(string $identifier): bool
     {
-        // Use a hash so raw IPs are not stored on disk
-        $key  = hash('sha256', $identifier);
-        $file = $this->storageDir . '/' . $key . '.json';
-        $now  = time();
+        // Hashed so raw addresses never land on disk, in the filename or in it.
+        $path = $this->storageDir . '/' . hash('sha256', $identifier) . '.json';
 
-        $lock = fopen($file . '.lock', 'c');
-        flock($lock, LOCK_EX);
+        $handle = fopen($path, 'c+');
+        if ($handle === false) {
+            throw new \RuntimeException("Cannot open rate limit file: $path");
+        }
+
         try {
-            $data = $this->load($file);
-            $data['hits'] = array_values(
-                array_filter($data['hits'] ?? [], fn(int $t) => ($now - $t) < $this->windowSeconds)
-            );
+            if (!flock($handle, LOCK_EX)) {
+                throw new \RuntimeException("Cannot lock rate limit file: $path");
+            }
 
-            if (count($data['hits']) >= $this->maxRequests) {
+            $now  = time();
+            $hits = $this->readHits($handle);
+            $hits = array_values(array_filter($hits, fn (int $t): bool => ($now - $t) < $this->windowSeconds));
+
+            if (count($hits) >= $this->maxRequests) {
+                $this->writeHits($handle, $hits);
                 return false;
             }
 
-            $data['hits'][] = $now;
-            file_put_contents($file, json_encode($data), LOCK_EX);
+            $hits[] = $now;
+            $this->writeHits($handle, $hits);
+
             return true;
         } finally {
-            flock($lock, LOCK_UN);
-            fclose($lock);
+            flock($handle, LOCK_UN);
+            fclose($handle);
         }
     }
 
-    private function load(string $file): array
+    public function retryAfter(): int
     {
-        if (!file_exists($file)) {
-            return ['hits' => []];
+        return $this->windowSeconds;
+    }
+
+    /**
+     * @param resource $handle
+     * @return list<int>
+     */
+    private function readHits($handle): array
+    {
+        rewind($handle);
+        $raw = (string) stream_get_contents($handle);
+
+        if (trim($raw) === '') {
+            return [];
         }
-        $content = file_get_contents($file);
-        return json_decode($content ?: '{}', true) ?? ['hits' => []];
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded) || !isset($decoded['hits']) || !is_array($decoded['hits'])) {
+            return [];
+        }
+
+        return array_values(array_map('intval', array_filter($decoded['hits'], 'is_numeric')));
+    }
+
+    /**
+     * @param resource $handle
+     * @param list<int> $hits
+     */
+    private function writeHits($handle, array $hits): void
+    {
+        rewind($handle);
+        ftruncate($handle, 0);
+        fwrite($handle, (string) json_encode(['hits' => $hits]));
+        fflush($handle);
     }
 }
