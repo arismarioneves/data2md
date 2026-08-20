@@ -97,7 +97,10 @@ final class MarkdownStreamWriterTest extends TestCase
 
     public function testMemoryStaysFlatOnALargeDocument(): void
     {
-        $out    = fopen('php://memory', 'r+');
+        // php://temp spills to disk past 2 MB, so the destination buffer
+        // drops out of the measurement and $growth reflects only the
+        // writer's own state.
+        $out    = fopen('php://temp', 'r+');
         $writer = new MarkdownStreamWriter($out, new MarkdownSanitizer());
 
         $before = memory_get_usage(true);
@@ -110,10 +113,6 @@ final class MarkdownStreamWriterTest extends TestCase
         $growth = memory_get_usage(true) - $before;
         fclose($out);
 
-        // The php://memory destination itself holds the ~10 MB of written
-        // output at this point, so the bound sits above that floor; an
-        // implementation that also accumulated the document would roughly
-        // double it.
-        self::assertLessThan(16 * 1024 * 1024, $growth, 'writer must not accumulate the document');
+        self::assertLessThan(2 * 1024 * 1024, $growth, 'writer must not accumulate the document');
     }
 }
