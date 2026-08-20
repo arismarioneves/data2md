@@ -17,6 +17,10 @@ namespace Data2Md\Converter;
  * Heuristics are line-level so legitimate paragraphs survive intact. Three or
  * more consecutive dropped lines collapse into a single "[unreadable section]"
  * marker so the reader (and any downstream LLM) can tell the gap is intentional.
+ *
+ * clean() holds the whole document in memory and is used by tests and one-off
+ * calls. MarkdownStreamWriter applies the same per-line rules for conversion,
+ * holding at most one line at a time.
  */
 final class MarkdownSanitizer
 {
@@ -44,7 +48,7 @@ final class MarkdownSanitizer
      * Strip control characters except common whitespace (tab, newline).
      * Also removes zero-width spaces and BOMs.
      */
-    private function stripControlChars(string $text): string
+    public function stripControlChars(string $text): string
     {
         // Normalize line endings first
         $text = str_replace(["\r\n", "\r"], "\n", $text);
