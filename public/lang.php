@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 define('BASE_PATH', dirname(__DIR__));
-require BASE_PATH . '/src/I18n/I18n.php';
+$config = require BASE_PATH . '/src/bootstrap.php';
+require BASE_PATH . '/src/I18n/bootstrap.php';
 
 use Data2Md\I18n\I18n;
 

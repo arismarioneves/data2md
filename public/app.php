@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 define('BASE_PATH', dirname(__DIR__));
-require BASE_PATH . '/config.php';
+
+/** @var \Data2Md\Config\Config $config */
+$config = require BASE_PATH . '/src/bootstrap.php';
+
 require BASE_PATH . '/src/I18n/bootstrap.php';
 
 use Data2Md\I18n\I18n;
-
-@ini_set('max_execution_time', (string) APP_MAX_EXECUTION_TIME);
-@ini_set('memory_limit', APP_MEMORY_LIMIT);
 
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
@@ -180,7 +180,7 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/app'), 
 
 <script>
 window.D2MD = {
-    timeout: <?= (APP_MAX_EXECUTION_TIME + 60) * 1000 ?>,
+    timeout: <?= ($config->int('CONVERT_TIMEOUT_SECONDS') + $config->int('CONVERT_QUEUE_WAIT_SECONDS') + 60) * 1000 ?>,
     i18n: <?= json_encode(I18n::jsBundle(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_APOS) ?>
 };
 </script>

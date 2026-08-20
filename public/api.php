@@ -3,13 +3,11 @@
 declare(strict_types=1);
 
 define('BASE_PATH', dirname(__DIR__));
-require BASE_PATH . '/config.php';
+
+/** @var \Data2Md\Config\Config $config */
+$config = require BASE_PATH . '/src/bootstrap.php';
+
 require BASE_PATH . '/src/I18n/bootstrap.php';
-
-@ini_set('max_execution_time', (string) APP_MAX_EXECUTION_TIME);
-@ini_set('memory_limit', APP_MEMORY_LIMIT);
-
-require BASE_PATH . '/vendor/autoload.php';
 
 use Data2Md\Converter\PdfConverter;
 use Data2Md\I18n\I18n;
@@ -45,14 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $mappingStorage = new MappingStorage(BASE_PATH . '/mappings');
 $fileStorage    = new FileStorage(BASE_PATH . '/data', BASE_PATH . '/md', $mappingStorage);
 $validator      = new Validator();
-$rateLimiter    = new RateLimiter(BASE_PATH . '/storage/rate_limits', RATE_LIMIT_API, RATE_LIMIT_WINDOW);
+$rateLimiter    = new RateLimiter(BASE_PATH . '/storage/rate_limits', RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
 
 // ── Rate limit ───────────────────────────────────────────────────────────────
 $clientIp = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0')[0]);
 
 if (!$rateLimiter->isAllowed($clientIp)) {
     header('Retry-After: ' . RATE_LIMIT_WINDOW);
-    ApiResponse::error('Rate limit exceeded. Maximum ' . RATE_LIMIT_API . ' requests per minute.', 429);
+    ApiResponse::error('Rate limit exceeded. Maximum ' . RATE_LIMIT_MAX . ' requests per minute.', 429);
 }
 
 // ── Validate file ────────────────────────────────────────────────────────────
@@ -234,7 +232,7 @@ function renderDocs(): void
 
                 <section class="docs-section">
                     <h2><?= t('api.section.rate') ?></h2>
-                    <p><?= t('api.rate.body', RATE_LIMIT_API, RATE_LIMIT_WINDOW) ?></p>
+                    <p><?= t('api.rate.body', RATE_LIMIT_MAX, RATE_LIMIT_WINDOW) ?></p>
                 </section>
 
                 <section class="docs-section">
