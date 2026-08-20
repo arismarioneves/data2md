@@ -1,2 +1,17 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Working tree em CRLF; repositório em LF.
+* text=auto eol=crlf
+
+# Executados dentro do container Linux: CRLF quebraria shebang e continuações.
+*.sh          text eol=lf
+bin/data2md   text eol=lf
+Dockerfile    text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.ini         text eol=lf
+*.conf        text eol=lf
+
+# Binários.
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary

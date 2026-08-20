@@ -12,6 +12,7 @@ composer.lock
 
 /storage/rate_limits/
 
+/docs/superpowers/
 /docs/**/*.png
 /docs/**/*.jpg
 
