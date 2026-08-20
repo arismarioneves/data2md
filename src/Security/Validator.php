@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace Data2Md\Security;
 
-class Validator
+final class Validator
 {
     private const ALLOWED = [
         'pdf' => [
             'extensions' => ['pdf'],
             'mime_types' => ['application/pdf'],
         ],
+        // Additional formats registered here as they are implemented
     ];
+
+    public function __construct(
+        private readonly int $maxFileSizeBytes,
+        private readonly string $maxFileSizeLabel,
+    ) {
+    }
 
     public function validateUpload(array $file, string $format = 'pdf'): array
     {
@@ -29,8 +36,8 @@ class Validator
             return ["Unsupported format: $format"];
         }
 
-        if ($file['size'] > \MAX_FILE_SIZE) {
-            $errors[] = 'File exceeds the maximum allowed size of ' . \MAX_FILE_SIZE_LABEL . '.';
+        if ($file['size'] > $this->maxFileSizeBytes) {
+            $errors[] = 'File exceeds the maximum allowed size of ' . $this->maxFileSizeLabel . '.';
         }
 
         if (!is_uploaded_file($file['tmp_name'])) {
@@ -59,12 +66,18 @@ class Validator
         return (bool) preg_match('/^[a-f0-9]{15}$/', $hash);
     }
 
+    /**
+     * Strips null bytes, control characters and path separators, and
+     * guarantees the result is valid UTF-8, capped at 255 bytes without
+     * splitting a multibyte character in half. Never HTML-escapes: escaping
+     * is the view's responsibility.
+     */
     public function sanitizeOriginalName(string $name): string
     {
-        // Strip null bytes, path separators, and control characters
-        $name = preg_replace('/[\x00-\x1f\x7f\/\\\\]/', '', $name);
-        $name = htmlspecialchars($name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        return substr($name, 0, 255);
+        $name = mb_scrub($name, 'UTF-8');
+        $name = preg_replace('/[\x00-\x1f\x7f\/\\\\]/u', '', $name) ?? '';
+
+        return mb_strcut(trim($name), 0, 255, 'UTF-8');
     }
 
     public function isAllowedFormat(string $format): bool
