@@ -6,25 +6,50 @@ define('BASE_PATH', dirname(__DIR__));
 
 /** @var \Data2Md\Config\Config $config */
 $config = require BASE_PATH . '/src/bootstrap.php';
-
 require BASE_PATH . '/src/I18n/bootstrap.php';
 
+use Data2Md\Converter\ConversionException;
+use Data2Md\Converter\MarkdownSanitizer;
 use Data2Md\Converter\PdfConverter;
+use Data2Md\Http\ClientIp;
+use Data2Md\Http\Cors;
 use Data2Md\I18n\I18n;
+use Data2Md\Log\Logger;
 use Data2Md\Response\ApiResponse;
+use Data2Md\Runtime\ConversionSemaphore;
+use Data2Md\Runtime\Process;
+use Data2Md\Runtime\QueueTimeoutException;
 use Data2Md\Security\RateLimiter;
 use Data2Md\Security\Validator;
+use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
 use Data2Md\Storage\MappingStorage;
+
+const PREVIEW_BYTES = 8000;
+
+$dataDir = $config->string('APP_DATA_DIR');
+$logger  = new Logger($dataDir . '/logs');
+$cors    = new Cors($config->list('CORS_ALLOWED_ORIGINS'));
+$origin  = $_SERVER['HTTP_ORIGIN'] ?? null;
 
 // ── Security headers ────────────────────────────────────────────────────────
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 
+foreach ($cors->headersFor(is_string($origin) ? $origin : null) as $name => $value) {
+    header("$name: $value");
+}
+
 // ── CORS preflight ───────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
+    $status = $cors->handlePreflight(is_string($origin) ? $origin : null);
+
+    foreach ($cors->headersFor(is_string($origin) ? $origin : null, preflight: true) as $name => $value) {
+        header("$name: $value");
+    }
+
+    http_response_code($status);
     exit;
 }
 
@@ -34,26 +59,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
-// ── Only POST beyond this point ──────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     ApiResponse::error('Method not allowed. Use POST.', 405);
 }
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
-$mappingStorage = new MappingStorage(BASE_PATH . '/mappings');
-$fileStorage    = new FileStorage(BASE_PATH . '/data', BASE_PATH . '/md', $mappingStorage);
-$validator      = new Validator();
-$rateLimiter    = new RateLimiter(BASE_PATH . '/storage/rate_limits', RATE_LIMIT_MAX, RATE_LIMIT_WINDOW);
+$database  = new Database($dataDir . '/db/mappings.sqlite');
+$mappings  = new MappingStorage($database);
+$files     = new FileStorage($dataDir . '/md', $dataDir . '/tmp');
+$validator = new Validator(MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL);
+
+$clientIp = (new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER);
+$loggedIp = Logger::truncateIp($clientIp);
 
 // ── Rate limit ───────────────────────────────────────────────────────────────
-$clientIp = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0')[0]);
+$rateLimiter = new RateLimiter(
+    $dataDir . '/ratelimit',
+    RATE_LIMIT_MAX,
+    RATE_LIMIT_WINDOW,
+);
 
 if (!$rateLimiter->isAllowed($clientIp)) {
-    header('Retry-After: ' . RATE_LIMIT_WINDOW);
-    ApiResponse::error('Rate limit exceeded. Maximum ' . RATE_LIMIT_MAX . ' requests per minute.', 429);
+    $logger->app('ratelimit.block', ['ip' => $loggedIp], 'warning');
+
+    header('Retry-After: ' . $rateLimiter->retryAfter());
+    ApiResponse::error(
+        'Rate limit exceeded. Maximum ' . RATE_LIMIT_MAX . ' requests per ' . RATE_LIMIT_WINDOW . ' seconds.',
+        429
+    );
 }
 
-// ── Validate file ────────────────────────────────────────────────────────────
+// ── Validate ─────────────────────────────────────────────────────────────────
 $file = $_FILES['file'] ?? null;
 
 if ($file === null) {
@@ -63,56 +99,158 @@ if ($file === null) {
 $format = strtolower(trim($_POST['format'] ?? 'pdf'));
 
 if (!$validator->isAllowedFormat($format)) {
-    ApiResponse::error(
-        'Unsupported format. Allowed: ' . implode(', ', $validator->supportedFormats()),
-        400
-    );
+    ApiResponse::error('Unsupported format. Allowed: ' . implode(', ', $validator->supportedFormats()), 400);
 }
 
 $uploadErrors = $validator->validateUpload($file, $format);
+
 if ($uploadErrors !== []) {
     ApiResponse::error('Validation failed.', 422, $uploadErrors);
 }
 
-// ── Convert ──────────────────────────────────────────────────────────────────
+// ── Queue for a conversion slot ──────────────────────────────────────────────
+$semaphore = new ConversionSemaphore(
+    $dataDir . '/tmp',
+    $config->int('CONVERT_CONCURRENCY'),
+    $config->int('CONVERT_QUEUE_WAIT_SECONDS'),
+);
+
 try {
-    $originalName = $validator->sanitizeOriginalName($file['name']);
-    $hash         = $fileStorage->storeUploadedFile($file, $originalName, $format);
+    $slot = $semaphore->acquire();
+} catch (QueueTimeoutException $e) {
+    $logger->app('convert.rejected', ['ip' => $loggedIp, 'reason' => 'queue_full'], 'warning');
+
+    header('Retry-After: ' . $e->retryAfter());
+    ApiResponse::error('The server is busy converting other documents. Please retry shortly.', 503);
+}
+
+// ── Convert ──────────────────────────────────────────────────────────────────
+$originalPath = null;
+$hash         = null;
+$startedAt    = microtime(true);
+
+// ApiResponse::success()/error() call exit(), and exit() from inside a try
+// or catch does not run an enclosing finally — so the response is deferred
+// to $respond and sent only after the try/catch/finally below has completed,
+// guaranteeing the cleanup in finally always runs first.
+$respond = null;
+
+try {
+    $originalName = $validator->sanitizeOriginalName((string) $file['name']);
+    $sizeBytes    = (int) $file['size'];
+
+    $hash         = $mappings->generateUniqueHash();
+    $originalPath = $files->acceptUpload((string) $file['tmp_name'], $hash);
 
     $converter = match ($format) {
-        'pdf'   => new PdfConverter(),
+        'pdf'   => new PdfConverter(
+            'pdftotext',
+            new Process(
+                $config->int('CONVERT_TIMEOUT_SECONDS'),
+                Process::priorityPrefix($config->int('CONVERT_NICE')),
+            ),
+            new MarkdownSanitizer(),
+            $dataDir . '/tmp',
+        ),
         default => throw new \InvalidArgumentException("Unsupported format: $format"),
     };
 
-    $filePath = $fileStorage->getFilePath($hash, $format);
-    $markdown = $converter->convert($filePath);
-    $fileStorage->storeMarkdown($hash, $markdown);
+    $result = $converter->convertToFile($originalPath, $files->markdownPath($hash));
 
-    // Truncate the inline preview at a clean line boundary. Full markdown is
-    // always available via download_url.
-    $previewLimit = 8000;
-    $totalChars   = mb_strlen($markdown);
-    $truncated    = $totalChars > $previewLimit;
-    $preview      = $markdown;
+    $mappings->save($hash, $originalName, $format, $sizeBytes);
+
+    $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
+
+    $logger->app('convert.ok', [
+        'hash'     => $hash,
+        'bytes'    => $sizeBytes,
+        'ms'       => $elapsedMs,
+        'pages'    => $result->pages,
+        'queue_ms' => $slot->waitedMs(),
+        'ip'       => $loggedIp,
+    ]);
+
+    $logger->audit([
+        'hash'          => $hash,
+        'original_name' => $originalName,
+        'bytes'         => $sizeBytes,
+        'ip'            => $clientIp,
+        'ua'            => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 256),
+    ]);
+
+    // The preview is read back from the file rather than held in memory, so
+    // the response cost is bounded no matter how large the document is.
+    $totalBytes = $files->markdownSize($hash);
+    $truncated  = $totalBytes > PREVIEW_BYTES;
+    $preview    = $files->readMarkdownPrefix($hash, PREVIEW_BYTES);
+
     if ($truncated) {
-        $breakAt = strrpos(substr($markdown, 0, $previewLimit), "\n");
-        $preview = substr($markdown, 0, $breakAt !== false && $breakAt > 0 ? $breakAt : $previewLimit);
+        $breakAt = strrpos($preview, "\n");
+
+        if ($breakAt !== false && $breakAt > 0) {
+            $preview = substr($preview, 0, $breakAt);
+        }
     }
 
-    ApiResponse::success([
+    $respond = static fn () => ApiResponse::success([
         'hash'              => $hash,
         'original_name'     => $originalName,
         'format'            => $format,
-        'lines'             => substr_count($markdown, "\n") + 1,
-        'characters'        => $totalChars,
+        'lines'             => $result->lines,
+        'characters'        => $result->characters,
+        'pages'             => $result->pages,
         'download_url'      => '/download?hash=' . urlencode($hash),
         'preview'           => $preview,
         'preview_truncated' => $truncated,
     ], 201);
 
-} catch (\Exception $e) {
-    ApiResponse::error('Conversion failed: ' . $e->getMessage(), 500);
+} catch (ConversionException $e) {
+    $logger->app('convert.fail', [
+        'hash'   => $hash,
+        'ip'     => $loggedIp,
+        'ms'     => (int) round((microtime(true) - $startedAt) * 1000),
+        'reason' => $e::class,
+        'detail' => $e->detail(),
+    ], 'error');
+
+    $respond = static fn () => ApiResponse::error($e->getMessage(), $e->httpStatus());
+
+} catch (\Throwable $e) {
+    // The message may name internal paths, so it goes to the log, not the wire.
+    $logger->app('convert.fail', [
+        'hash'   => $hash,
+        'ip'     => $loggedIp,
+        'reason' => $e::class,
+        'detail' => $e->getMessage(),
+    ], 'error');
+
+    $respond = static fn () => ApiResponse::error('Conversion failed.', 500);
+
+} finally {
+    if ($originalPath !== null) {
+        // The uploaded file is not kept — this runs on success and on failure.
+        $files->deleteOriginal($originalPath);
+    }
+
+    $slot->release();
+
+    $config->float('GC_PROBABILITY') > 0.0 and (static function () use ($config, $files, $mappings, $logger, $dataDir): void {
+        (new \Data2Md\Storage\Gc(
+            files:                  $files,
+            mappings:               $mappings,
+            logger:                 $logger,
+            logDir:                 $dataDir . '/logs',
+            rateLimitDir:           $dataDir . '/ratelimit',
+            logRetentionDays:       $config->int('LOG_RETENTION_DAYS'),
+            auditLogRetentionDays:  $config->int('AUDIT_LOG_RETENTION_DAYS'),
+            rateLimitWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
+            convertTimeoutSeconds:  $config->int('CONVERT_TIMEOUT_SECONDS'),
+            lockDir:                $dataDir . '/tmp',
+        ))->maybeRun($config->float('GC_PROBABILITY'));
+    })();
 }
+
+$respond();
 
 // ── Docs renderer ────────────────────────────────────────────────────────────
 function renderDocs(): void
