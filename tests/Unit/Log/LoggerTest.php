@@ -113,6 +113,48 @@ final class LoggerTest extends TestCase
         self::assertLessThanOrEqual(400, filesize($this->dir . '/app.jsonl'));
     }
 
+    public function testRotationDoesNotDiscardThePreviousGenerationOnASubsequentSmallWrite(): void
+    {
+        $logger = $this->logger(maxBytes: 200);
+
+        // Write until the first rotation happens. The write that triggers it
+        // also appends its own line right after, so the live file is small
+        // again by construction the moment the loop stops — exactly the
+        // "already below threshold" state this test needs, with no guessing
+        // about exact byte counts.
+        for ($i = 0; $i < 20 && !file_exists($this->dir . '/app.jsonl.1'); $i++) {
+            $logger->app('convert.ok', ['n' => $i, 'pad' => str_repeat('x', 40)]);
+        }
+
+        self::assertFileExists($this->dir . '/app.jsonl.1', 'rotation never triggered; test setup is wrong');
+        $rotatedBefore  = file_get_contents($this->dir . '/app.jsonl.1');
+        $liveSizeBefore = filesize($this->dir . '/app.jsonl');
+        self::assertLessThan(200, $liveSizeBefore, 'live file should already be below the limit right after rotating');
+
+        // One more small write while below the limit must append, not rotate
+        // again — a spurious second rotation here would discard ".1".
+        $logger->app('convert.ok', ['n' => 'extra']);
+
+        self::assertSame($rotatedBefore, file_get_contents($this->dir . '/app.jsonl.1'));
+        self::assertGreaterThan($liveSizeBefore, filesize($this->dir . '/app.jsonl'));
+    }
+
+    public function testInvalidUtf8InFilenameDoesNotBreakTheJsonLine(): void
+    {
+        $badName = "invoice-\xFF\xFE-final.pdf";
+
+        $this->logger()->audit(['hash' => 'abc123', 'original_name' => $badName]);
+
+        $lines = $this->readLines('audit');
+        self::assertCount(1, $lines);
+
+        $entry = json_decode($lines[0], true);
+        self::assertIsArray($entry, 'invalid UTF-8 in a field must not make the line undecodable');
+        self::assertSame('abc123', $entry['hash']);
+        self::assertArrayHasKey('original_name', $entry);
+        self::assertStringContainsString("\u{FFFD}", $entry['original_name']);
+    }
+
     public function testFieldsCannotOverrideReservedKeys(): void
     {
         $this->logger()->app('convert.ok', ['evt' => 'spoofed', 'ts' => 'nope']);

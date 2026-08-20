@@ -92,8 +92,14 @@ final class Logger
         $existed = file_exists($path);
         file_put_contents($path, $line . "\n", FILE_APPEND | LOCK_EX);
 
-        if (!$existed) {
-            @chmod($path, $mode);
+        if (!$existed && !chmod($path, $mode)) {
+            $reason = error_get_last()['message'] ?? 'unknown reason';
+            error_log(sprintf(
+                '[data2md] chmod(%s, 0%o) failed (%s); this file may be more permissive than intended',
+                $path,
+                $mode,
+                $reason
+            ));
         }
     }
 
@@ -101,6 +107,18 @@ final class Logger
      * Size-based rotation, kept in the Logger because the container has neither
      * cron nor logrotate. Only one generation is retained; the GC removes the
      * rotated file once it is past retention.
+     *
+     * Double-checked under a lock on the live file: the unlocked check above
+     * is a fast path so an ordinary write doesn't pay for a lock it will
+     * almost never need. Once that check says "oversized", we open the live
+     * file, take an exclusive lock, and re-check size and existence while
+     * holding it. Without the re-check, two workers can both observe
+     * "oversized" before either renames, and the second rename would clobber
+     * the generation the first just created. The re-check catches a worker
+     * that lost the race: by the time it gets the lock, the file it opened
+     * has either already been renamed away (file_exists fails) or replaced
+     * by a fresh, small one (filesize fails the threshold), so it backs off
+     * instead of rotating a second time.
      */
     private function rotateIfNeeded(string $path): void
     {
@@ -113,7 +131,28 @@ final class Logger
             return;
         }
 
-        @rename($path, $path . '.1');
+        // 'r+' never creates: if the file is gone by the time we get here,
+        // another worker already rotated it, and that is not our problem.
+        $lock = @fopen($path, 'r+');
+        if ($lock === false) {
+            return;
+        }
+
+        try {
+            if (!flock($lock, LOCK_EX)) {
+                return;
+            }
+
+            clearstatcache(true, $path);
+            if (!file_exists($path) || filesize($path) < $this->maxBytes) {
+                return;
+            }
+
+            rename($path, $path . '.1');
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
     }
 
     private static function now(): string
