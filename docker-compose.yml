@@ -23,6 +23,22 @@ services:
     environment:
       APP_ENV: "development"
       APP_URL: "http://localhost"
+      APP_NAME: "data2md"
+      APP_VERSION: "1.1.0"
+      APP_DATA_DIR: "/tmp/data2md"
+      MAX_FILE_SIZE_MB: "200"
+      CONVERT_TIMEOUT_SECONDS: "900"
+      CONVERT_CONCURRENCY: "2"
+      CONVERT_QUEUE_WAIT_SECONDS: "120"
+      CONVERT_NICE: "15"
+      PHP_MEMORY_LIMIT_MB: "512"
+      RATE_LIMIT_MAX: "20"
+      RATE_LIMIT_WINDOW_SECONDS: "60"
+      TRUSTED_PROXIES: "10.11.0.0/16"
+      CORS_ALLOWED_ORIGINS: ""
+      LOG_RETENTION_DAYS: "90"
+      AUDIT_LOG_RETENTION_DAYS: "30"
+      GC_PROBABILITY: "0"
     command: ["vendor/bin/phpunit"]
 
 volumes:
