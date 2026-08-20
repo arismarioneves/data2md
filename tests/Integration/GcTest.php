@@ -81,12 +81,27 @@ final class GcTest extends TestCase
 
     public function testMarkdownWithoutARecordIsRemoved(): void
     {
-        file_put_contents($this->files->markdownPath('ccccccccccccccc'), '# orphan');
+        $path = $this->files->markdownPath('ccccccccccccccc');
+        file_put_contents($path, '# orphan');
+        touch($path, time() - 3600);
 
         $report = $this->gc->run();
 
         self::assertSame(1, $report->orphanMarkdown);
         self::assertFalse($this->files->markdownExists('ccccccccccccccc'));
+    }
+
+    public function testRecentMarkdownWithoutARecordIsNotRemoved(): void
+    {
+        // A conversion writes its markdown before saving the mapping record,
+        // so a fresh file with no record yet is a conversion in progress,
+        // not an orphan.
+        file_put_contents($this->files->markdownPath('bbbbbbbbbbbbbbb'), '# in progress');
+
+        $report = $this->gc->run();
+
+        self::assertSame(0, $report->orphanMarkdown);
+        self::assertTrue($this->files->markdownExists('bbbbbbbbbbbbbbb'));
     }
 
     public function testRecordWithoutMarkdownIsRemoved(): void
@@ -170,10 +185,31 @@ final class GcTest extends TestCase
 
     public function testRunIsIdempotent(): void
     {
-        file_put_contents($this->files->markdownPath('eeeeeeeeeeeeeee'), '# orphan');
+        $path = $this->files->markdownPath('eeeeeeeeeeeeeee');
+        file_put_contents($path, '# orphan');
+        touch($path, time() - 3600);
 
         self::assertSame(1, $this->gc->run()->orphanMarkdown);
         self::assertSame(0, $this->gc->run()->orphanMarkdown);
+    }
+
+    public function testRunReportsNotSkippedWhenItCompletes(): void
+    {
+        self::assertFalse($this->gc->run()->skipped);
+    }
+
+    public function testRunReportsSkippedWhenAnotherCollectionIsInProgress(): void
+    {
+        $lock = fopen($this->root . '/tmp/gc.lock', 'c');
+        flock($lock, LOCK_EX);
+
+        $report = $this->gc->run();
+
+        self::assertTrue($report->skipped);
+        self::assertSame(0, $report->total());
+
+        flock($lock, LOCK_UN);
+        fclose($lock);
     }
 
     public function testMaybeRunNeverRunsAtZeroProbability(): void
@@ -186,7 +222,9 @@ final class GcTest extends TestCase
 
     public function testMaybeRunAlwaysRunsAtProbabilityOne(): void
     {
-        file_put_contents($this->files->markdownPath('aaaaaaaaaaaaaab'), '# orphan');
+        $path = $this->files->markdownPath('aaaaaaaaaaaaaab');
+        file_put_contents($path, '# orphan');
+        touch($path, time() - 3600);
 
         self::assertNotNull($this->gc->maybeRun(1.0));
         self::assertFalse($this->files->markdownExists('aaaaaaaaaaaaaab'));
@@ -194,7 +232,9 @@ final class GcTest extends TestCase
 
     public function testReportTotal(): void
     {
-        file_put_contents($this->files->markdownPath('aaaaaaaaaaaaaac'), '# orphan');
+        $path = $this->files->markdownPath('aaaaaaaaaaaaaac');
+        file_put_contents($path, '# orphan');
+        touch($path, time() - 3600);
         $this->mappings->save('aaaaaaaaaaaaaad', 'gone.pdf', 'pdf', 100, time());
 
         self::assertSame(2, $this->gc->run()->total());

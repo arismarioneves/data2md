@@ -10,7 +10,9 @@ use Data2Md\Log\Logger;
  * run() removes orphaned markdown, orphaned mappings, expired rate-limit
  * counters, rotated logs past retention, and stale temp files. It never
  * removes a markdown file that still has a mapping record, regardless of
- * age.
+ * age, and it never removes a markdown file recent enough to still belong
+ * to a conversion in progress. When a concurrent collection already holds
+ * the lock, run() returns immediately with a report flagged as skipped.
  *
  * delete() and prune() remove conversions by hash or by age. They are only
  * called from the CLI, never from request handling.
@@ -49,20 +51,20 @@ final class Gc
         $lock = fopen($this->lockDir . '/gc.lock', 'c');
 
         if ($lock === false) {
-            return new GcReport();
+            return new GcReport(skipped: true);
         }
 
         // Non-blocking: a concurrent collection is already doing this work.
         if (!flock($lock, LOCK_EX | LOCK_NB)) {
             fclose($lock);
-            return new GcReport();
+            return new GcReport(skipped: true);
         }
 
         try {
             $now = time();
 
             $report = new GcReport(
-                orphanMarkdown:  $this->collectOrphanMarkdown(),
+                orphanMarkdown:  $this->collectOrphanMarkdown($now),
                 orphanMappings:  $this->collectOrphanMappings(),
                 rateLimitFiles:  $this->collectRateLimits($now),
                 rotatedLogs:     $this->collectRotatedLogs($now),
@@ -118,12 +120,18 @@ final class Gc
         return $removed;
     }
 
-    private function collectOrphanMarkdown(): int
+    private function collectOrphanMarkdown(int $now): int
     {
+        // Twice the conversion ceiling: a fresher file may still belong to a
+        // conversion that has written its markdown but not yet saved its
+        // mapping record.
+        $cut     = $now - ($this->convertTimeoutSeconds * 2);
         $removed = 0;
 
         foreach ($this->files->orphanMarkdownHashes($this->mappings->allHashes()) as $hash) {
-            if ($this->files->deleteMarkdown($hash)) {
+            $path = $this->files->markdownPath($hash);
+
+            if (is_file($path) && filemtime($path) < $cut && $this->files->deleteMarkdown($hash)) {
                 $removed++;
             }
         }

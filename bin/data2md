@@ -73,6 +73,11 @@ switch ($command) {
     case 'gc':
         $report = makeGc($config, $dataDir)->run();
 
+        if ($report->skipped) {
+            fwrite(STDOUT, "skipped: another collection is already in progress\n");
+            exit(0);
+        }
+
         foreach ($report->toArray() as $key => $count) {
             fwrite(STDOUT, sprintf("%-18s %d\n", $key, $count));
         }

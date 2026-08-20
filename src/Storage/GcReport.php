@@ -12,6 +12,7 @@ final class GcReport
         public readonly int $rateLimitFiles = 0,
         public readonly int $rotatedLogs = 0,
         public readonly int $staleTempFiles = 0,
+        public readonly bool $skipped = false,
     ) {
     }
 
