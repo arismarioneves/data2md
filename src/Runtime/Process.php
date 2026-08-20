@@ -68,7 +68,17 @@ final class Process
             fclose($pipes[1]);
             fclose($pipes[2]);
             proc_terminate($process, 9);
-            proc_close($process);
+
+            // Same discipline as the timeout path: proc_close() waits for the
+            // child, so it only runs once the child is confirmed dead.
+            $deadline = microtime(true) + self::SIGTERM_GRACE;
+            while (microtime(true) < $deadline && proc_get_status($process)['running']) {
+                usleep(self::POLL_MICROSECONDS);
+            }
+
+            if (!proc_get_status($process)['running']) {
+                proc_close($process);
+            }
 
             return new ProcessResult(127, '', 'Failed to set pipes non-blocking: ' . $full[0], false);
         }
