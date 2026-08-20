@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Data2Md\Converter;
 
 /**
- * Cleans up the noise that pdftotext / smalot/pdfparser sometimes produces:
+ * Cleans up the noise that pdftotext sometimes produces:
  *
  *   - control characters and zero-widths
  *   - "CMap garbage" lines: long runs of mixed-case letters with almost no
