@@ -57,7 +57,8 @@ final class PdfConverter implements ConverterInterface
             $detail = trim($result->stderr);
 
             throw new ConversionFailedException(
-                'Could not read the PDF' . ($detail !== '' ? ': ' . $detail : '.')
+                'Could not read the PDF.',
+                $detail !== '' ? $detail : null,
             );
         }
 
@@ -79,56 +80,64 @@ final class PdfConverter implements ConverterInterface
             throw new ConversionFailedException('Could not open the markdown output.');
         }
 
-        $writer   = new MarkdownStreamWriter($out, $this->sanitizer);
-        $pages    = 0;
-        $pageOpen = false;
-
+        // Any failure past this point must not leave a partial file at
+        // $outputPath; a success returns from inside the try instead of
+        // falling through to the catch, so the cleanup never runs on the
+        // success path.
         try {
-            while (($rawLine = fgets($in)) !== false) {
-                $line = rtrim($rawLine, "\r\n");
+            $writer   = new MarkdownStreamWriter($out, $this->sanitizer);
+            $pages    = 0;
+            $pageOpen = false;
 
-                // pdftotext separates pages with a form feed, which may share
-                // a line with content on either side of it.
-                $segments = explode(self::PAGE_BREAK, $line);
+            try {
+                while (($rawLine = fgets($in)) !== false) {
+                    $line = rtrim($rawLine, "\r\n");
 
-                foreach ($segments as $index => $segment) {
-                    if ($index > 0) {
-                        $pageOpen = false; // the form feed closed the previous page
-                    }
+                    // pdftotext separates pages with a form feed, which may
+                    // share a line with content on either side of it.
+                    $segments = explode(self::PAGE_BREAK, $line);
 
-                    if (trim($segment) === '') {
-                        if ($pageOpen) {
-                            $writer->blankLine();
+                    foreach ($segments as $index => $segment) {
+                        if ($index > 0) {
+                            $pageOpen = false; // the form feed closed the previous page
                         }
-                        continue;
-                    }
 
-                    if (!$pageOpen) {
-                        $pages++;
-                        $writer->writeRaw('## Page ' . $pages);
-                        $writer->blankLine();
-                        $pageOpen = true;
-                    }
+                        if (trim($segment) === '') {
+                            if ($pageOpen) {
+                                $writer->blankLine();
+                            }
+                            continue;
+                        }
 
-                    $writer->writeLine($segment);
+                        if (!$pageOpen) {
+                            $pages++;
+                            $writer->writeRaw('## Page ' . $pages);
+                            $writer->blankLine();
+                            $pageOpen = true;
+                        }
+
+                        $writer->writeLine($segment);
+                    }
                 }
+
+                $stats = $writer->finish();
+            } finally {
+                fclose($in);
+                fclose($out);
             }
 
-            $stats = $writer->finish();
-        } finally {
-            fclose($in);
-            fclose($out);
-        }
+            if ($pages === 0) {
+                throw new NoTextLayerException(
+                    'This PDF has no text layer — it looks like a scan or an image-only export, and needs OCR.'
+                );
+            }
 
-        if ($pages === 0) {
+            return new ConversionResult($stats->lines, $stats->characters, $pages);
+        } catch (\Throwable $e) {
             @unlink($outputPath);
 
-            throw new NoTextLayerException(
-                'This PDF has no text layer — it looks like a scan or an image-only export, and needs OCR.'
-            );
+            throw $e;
         }
-
-        return new ConversionResult($stats->lines, $stats->characters, $pages);
     }
 
     /** @return list<string> */

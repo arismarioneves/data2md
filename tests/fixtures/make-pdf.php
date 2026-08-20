@@ -68,4 +68,65 @@ file_put_contents(
 // Not a PDF at all, for the corrupt-input path.
 file_put_contents(__DIR__ . '/corrupt.pdf', "%PDF-1.4\nthis is not a valid pdf body\n");
 
+/**
+ * A PDF with one page per entry in $pageContents, each with its own content
+ * stream and a shared font. An empty string produces a page with no content
+ * stream operators at all.
+ *
+ * @param list<string> $pageContents
+ */
+function multi_page_pdf(array $pageContents, bool $withFont = true): string
+{
+    $count     = count($pageContents);
+    $fontNum   = 3 + 2 * $count;
+    $resources = $withFont ? '<</Font<</F1 ' . $fontNum . ' 0 R>>>>' : '<<>>';
+
+    $kids = [];
+    for ($i = 0; $i < $count; $i++) {
+        $kids[] = (3 + $i) . ' 0 R';
+    }
+
+    $objects = [
+        1 => '<</Type/Catalog/Pages 2 0 R>>',
+        2 => '<</Type/Pages/Kids[' . implode(' ', $kids) . ']/Count ' . $count . '>>',
+    ];
+
+    for ($i = 0; $i < $count; $i++) {
+        $pageNum    = 3 + $i;
+        $contentNum = 3 + $count + $i;
+        $content    = $pageContents[$i];
+
+        $objects[$pageNum]    = '<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents ' . $contentNum . ' 0 R/Resources' . $resources . '>>';
+        $objects[$contentNum] = '<</Length ' . strlen($content) . '>>stream' . "\n" . $content . 'endstream';
+    }
+
+    if ($withFont) {
+        $objects[$fontNum] = '<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>';
+    }
+
+    return build_pdf($objects);
+}
+
+// Three pages of text, for exercising page-break handling across more than
+// one form feed.
+file_put_contents(
+    __DIR__ . '/multi-page.pdf',
+    multi_page_pdf([
+        "BT /F1 12 Tf 72 700 Td (Page one content here) Tj ET\n",
+        "BT /F1 12 Tf 72 700 Td (Page two content here) Tj ET\n",
+        "BT /F1 12 Tf 72 700 Td (Page three content here) Tj ET\n",
+    ])
+);
+
+// Three pages where the middle one has no content stream operators at all —
+// consecutive form feeds with nothing but layout whitespace between them.
+file_put_contents(
+    __DIR__ . '/blank-middle-page.pdf',
+    multi_page_pdf([
+        "BT /F1 12 Tf 72 700 Td (First page content) Tj ET\n",
+        '',
+        "BT /F1 12 Tf 72 700 Td (Third page content) Tj ET\n",
+    ])
+);
+
 echo "fixtures written\n";
