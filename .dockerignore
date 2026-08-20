@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+.playwright-mcp
+vendor
+node_modules
+docs
+md.test
+data
+md
+mappings
+storage
+.phpunit.cache
+*.md
+!README.md

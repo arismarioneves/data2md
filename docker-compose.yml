@@ -1,0 +1,29 @@
+services:
+  app:
+    build:
+      context: .
+      target: app
+    ports:
+      - "8080:80"
+    environment:
+      APP_URL: "http://localhost:8080"
+    volumes:
+      - data2md-data:/var/lib/data2md
+    mem_limit: 2g
+    cpus: "1.0"
+    restart: unless-stopped
+
+  test:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/var/www/html
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: "development"
+      APP_URL: "http://localhost"
+    command: ["vendor/bin/phpunit"]
+
+volumes:
+  data2md-data:
