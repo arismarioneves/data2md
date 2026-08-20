@@ -1,0 +1,184 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Operator CLI. Runs inside the container:
+ *
+ *   docker compose exec app bin/data2md gc
+ *   docker compose exec app bin/data2md logs --tail=50
+ */
+
+use Data2Md\Log\Logger;
+use Data2Md\Storage\Database;
+use Data2Md\Storage\FileStorage;
+use Data2Md\Storage\Gc;
+use Data2Md\Storage\MappingStorage;
+
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+
+define('BASE_PATH', dirname(__DIR__));
+
+/** @var \Data2Md\Config\Config $config */
+$config = require BASE_PATH . '/src/bootstrap.php';
+
+$dataDir = $config->string('APP_DATA_DIR');
+$command = $argv[1] ?? 'help';
+
+/** @param list<string> $argv */
+function option(array $argv, string $name, string $default): string
+{
+    foreach ($argv as $arg) {
+        if (str_starts_with($arg, "--$name=")) {
+            return substr($arg, strlen($name) + 3);
+        }
+    }
+    return $default;
+}
+
+/** Shared by gc, delete and prune, so the three can never drift apart. */
+function makeGc(\Data2Md\Config\Config $config, string $dataDir): Gc
+{
+    $db = new Database($dataDir . '/db/mappings.sqlite');
+    $db->migrate();
+
+    return new Gc(
+        files:                  new FileStorage($dataDir . '/md', $dataDir . '/tmp'),
+        mappings:               new MappingStorage($db),
+        logger:                 new Logger($dataDir . '/logs'),
+        logDir:                 $dataDir . '/logs',
+        rateLimitDir:           $dataDir . '/ratelimit',
+        logRetentionDays:       $config->int('LOG_RETENTION_DAYS'),
+        auditLogRetentionDays:  $config->int('AUDIT_LOG_RETENTION_DAYS'),
+        rateLimitWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
+        convertTimeoutSeconds:  $config->int('CONVERT_TIMEOUT_SECONDS'),
+        lockDir:                $dataDir . '/tmp',
+    );
+}
+
+switch ($command) {
+    case 'config:check':
+        // Reaching this line means bootstrap validated everything.
+        fwrite(STDOUT, "configuration OK (" . count(\Data2Md\Config\Config::keys()) . " keys)\n");
+        exit(0);
+
+    case 'migrate':
+        (new Database($dataDir . '/db/mappings.sqlite'))->migrate();
+        fwrite(STDOUT, "schema up to date\n");
+        exit(0);
+
+    case 'gc':
+        $report = makeGc($config, $dataDir)->run();
+
+        foreach ($report->toArray() as $key => $count) {
+            fwrite(STDOUT, sprintf("%-18s %d\n", $key, $count));
+        }
+        fwrite(STDOUT, sprintf("%-18s %d\n", 'total', $report->total()));
+        exit(0);
+
+    case 'delete':
+        $hash = $argv[2] ?? '';
+
+        if (preg_match('/^[a-f0-9]{15}$/', $hash) !== 1) {
+            fwrite(STDERR, "usage: data2md delete <hash>\n");
+            exit(1);
+        }
+
+        $removed = makeGc($config, $dataDir)->delete($hash);
+
+        fwrite(STDOUT, $removed ? "deleted $hash\n" : "not found: $hash\n");
+        exit($removed ? 0 : 1);
+
+    case 'prune':
+        $days = (int) option($argv, 'older-than', '0');
+
+        if ($days < 1) {
+            fwrite(STDERR, "usage: data2md prune --older-than=<days>\n");
+            fwrite(STDERR, "this permanently removes conversions; there is no undo\n");
+            exit(1);
+        }
+
+        $removed = makeGc($config, $dataDir)->prune($days);
+
+        fwrite(STDOUT, "removed $removed conversion(s) older than $days day(s)\n");
+        exit(0);
+
+    case 'logs':
+        $channel = option($argv, 'channel', 'app');
+        $tail    = (int) option($argv, 'tail', '50');
+
+        if (!in_array($channel, ['app', 'audit'], true)) {
+            fwrite(STDERR, "unknown channel: $channel (use app or audit)\n");
+            exit(1);
+        }
+
+        $path = $dataDir . '/logs/' . $channel . '.jsonl';
+
+        if (!is_file($path)) {
+            fwrite(STDOUT, "no entries yet\n");
+            exit(0);
+        }
+
+        $lines = [];
+        $handle = fopen($path, 'rb');
+
+        while (($line = fgets($handle)) !== false) {
+            $lines[] = rtrim($line);
+
+            if (count($lines) > $tail) {
+                array_shift($lines);
+            }
+        }
+        fclose($handle);
+
+        foreach ($lines as $line) {
+            $entry = json_decode($line, true);
+
+            if (!is_array($entry)) {
+                fwrite(STDOUT, $line . "\n");
+                continue;
+            }
+
+            $ts   = $entry['ts']  ?? '?';
+            $evt  = $entry['evt'] ?? $channel;
+            unset($entry['ts'], $entry['evt'], $entry['lvl']);
+
+            $rest = [];
+            foreach ($entry as $key => $value) {
+                $rest[] = $key . '=' . (is_scalar($value) ? (string) $value : json_encode($value));
+            }
+
+            fwrite(STDOUT, sprintf("%s  %-18s %s\n", $ts, $evt, implode(' ', $rest)));
+        }
+        exit(0);
+
+    case 'health':
+        $checks = require BASE_PATH . '/src/health-checks.php';
+
+        $failed = 0;
+        foreach ($checks as $name => $ok) {
+            fwrite(STDOUT, sprintf("%-14s %s\n", $name, $ok ? 'ok' : 'FAIL'));
+            $failed += $ok ? 0 : 1;
+        }
+        exit($failed === 0 ? 0 : 1);
+
+    default:
+        fwrite(STDOUT, <<<TXT
+        data2md CLI
+
+          config:check          validate every environment variable
+          migrate               apply the SQLite schema (idempotent)
+          gc                    housekeeping: orphans, rate limits, rotated logs
+          delete <hash>         permanently remove one conversion
+          prune --older-than=N  permanently remove conversions older than N days
+          logs [--channel=app|audit] [--tail=N]
+          health                run the same checks as GET /health
+
+        Converted markdown is permanent. Only delete and prune remove it.
+
+        TXT);
+        exit($command === 'help' ? 0 : 1);
+}

@@ -1,0 +1,228 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Data2Md\Tests\Integration;
+
+use Data2Md\Log\Logger;
+use Data2Md\Storage\Database;
+use Data2Md\Storage\FileStorage;
+use Data2Md\Storage\Gc;
+use Data2Md\Storage\MappingStorage;
+use PHPUnit\Framework\TestCase;
+
+final class GcTest extends TestCase
+{
+    private string $root;
+    private FileStorage $files;
+    private MappingStorage $mappings;
+    private Gc $gc;
+
+    protected function setUp(): void
+    {
+        $this->root = sys_get_temp_dir() . '/d2md-gc-' . bin2hex(random_bytes(6));
+
+        foreach (['md', 'tmp', 'logs', 'ratelimit', 'db'] as $sub) {
+            mkdir($this->root . '/' . $sub, 0770, true);
+        }
+
+        $db = new Database($this->root . '/db/mappings.sqlite');
+        $db->migrate();
+
+        $this->files    = new FileStorage($this->root . '/md', $this->root . '/tmp');
+        $this->mappings = new MappingStorage($db);
+
+        $this->gc = new Gc(
+            files:                  $this->files,
+            mappings:               $this->mappings,
+            logger:                 new Logger($this->root . '/logs', 10_485_760, false),
+            logDir:                 $this->root . '/logs',
+            rateLimitDir:           $this->root . '/ratelimit',
+            logRetentionDays:       90,
+            auditLogRetentionDays:  30,
+            rateLimitWindowSeconds: 60,
+            convertTimeoutSeconds:  900,
+            lockDir:                $this->root . '/tmp',
+        );
+    }
+
+    protected function tearDown(): void
+    {
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($this->root, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+        }
+
+        rmdir($this->root);
+    }
+
+    private function seedConversion(string $hash, int $ageDays): void
+    {
+        file_put_contents($this->files->markdownPath($hash), "# doc\n");
+        $this->mappings->save($hash, 'doc.pdf', 'pdf', 100, time() - ($ageDays * 86400));
+    }
+
+    public function testAgedConversionsAreNeverRemovedAutomatically(): void
+    {
+        // The markdown is the product, not a cache. Ten years old or ten
+        // seconds old, only an explicit command removes it.
+        $this->seedConversion('aaaaaaaaaaaaaaa', 3650);
+
+        $report = $this->gc->run();
+
+        self::assertSame(0, $report->total());
+        self::assertTrue($this->files->markdownExists('aaaaaaaaaaaaaaa'));
+        self::assertNotNull($this->mappings->find('aaaaaaaaaaaaaaa'));
+    }
+
+    public function testMarkdownWithoutARecordIsRemoved(): void
+    {
+        file_put_contents($this->files->markdownPath('ccccccccccccccc'), '# orphan');
+
+        $report = $this->gc->run();
+
+        self::assertSame(1, $report->orphanMarkdown);
+        self::assertFalse($this->files->markdownExists('ccccccccccccccc'));
+    }
+
+    public function testRecordWithoutMarkdownIsRemoved(): void
+    {
+        $this->mappings->save('ddddddddddddddd', 'gone.pdf', 'pdf', 100, time());
+
+        $report = $this->gc->run();
+
+        self::assertSame(1, $report->orphanMappings);
+        self::assertNull($this->mappings->find('ddddddddddddddd'));
+    }
+
+    public function testStaleRateLimitFilesAreRemoved(): void
+    {
+        $fresh = $this->root . '/ratelimit/fresh.json';
+        $stale = $this->root . '/ratelimit/stale.json';
+
+        file_put_contents($fresh, '{}');
+        file_put_contents($stale, '{}');
+        touch($stale, time() - 3600);
+
+        $report = $this->gc->run();
+
+        self::assertSame(1, $report->rateLimitFiles);
+        self::assertFileExists($fresh);
+        self::assertFileDoesNotExist($stale);
+    }
+
+    public function testRotatedLogsPastRetentionAreRemoved(): void
+    {
+        $old = $this->root . '/logs/app.jsonl.1';
+        file_put_contents($old, '{}');
+        touch($old, time() - (100 * 86400));
+
+        $current = $this->root . '/logs/app.jsonl';
+        file_put_contents($current, '{}');
+
+        $report = $this->gc->run();
+
+        self::assertSame(1, $report->rotatedLogs);
+        self::assertFileDoesNotExist($old);
+        self::assertFileExists($current, 'the live log is never removed');
+    }
+
+    public function testAuditLogUsesItsOwnShorterRetention(): void
+    {
+        $audit = $this->root . '/logs/audit.jsonl.1';
+        file_put_contents($audit, '{}');
+        touch($audit, time() - (45 * 86400)); // past audit's 30d, inside app's 90d
+
+        $this->gc->run();
+
+        self::assertFileDoesNotExist($audit);
+    }
+
+    public function testStaleTempFilesAreRemoved(): void
+    {
+        $stale = $this->root . '/tmp/abandoned.original';
+        file_put_contents($stale, 'leftover');
+        touch($stale, time() - 7200);
+
+        $fresh = $this->root . '/tmp/in-progress.original';
+        file_put_contents($fresh, 'working');
+
+        $report = $this->gc->run();
+
+        self::assertSame(1, $report->staleTempFiles);
+        self::assertFileDoesNotExist($stale);
+        self::assertFileExists($fresh);
+    }
+
+    public function testSemaphoreLocksAreNeverRemoved(): void
+    {
+        $lock = $this->root . '/tmp/slot-0.lock';
+        touch($lock, time() - 86400);
+
+        $this->gc->run();
+
+        self::assertFileExists($lock, 'removing a held lock file would break the semaphore');
+    }
+
+    public function testRunIsIdempotent(): void
+    {
+        file_put_contents($this->files->markdownPath('eeeeeeeeeeeeeee'), '# orphan');
+
+        self::assertSame(1, $this->gc->run()->orphanMarkdown);
+        self::assertSame(0, $this->gc->run()->orphanMarkdown);
+    }
+
+    public function testMaybeRunNeverRunsAtZeroProbability(): void
+    {
+        file_put_contents($this->files->markdownPath('fffffffffffffff'), '# orphan');
+
+        self::assertNull($this->gc->maybeRun(0.0));
+        self::assertTrue($this->files->markdownExists('fffffffffffffff'));
+    }
+
+    public function testMaybeRunAlwaysRunsAtProbabilityOne(): void
+    {
+        file_put_contents($this->files->markdownPath('aaaaaaaaaaaaaab'), '# orphan');
+
+        self::assertNotNull($this->gc->maybeRun(1.0));
+        self::assertFalse($this->files->markdownExists('aaaaaaaaaaaaaab'));
+    }
+
+    public function testReportTotal(): void
+    {
+        file_put_contents($this->files->markdownPath('aaaaaaaaaaaaaac'), '# orphan');
+        $this->mappings->save('aaaaaaaaaaaaaad', 'gone.pdf', 'pdf', 100, time());
+
+        self::assertSame(2, $this->gc->run()->total());
+    }
+
+    public function testDeleteRemovesBothFileAndRecord(): void
+    {
+        $this->seedConversion('aaaaaaaaaaaaaae', 1);
+
+        self::assertTrue($this->gc->delete('aaaaaaaaaaaaaae'));
+
+        self::assertFalse($this->files->markdownExists('aaaaaaaaaaaaaae'));
+        self::assertNull($this->mappings->find('aaaaaaaaaaaaaae'));
+    }
+
+    public function testDeleteReturnsFalseForAnUnknownHash(): void
+    {
+        self::assertFalse($this->gc->delete('000000000000000'));
+    }
+
+    public function testPruneRemovesOnlyBeyondTheCut(): void
+    {
+        $this->seedConversion('aaaaaaaaaaaaaaf', 100);
+        $this->seedConversion('aaaaaaaaaaaaaa0', 5);
+
+        self::assertSame(1, $this->gc->prune(30));
+
+        self::assertFalse($this->files->markdownExists('aaaaaaaaaaaaaaf'));
+        self::assertTrue($this->files->markdownExists('aaaaaaaaaaaaaa0'));
+    }
+}
