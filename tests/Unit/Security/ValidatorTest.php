@@ -85,16 +85,26 @@ final class ValidatorTest extends TestCase
 
         $result = $this->validator->sanitizeOriginalName($long);
 
-        self::assertLessThanOrEqual(255, strlen($result));
+        // Pins the exact surviving content: 127 'é' (254 bytes), the most
+        // that fits under the 255-byte cap without splitting the 128th
+        // character. A cap that degenerated into discarding the whole name
+        // would still pass a bare "<=255 and valid UTF-8" check.
+        self::assertSame(str_repeat('é', 127), $result);
         self::assertTrue(mb_check_encoding($result, 'UTF-8'));
     }
 
     public function testOriginalNameIsAlwaysValidUtf8(): void
     {
-        $bad = "invoice-\xFF\xFE-final.pdf";
+        $bad = 'bad' . "\xFF\xFE" . 'bytes.pdf';
 
         $result = $this->validator->sanitizeOriginalName($bad);
 
+        // Pins the exact result, not just its validity: the invalid bytes
+        // are substituted in place, not used as an excuse to drop the whole
+        // name. An empty string is valid UTF-8 too, so checking only
+        // mb_check_encoding() would miss a regression that discards
+        // everything on invalid input.
+        self::assertSame('bad??bytes.pdf', $result);
         self::assertTrue(mb_check_encoding($result, 'UTF-8'));
     }
 
