@@ -23,12 +23,18 @@ final class Cors
     /** @return array<string,string> */
     public function headersFor(?string $origin, bool $preflight = false): array
     {
-        if (!$this->isEnabled() || $origin === null || !in_array($origin, $this->allowedOrigins, true)) {
+        if (!$this->isEnabled()) {
             return [];
         }
 
-        // Echo the specific origin rather than '*': the allowlist is the policy,
-        // and Vary keeps caches from serving one origin's response to another.
+        // The response varies by request origin whenever CORS is enabled —
+        // one origin gets Allow-Origin, another gets nothing — so a shared
+        // cache needs Vary regardless of whether this origin is on the list.
+        if ($origin === null || !in_array($origin, $this->allowedOrigins, true)) {
+            return ['Vary' => 'Origin'];
+        }
+
+        // Echo the specific origin rather than '*': the allowlist is the policy.
         $headers = [
             'Access-Control-Allow-Origin' => $origin,
             'Vary'                        => 'Origin',
@@ -50,6 +56,8 @@ final class Cors
             return 405;
         }
 
-        return $this->headersFor($origin, preflight: true) === [] ? 403 : 204;
+        return array_key_exists('Access-Control-Allow-Origin', $this->headersFor($origin, preflight: true))
+            ? 204
+            : 403;
     }
 }

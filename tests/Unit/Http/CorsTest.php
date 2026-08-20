@@ -30,14 +30,20 @@ final class CorsTest extends TestCase
         self::assertSame('Origin', $headers['Vary']);
     }
 
-    public function testDisallowedOriginGetsNothing(): void
+    public function testDisallowedOriginGetsVaryButNoAllowOrigin(): void
     {
-        self::assertSame([], (new Cors(['https://app.example.com']))->headersFor('https://evil.example.com'));
+        $headers = (new Cors(['https://app.example.com']))->headersFor('https://evil.example.com');
+
+        self::assertArrayNotHasKey('Access-Control-Allow-Origin', $headers);
+        self::assertSame('Origin', $headers['Vary']);
     }
 
-    public function testNullOriginGetsNothing(): void
+    public function testNullOriginGetsVaryButNoAllowOrigin(): void
     {
-        self::assertSame([], (new Cors(['https://app.example.com']))->headersFor(null));
+        $headers = (new Cors(['https://app.example.com']))->headersFor(null);
+
+        self::assertArrayNotHasKey('Access-Control-Allow-Origin', $headers);
+        self::assertSame('Origin', $headers['Vary']);
     }
 
     public function testWildcardIsNeverEchoed(): void

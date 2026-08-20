@@ -234,20 +234,28 @@ try {
 
     $slot->release();
 
-    $config->float('GC_PROBABILITY') > 0.0 and (static function () use ($config, $files, $mappings, $logger, $dataDir): void {
-        (new \Data2Md\Storage\Gc(
-            files:                  $files,
-            mappings:               $mappings,
-            logger:                 $logger,
-            logDir:                 $dataDir . '/logs',
-            rateLimitDir:           $dataDir . '/ratelimit',
-            logRetentionDays:       $config->int('LOG_RETENTION_DAYS'),
-            auditLogRetentionDays:  $config->int('AUDIT_LOG_RETENTION_DAYS'),
-            rateLimitWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
-            convertTimeoutSeconds:  $config->int('CONVERT_TIMEOUT_SECONDS'),
-            lockDir:                $dataDir . '/tmp',
-        ))->maybeRun($config->float('GC_PROBABILITY'));
-    })();
+    // Maintenance runs opportunistically after a request that already
+    // succeeded and is already durable; a failure here (a busy database, disk
+    // pressure) must never turn that into a lost response, so it is logged
+    // and swallowed rather than allowed to propagate.
+    if ($config->float('GC_PROBABILITY') > 0.0) {
+        try {
+            (new \Data2Md\Storage\Gc(
+                files:                  $files,
+                mappings:               $mappings,
+                logger:                 $logger,
+                logDir:                 $dataDir . '/logs',
+                rateLimitDir:           $dataDir . '/ratelimit',
+                logRetentionDays:       $config->int('LOG_RETENTION_DAYS'),
+                auditLogRetentionDays:  $config->int('AUDIT_LOG_RETENTION_DAYS'),
+                rateLimitWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
+                convertTimeoutSeconds:  $config->int('CONVERT_TIMEOUT_SECONDS'),
+                lockDir:                $dataDir . '/tmp',
+            ))->maybeRun($config->float('GC_PROBABILITY'));
+        } catch (\Throwable $e) {
+            $logger->app('gc.fail', ['reason' => $e::class, 'detail' => $e->getMessage()], 'error');
+        }
+    }
 }
 
 $respond();
