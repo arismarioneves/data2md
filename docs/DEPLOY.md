@@ -23,7 +23,7 @@ commit → push em main → Actions roda a suíte → publica no GHCR
 
 ## 2. Publicar a imagem
 
-O workflow `.github/workflows/image.yml` dispara em push para `main` e em tags `v*`.
+O workflow `.github/workflows/image.yml` dispara em push para `main`.
 
 ```bash
 git checkout main
@@ -45,14 +45,14 @@ Ao final, a imagem estará em:
 ghcr.io/arismarioneves/data2md:main
 ```
 
-Para publicar uma versão fixa:
+Cada publicação gera duas referências:
 
-```bash
-git tag v1.1.0
-git push origin v1.1.0
-```
+| Tag | Uso |
+|---|---|
+| `:main` | sempre o último commit de `main` |
+| `:sha-<commit>` | imutável, aponta para um commit exato |
 
-Isso gera `:1.1.0` e `:1.1` além de `:main`.
+Fixe `:sha-<commit>` no EasyPanel quando quiser um alvo que não se move.
 
 ---
 
@@ -168,11 +168,14 @@ Para deploy automático, crie o secret `EASYPANEL_DEPLOY_HOOK` no repositório c
 
 ## 10. Rollback
 
-Troque a tag da imagem no EasyPanel para uma versão anterior e faça *Deploy*:
+Troque a imagem no EasyPanel para o `sha` anterior e faça *Deploy*:
 
 ```
-ghcr.io/arismarioneves/data2md:1.0.0
+ghcr.io/arismarioneves/data2md:sha-a1b2c3d
 ```
+
+Os `sha` disponíveis aparecem na página do pacote no GHCR, ou via
+`gh api /user/packages/container/data2md/versions`.
 
 ---
 

@@ -124,9 +124,8 @@ and therefore none reaches production.
 `APP_VERSION` is stamped by CI, not set by hand:
 
 - A push to `main` stamps `main-<short-sha>` (e.g. `main-a1b2c3d`).
-- A tag `vX.Y.Z` stamps `X.Y.Z` — the `v` is stripped by `docker/metadata-action`
-  when it derives the image tags, so the *image* tags are `X.Y.Z` and `X.Y`,
-  never `vX.Y.Z`. The `version` field in `/health` matches the stripped form.
+- The image is published as `:main` and as an immutable `:sha-<commit>`. Pin the
+  `sha` form when a deployment target must not move under you.
 
 `GET /health` returns this stamp in its `version` field. That field is the
 only reliable way to confirm which code is actually running after a deploy —
