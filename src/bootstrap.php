@@ -27,10 +27,7 @@ try {
 // cannot be set here — the entrypoint writes them into a conf.d file from the
 // same environment variables.
 ini_set('memory_limit', $config->int('PHP_MEMORY_LIMIT_MB') . 'M');
-ini_set(
-    'max_execution_time',
-    (string) ($config->int('CONVERT_TIMEOUT_SECONDS') + $config->int('CONVERT_QUEUE_WAIT_SECONDS') + 60)
-);
+ini_set('max_execution_time', (string) \Data2Md\request_ceiling_seconds($config));
 ini_set('display_errors', $config->string('APP_ENV') === 'development' ? '1' : '0');
 ini_set('log_errors', '1');
 

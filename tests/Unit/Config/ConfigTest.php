@@ -177,4 +177,22 @@ final class ConfigTest extends TestCase
         $this->expectException(ConfigError::class);
         Config::fromArray(self::valid(['CONTACT_EMAIL' => 'not-an-email']));
     }
+
+    public function testDevelopmentIsAValidAppEnv(): void
+    {
+        $config = Config::fromArray(self::valid(['APP_ENV' => 'development']));
+        self::assertSame('development', $config->string('APP_ENV'));
+    }
+
+    public function testUrlTrailingSlashIsStripped(): void
+    {
+        $config = Config::fromArray(self::valid(['APP_URL' => 'https://data2md.example.com/']));
+        self::assertSame('https://data2md.example.com', $config->string('APP_URL'));
+    }
+
+    public function testPathTrailingSlashIsStripped(): void
+    {
+        $config = Config::fromArray(self::valid(['APP_DATA_DIR' => '/var/lib/data2md/']));
+        self::assertSame('/var/lib/data2md', $config->string('APP_DATA_DIR'));
+    }
 }

@@ -190,7 +190,7 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/app'), 
 
 <script>
 window.D2MD = {
-    timeout: <?= ($config->int('CONVERT_TIMEOUT_SECONDS') + $config->int('CONVERT_QUEUE_WAIT_SECONDS') + 60) * 1000 ?>,
+    timeout: <?= \Data2Md\request_ceiling_seconds($config) * 1000 ?>,
     i18n: <?= json_encode(I18n::jsBundle(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_APOS) ?>
 };
 </script>

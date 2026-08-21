@@ -205,6 +205,8 @@ O log operacional também aparece no visualizador de logs do EasyPanel.
 
 O Markdown não expira sozinho, então o volume cresce continuamente. Configure um alerta de espaço em disco na VPS.
 
+A coleta oportunista (`gc`) roda a cada requisição de conversão, mas uma falha recorrente é engolida e só aparece no log operacional como o evento `gc.fail` — o disco continua crescendo sem aviso até o alerta de espaço disparar. Monitore o evento `gc.fail` no visualizador de logs do EasyPanel; um coletor parado é o sintoma que precede o disco cheio, não uma consequência dele.
+
 ---
 
 ## 13. Problemas comuns
