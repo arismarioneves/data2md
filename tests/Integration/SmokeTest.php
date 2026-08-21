@@ -148,4 +148,77 @@ final class SmokeTest extends TestCase
     {
         self::assertSame(400, $this->get('/download?hash=../../etc/passwd')['status']);
     }
+
+    /** @return array{status:int,body:string,headers:string} */
+    private function postMultipart(string $boundary, string $body): array
+    {
+        $context = stream_context_create(['http' => [
+            'method'         => 'POST',
+            'header'         => "Content-Type: multipart/form-data; boundary=$boundary",
+            'content'        => $body,
+            'ignore_errors'  => true,
+            'timeout'        => 30,
+        ]]);
+
+        $responseBody = (string) @file_get_contents($this->baseUrl . '/api', false, $context);
+        $status       = 0;
+
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m) === 1) {
+                $status = (int) $m[1];
+            }
+        }
+
+        return ['status' => $status, 'body' => $responseBody, 'headers' => implode("\n", $http_response_header ?? [])];
+    }
+
+    /**
+     * "format[]=pdf" turns $_POST['format'] into an array; before the fix
+     * this reached strtolower(trim(array)) and crashed with an uncaught
+     * TypeError — a bare 500 with an empty body — before the try/catch that
+     * is supposed to guarantee the JSON error contract.
+     */
+    public function testArrayValuedFormatFieldGetsACleanBadRequest(): void
+    {
+        $fixture  = dirname(__DIR__) . '/fixtures/sample.pdf';
+        $boundary = '----d2md' . bin2hex(random_bytes(8));
+        $body     = "--$boundary\r\n"
+            . "Content-Disposition: form-data; name=\"file\"; filename=\"sample.pdf\"\r\n"
+            . "Content-Type: application/pdf\r\n\r\n"
+            . file_get_contents($fixture) . "\r\n"
+            . "--$boundary\r\n"
+            . "Content-Disposition: form-data; name=\"format[]\"\r\n\r\npdf\r\n"
+            . "--$boundary--\r\n";
+
+        $response = $this->postMultipart($boundary, $body);
+
+        self::assertSame(400, $response['status']);
+        $payload = json_decode($response['body'], true);
+        self::assertIsArray($payload, 'response must be JSON, not an empty body from an uncaught TypeError');
+        self::assertFalse($payload['success'] ?? true);
+    }
+
+    /**
+     * Two "file[]" parts turn $_FILES['file']['error'] into an array; before
+     * the fix this reached uploadErrorMessage(array), typed int — same
+     * uncaught-TypeError, bare-500 failure as above.
+     */
+    public function testArrayValuedFileFieldGetsACleanBadRequest(): void
+    {
+        $fixture  = dirname(__DIR__) . '/fixtures/sample.pdf';
+        $boundary = '----d2md' . bin2hex(random_bytes(8));
+        $part     = static fn (string $name): string => "--$boundary\r\n"
+            . "Content-Disposition: form-data; name=\"file[]\"; filename=\"$name\"\r\n"
+            . "Content-Type: application/pdf\r\n\r\n"
+            . file_get_contents($fixture) . "\r\n";
+
+        $body = $part('a.pdf') . $part('b.pdf') . "--$boundary--\r\n";
+
+        $response = $this->postMultipart($boundary, $body);
+
+        self::assertSame(400, $response['status']);
+        $payload = json_decode($response['body'], true);
+        self::assertIsArray($payload, 'response must be JSON, not an empty body from an uncaught TypeError');
+        self::assertFalse($payload['success'] ?? true);
+    }
 }

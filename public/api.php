@@ -92,7 +92,21 @@ if ($file === null) {
     ApiResponse::error('No file provided. Send multipart/form-data with a "file" field.', 400);
 }
 
-$format = strtolower(trim($_POST['format'] ?? 'pdf'));
+// A repeated field ("file[]=@a" twice, "format[]=pdf") turns the expected
+// scalars into arrays; PHP's superglobals don't enforce the shape for us, and
+// Validator::validateUpload()/uploadErrorMessage() take those values typed,
+// so an array here would otherwise reach a TypeError before the try below.
+if (!is_array($file) || array_filter($file, 'is_array') !== []) {
+    ApiResponse::error('Send exactly one file in the "file" field.', 400);
+}
+
+$formatInput = $_POST['format'] ?? 'pdf';
+
+if (!is_string($formatInput)) {
+    ApiResponse::error('The "format" field must be a single string value.', 400);
+}
+
+$format = strtolower(trim($formatInput));
 
 if (!$validator->isAllowedFormat($format)) {
     ApiResponse::error('Unsupported format. Allowed: ' . implode(', ', $validator->supportedFormats()), 400);
@@ -229,12 +243,19 @@ try {
     }
 
     $slot->release();
+}
 
-    // Maintenance runs opportunistically after a request that already
-    // succeeded and is already durable; a failure here (a busy database, disk
-    // pressure) must never turn that into a lost response, so it is logged
-    // and swallowed rather than allowed to propagate.
-    if ($config->float('GC_PROBABILITY') > 0.0) {
+// Deferred to run after the response is on the wire, not before: Gc::run()
+// globs the whole markdown directory and scans the mappings table, so its
+// cost grows with the total number of conversions ever made, not with this
+// request. A register_shutdown_function callback still runs after
+// ApiResponse's exit() — finally blocks do not, see the note on $respond
+// above — and by then ApiResponse::send() has already flushed the response
+// with an explicit Content-Length, so the client does not wait on this.
+// A failure here (a busy database, disk pressure) is logged and swallowed:
+// there is no response left to fail by this point.
+if ($config->float('GC_PROBABILITY') > 0.0) {
+    register_shutdown_function(static function () use ($config, $files, $mappings, $logger, $dataDir): void {
         try {
             (new \Data2Md\Storage\Gc(
                 files:                  $files,
@@ -251,7 +272,7 @@ try {
         } catch (\Throwable $e) {
             $logger->app('gc.fail', ['reason' => $e::class, 'detail' => $e->getMessage()], 'error');
         }
-    }
+    });
 }
 
 $respond();
@@ -261,9 +282,20 @@ function renderDocs(): void
 {
     header('Content-Type: text/html; charset=utf-8');
     header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:");
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $base   = $scheme . '://' . htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'localhost', ENT_QUOTES);
-    $back   = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/api'), ENT_QUOTES);
+    // Traefik terminates TLS in front of this app, so $_SERVER['HTTPS'] is
+    // never set here; APP_URL is mandatory precisely so this page does not
+    // have to guess. Same shape as src/View/head-meta.php.
+    if (defined('APP_URL') && APP_URL !== '') {
+        $base = rtrim(APP_URL, '/');
+    } else {
+        // HTTP_HOST is client-controlled, so keep it to host characters only.
+        $secure = ($_SERVER['HTTPS'] ?? '') === 'on'
+               || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+        $host   = preg_replace('/[^A-Za-z0-9.\-:]/', '', $_SERVER['HTTP_HOST'] ?? '');
+        $base   = ($secure ? 'https' : 'http') . '://' . substr($host ?: 'localhost', 0, 255);
+    }
+    $base = htmlspecialchars($base, ENT_QUOTES);
+    $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/api'), ENT_QUOTES);
     ?>
 <!DOCTYPE html>
 <html lang="<?= I18n::current() ?>">
