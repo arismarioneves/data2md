@@ -349,6 +349,7 @@ function renderDocs(): void
   <span class="ck">"format"</span>: <span class="cs">"pdf"</span>,
   <span class="ck">"lines"</span>: <span class="cn">148</span>,
   <span class="ck">"characters"</span>: <span class="cn">9342</span>,
+  <span class="ck">"pages"</span>: <span class="cn">3</span>,
   <span class="ck">"download_url"</span>: <span class="cs">"/download?hash=a3f9c12b84e7d01"</span>,
   <span class="ck">"preview"</span>: <span class="cs">"# Report Title\n\n..."</span>,
   <span class="ck">"preview_truncated"</span>: <span class="cn">false</span>
@@ -399,7 +400,9 @@ curl_setopt_array($ch, [
 ]);
 $data = json_decode(curl_exec($ch), <span class="cn">true</span>);
 curl_close($ch);
-<span class="ck">echo</span> $data[<span class="cs">'markdown'</span>];</pre>
+
+$markdown = file_get_contents(<span class="cs">'<?= $base ?>'</span> . $data[<span class="cs">'download_url'</span>]);
+<span class="ck">echo</span> $markdown;</pre>
                     </div>
 
                     <h3>Python</h3>
@@ -411,7 +414,8 @@ curl_close($ch);
     r = requests.post(<span class="cs">'<?= $base ?>/api'</span>, files={<span class="cs">'file'</span>: f}, data={<span class="cs">'format'</span>: <span class="cs">'pdf'</span>})
 
 data = r.json()
-<span class="ck">print</span>(data[<span class="cs">'markdown'</span>])</pre>
+markdown = requests.get(<span class="cs">'<?= $base ?>'</span> + data[<span class="cs">'download_url'</span>]).text
+<span class="ck">print</span>(markdown)</pre>
                     </div>
                 </section>
 
