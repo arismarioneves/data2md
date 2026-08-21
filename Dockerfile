@@ -60,7 +60,7 @@ ENV APP_ENV=production \
     MAX_FILE_SIZE_MB=200 \
     CONVERT_TIMEOUT_SECONDS=900 \
     CONVERT_CONCURRENCY=2 \
-    CONVERT_QUEUE_WAIT_SECONDS=120 \
+    CONVERT_QUEUE_WAIT_SECONDS=20 \
     CONVERT_NICE=15 \
     PHP_MEMORY_LIMIT_MB=512 \
     RATE_LIMIT_MAX=20 \
@@ -75,7 +75,12 @@ ENV APP_ENV=production \
 VOLUME ["/var/lib/data2md"]
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+# start-period=30s: covers boot (config:check, migrate, Apache warm-up) with
+# margin over the ~9s observed. retries=5 at interval=30s gives ~150s of
+# consecutive failures before a restart — a queued request now waits at most
+# CONVERT_QUEUE_WAIT_SECONDS=20s before its worker frees up, so one busy burst
+# costs at most one or two failed checks, never enough on its own to reach 5.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
     CMD php -r 'exit(@file_get_contents("http://127.0.0.1/health") && str_contains(@file_get_contents("http://127.0.0.1/health"), "\"status\":\"ok\"") ? 0 : 1);'
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

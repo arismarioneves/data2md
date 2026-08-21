@@ -69,7 +69,7 @@ for tuning.
 | `MAX_FILE_SIZE_MB` | `200` | 1–2048 | |
 | `CONVERT_TIMEOUT_SECONDS` | `900` | 30–7200 | Per-conversion ceiling |
 | `CONVERT_CONCURRENCY` | `2` | 1–16 | See sizing math below |
-| `CONVERT_QUEUE_WAIT_SECONDS` | `120` | 0–600 | Beyond this, `503` with `Retry-After` |
+| `CONVERT_QUEUE_WAIT_SECONDS` | `20` | 0–600 | Beyond this, `503` with `Retry-After` |
 | `CONVERT_NICE` | `15` | 0–19 | `nice` value applied to the extractor subprocess |
 | `PHP_MEMORY_LIMIT_MB` | `512` | 64–4096 | |
 | `RATE_LIMIT_MAX` | `20` | 1–10000 | Requests per window, per IP |
@@ -139,23 +139,33 @@ something looks wrong.
 ## 5. Sizing arithmetic
 
 The resource budget is 2 GB memory / 1 CPU (see `DEPLOY.md` section 6 for
-where that's configured). The peak memory a conversion workload can reach is:
+where that's configured). The converting workers are only part of the
+budget — every Apache worker holds a resident mod_php process whether it is
+converting, queued, or idle. The real ceiling is:
 
 ```
 RAM_peak = CONVERT_CONCURRENCY × (PHP_MEMORY_LIMIT_MB + ~60 MB)
+         + (MaxRequestWorkers − CONVERT_CONCURRENCY) × ~35 MB
 ```
 
 The `~60 MB` is the resident cost of the `pdftotext` extractor subprocess
-held alongside the PHP worker for the duration of one conversion — it runs as
-a native subprocess with constant memory regardless of input size, so this
-overhead doesn't grow with file size. With the shipped defaults:
+held alongside a *converting* PHP worker — it runs as a native subprocess
+with constant memory regardless of input size, so this overhead doesn't grow
+with file size. The `~35 MB` is a bare resident mod_php child: every other
+Apache worker, whether it's serving a static page or parked inside
+`ConversionSemaphore::acquire()` waiting for a slot. With the shipped
+defaults (`MaxRequestWorkers=24` in `docker/apache/mpm.conf`):
 
 ```
-RAM_peak = 2 × (512 MB + 60 MB) ≈ 1.1 GB   of 2 GB available
+RAM_peak = 2 × (512 MB + 60 MB) + (24 − 2) × 35 MB
+         ≈ 1.14 GB + 0.77 GB ≈ 1.9 GB   of 2 GB available
 ```
 
-That leaves headroom for Apache's other workers serving static pages and the
-landing site while the conversion queue is busy.
+That is close to the ceiling with no real headroom — which is exactly why
+`MaxRequestWorkers` cannot be raised to give the queue more room, and why
+`CONVERT_QUEUE_WAIT_SECONDS` is kept short (see `docker/apache/mpm.conf`):
+a worker stuck waiting on a full semaphore is 35 MB and one fewer worker
+available for everything else, including `/health`.
 
 Raising `CONVERT_CONCURRENCY` does not raise throughput on a 1-CPU
 allocation. Extraction is CPU-bound, so two concurrent conversions share one
