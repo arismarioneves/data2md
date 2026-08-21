@@ -50,6 +50,13 @@ final class MarkdownSanitizer
      */
     public function stripControlChars(string $text): string
     {
+        // Scrub to valid UTF-8 first. Without this, a malformed byte makes
+        // the /u patterns below fail (preg_replace() returns null, so the
+        // "?? $text" fallback would hand back the malformed bytes untouched)
+        // and makes isGarbage()'s /u patterns silently read "not garbage" for
+        // any line containing one. Scrubbing here means every fallback below
+        // this point returns already-valid text, never raw malformed bytes.
+        $text = mb_scrub($text, 'UTF-8');
         // Normalize line endings first
         $text = str_replace(["\r\n", "\r"], "\n", $text);
         // Drop C0 controls except \t (\x09) and \n (\x0A); drop DEL (\x7F)
