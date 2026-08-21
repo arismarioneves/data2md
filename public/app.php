@@ -43,8 +43,6 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/app'), 
             <nav class="l-nav">
                 <a href="/" class="l-nav-link" data-hide-sm><?= t('nav.about') ?></a>
                 <a href="/api" class="l-nav-link"><?= t('nav.api') ?></a>
-                <a href="/terms" class="l-nav-link" data-hide-sm><?= t('nav.terms') ?></a>
-                <a href="/privacy" class="l-nav-link" data-hide-sm><?= t('nav.privacy') ?></a>
                 <a href="/#signin" class="l-nav-cta">
                     <?= t('nav.signin') ?>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
@@ -159,6 +157,18 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/app'), 
         </div>
     </div>
 </main>
+
+<footer class="l-footer">
+    <div class="l-container">
+        <div class="l-footer-inner">
+            <p class="l-footer-text"><?= t('footer.text', htmlspecialchars(APP_NAME)) ?></p>
+            <nav class="l-footer-links">
+                <a href="/terms"><?= t('nav.terms') ?></a>
+                <a href="/privacy"><?= t('nav.privacy') ?></a>
+            </nav>
+        </div>
+    </div>
+</footer>
 
 <!-- ── Loading overlay ─────────────────────────────────── -->
 <div id="loading-overlay" class="loading-overlay" hidden>
