@@ -29,6 +29,9 @@ RUN composer install --no-interaction --no-scripts
 # ── Production ────────────────────────────────────────────────────────────────
 FROM base AS app
 
+# Stamped by CI: the semver tag on a release, or branch-shortsha on main.
+ARG APP_VERSION=dev
+
 COPY docker/php/php.ini          /usr/local/etc/php/conf.d/90-data2md.ini
 COPY docker/apache/data2md.conf  /etc/apache2/sites-available/000-default.conf
 COPY docker/apache/mpm.conf      /etc/apache2/conf-available/data2md-mpm.conf
@@ -52,7 +55,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # removed. Override any of these in the EasyPanel UI without rebuilding.
 ENV APP_ENV=production \
     APP_NAME=data2md \
-    APP_VERSION=1.1.0 \
+    APP_VERSION=${APP_VERSION} \
     APP_DATA_DIR=/var/lib/data2md \
     MAX_FILE_SIZE_MB=200 \
     CONVERT_TIMEOUT_SECONDS=900 \
