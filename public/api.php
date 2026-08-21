@@ -32,11 +32,7 @@ $logger  = new Logger($dataDir . '/logs');
 $cors    = new Cors($config->list('CORS_ALLOWED_ORIGINS'));
 $origin  = $_SERVER['HTTP_ORIGIN'] ?? null;
 
-// ── Security headers ────────────────────────────────────────────────────────
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header('Referrer-Policy: strict-origin-when-cross-origin');
-
+// X-Content-Type-Options, X-Frame-Options and Referrer-Policy come from the vhost.
 foreach ($cors->headersFor(is_string($origin) ? $origin : null) as $name => $value) {
     header("$name: $value");
 }
@@ -264,9 +260,6 @@ $respond();
 function renderDocs(): void
 {
     header('Content-Type: text/html; charset=utf-8');
-    header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: DENY');
-    header('Referrer-Policy: strict-origin-when-cross-origin');
     header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:");
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $base   = $scheme . '://' . htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'localhost', ENT_QUOTES);

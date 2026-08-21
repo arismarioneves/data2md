@@ -11,10 +11,8 @@ require BASE_PATH . '/src/I18n/bootstrap.php';
 
 use Data2Md\I18n\I18n;
 
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
+// X-Content-Type-Options, X-Frame-Options and Referrer-Policy come from the vhost.
 header('X-XSS-Protection: 1; mode=block');
-header('Referrer-Policy: strict-origin-when-cross-origin');
 header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:");
 
 $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/'), ENT_QUOTES);

@@ -24,8 +24,6 @@ class ApiResponse
     {
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
-        header('X-Content-Type-Options: nosniff');
-        header('X-Frame-Options: DENY');
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }

@@ -14,9 +14,6 @@ use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
 use Data2Md\Storage\MappingStorage;
 
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-
 $dataDir  = $config->string('APP_DATA_DIR');
 $logger   = new Logger($dataDir . '/logs');
 $loggedIp = Logger::truncateIp((new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER));
