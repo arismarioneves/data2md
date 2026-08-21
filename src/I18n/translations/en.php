@@ -17,7 +17,7 @@ return [
     'nav.performance'   => 'Performance',
 
     // ── Footer (landing) ───────────────────────────────────────
-    'footer.text'         => '<strong>%s</strong> — the uploaded file is discarded after conversion; the Markdown is kept until you delete it.',
+    'footer.text'         => '<strong>%s</strong> — the uploaded file is discarded after conversion; the generated Markdown is kept, with no automatic expiry.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'About .md',

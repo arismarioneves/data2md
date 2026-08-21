@@ -315,6 +315,7 @@ function trf(key, fallback) {
     ];
 
     function startTips() {
+        stopTips();
         var tipEl = document.getElementById('loading-tip');
         if (!tipEl) return;
         var idx = Math.floor(Math.random() * tips.length);
@@ -359,7 +360,7 @@ function trf(key, fallback) {
         var statusEl = document.getElementById('loading-status');
         var barFill  = document.getElementById('loading-bar-fill');
         if (statusEl) statusEl.textContent = statusText;
-        if (barFill)  barFill.style.width  = Math.round(pct) + '%';
+        if (barFill && pct !== null) barFill.style.width = Math.round(pct) + '%';
     }
 
 })();

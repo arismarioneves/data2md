@@ -17,7 +17,7 @@ return [
     'nav.performance'   => 'Performance',
 
     // ── Rodapé (landing) ───────────────────────────────────────
-    'footer.text'       => '<strong>%s</strong> — o arquivo enviado é descartado após a conversão; o Markdown fica guardado até você apagar.',
+    'footer.text'       => '<strong>%s</strong> — o arquivo enviado é descartado após a conversão; o Markdown gerado fica guardado, sem prazo de expiração.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'Sobre o .md',
