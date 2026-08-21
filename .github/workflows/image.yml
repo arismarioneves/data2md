@@ -35,9 +35,54 @@ jobs:
           docker compose run --rm test sh -c \
             "composer install --no-interaction && vendor/bin/phpunit"
 
+  smoke:
+    name: Smoke test the app image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # SmokeTest.php exercises a running container end to end (health,
+      # every page, the full convert → download round trip, security
+      # headers). It exists precisely to catch what the unit suite cannot:
+      # a broken entrypoint.sh, vhost, or php.ini in the image that actually
+      # ships. Without this job, "the suite passes" and "the image works"
+      # were never the same claim.
+      - name: Build the app image
+        run: docker compose build app
+
+      - name: Start the app container
+        run: docker compose up -d app
+
+      - name: Wait for the container to report healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/health 2>/dev/null | grep -q '"status":"ok"'; then
+              echo "app is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::app never reported healthy on /health"
+          docker compose logs app
+          exit 1
+
+      - name: Run SmokeTest against the running container
+        run: |
+          docker compose run --rm -e D2MD_BASE_URL=http://app test sh -c \
+            "composer install --no-interaction && vendor/bin/phpunit --filter SmokeTest"
+
+      - name: Dump app logs on failure
+        if: failure()
+        run: docker compose logs app
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
   build-push:
     name: Build and publish
-    needs: test
+    needs: [test, smoke]
     # Pull requests get the suite and nothing else — no image is published from
     # an unmerged branch.
     if: github.event_name != 'pull_request'
