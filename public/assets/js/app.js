@@ -101,11 +101,18 @@ function trf(key, fallback) {
 
     // ── AJAX upload with real progress ────────────────────────────────────────
 
+    var MAX_RETRIES = 3;
+    var retryCount  = 0;
+
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         if (!fileInput.files.length) return;
 
-        var file      = fileInput.files[0];
+        retryCount = 0;
+        sendUpload(fileInput.files[0]);
+    });
+
+    function sendUpload(file) {
         var fakeTimer = null;
         var fakePct   = 65;
 
@@ -147,6 +154,33 @@ function trf(key, fallback) {
 
         // Response received
         xhr.addEventListener('load', function () {
+            if ((xhr.status === 503 || xhr.status === 429) && retryCount < MAX_RETRIES) {
+                clearInterval(fakeTimer);
+
+                var retryAfter = parseInt(xhr.getResponseHeader('Retry-After'), 10);
+                if (!isFinite(retryAfter) || retryAfter < 1) { retryAfter = 5; }
+                if (retryAfter > 120) { retryAfter = 120; }
+
+                retryCount++;
+
+                var remaining = retryAfter;
+                var tick = function () {
+                    overlaySet(trf('app.error.busy', 'The server is busy. Retrying in %s s...', remaining), null);
+                };
+                tick();
+
+                var ticker = setInterval(function () {
+                    remaining--;
+                    if (remaining > 0) { tick(); return; }
+
+                    clearInterval(ticker);
+                    overlaySet(trf('app.status.retrying', 'Retrying (%s of %s)...', retryCount, MAX_RETRIES), null);
+                    sendUpload(file);
+                }, 1000);
+
+                return;
+            }
+
             clearInterval(fakeTimer);
             overlaySet(tr('app.loading.done', 'Done'), 100);
 
@@ -180,10 +214,10 @@ function trf(key, fallback) {
             showErrors([tr('app.error.timeout', 'The request timed out. The file may be too large or the server is busy.')]);
         });
 
-        xhr.timeout = (window.D2MD && D2MD.timeout) ? D2MD.timeout : 420000;
+        xhr.timeout = D2MD.timeout;
         xhr.open('POST', '/api');
         xhr.send(fd);
-    });
+    }
 
     // ── Result rendering ──────────────────────────────────────────────────────
 

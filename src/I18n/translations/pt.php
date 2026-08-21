@@ -17,13 +17,13 @@ return [
     'nav.performance'   => 'Performance',
 
     // ── Rodapé (landing) ───────────────────────────────────────
-    'footer.text'       => '<strong>%s</strong>. Arquivos guardados sob identificadores anônimos.',
+    'footer.text'       => '<strong>%s</strong> — o arquivo enviado é descartado após a conversão; o Markdown fica guardado até você apagar.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'Sobre o .md',
     'footer.home'       => 'Início',
     'footer.converter'  => 'Conversor',
-    'footer.api.text'   => '<strong>%s</strong> API. Anônimo por design.',
+    'footer.api.text'   => '<strong>%s</strong> API — sem cadastro, sem chave.',
 
     // ── Landing — meta ─────────────────────────────────────────
     'landing.title'     => '%s · Documentos, destilados em Markdown',
@@ -36,8 +36,8 @@ return [
     'landing.hero.sub'     => 'Solte um PDF e receba Markdown estruturado, pronto pra colar no ChatGPT, Claude ou qualquer modelo. Arquivos grandes são bem-vindos.',
     'landing.hero.cta'     => 'Converter um arquivo',
     'landing.hero.cta2'    => 'Entrar',
-    'landing.hero.meta1'   => 'Anônimo por design',
-    'landing.hero.meta2'   => 'Streaming via pdftotext',
+    'landing.hero.meta1'   => 'Sem cadastro',
+    'landing.hero.meta2'   => 'Arquivos grandes sem travar',
     'landing.hero.meta3'   => 'API REST inclusa',
 
     // ── Landing — por que markdown ─────────────────────────────
@@ -64,19 +64,19 @@ return [
     // ── Landing — performance ──────────────────────────────────
     'landing.perf.eyebrow' => '// arquivos grandes são bem-vindos',
     'landing.perf.title'   => 'Um PDF de <em>%s</em> não nos assusta.',
-    'landing.perf.lead'    => 'Conversão por streaming via <code>pdftotext</code> mantém memória constante independente do tamanho. O navegador nunca trava. O progresso de upload e a extração no servidor são acompanhados em tempo real, com dicas amigáveis enquanto você espera.',
+    'landing.perf.lead'    => 'Documentos de qualquer tamanho são processados em fluxo contínuo, sem estourar memória e sem travar o navegador. O progresso do envio e da extração aparece em tempo real, com dicas enquanto você espera.',
     'landing.perf.stat1.lbl' => 'upload máximo',
     'landing.perf.stat2.lbl' => 'memória',
     'landing.perf.stat3.lbl' => 'travamentos',
     'landing.perf.bench.title' => 'Benchmarks de conversão',
-    'landing.perf.bench.sub'   => 'pdftotext · streaming',
+    'landing.perf.bench.sub'   => 'tempos medidos de conversão',
 
     // ── Landing — sign in ──────────────────────────────────────
     'landing.signin.eyebrow' => '// em breve',
     'landing.signin.title'   => 'Salve suas <em>conversões</em>.',
     'landing.signin.lead'    => 'Entre pra manter uma biblioteca privada dos seus documentos convertidos, compartilhar links de download e acessar de qualquer lugar.',
     'landing.signin.card.title' => 'Crie sua biblioteca',
-    'landing.signin.card.lead'  => 'Um clique com Google. Nunca compartilhamos seus dados e os arquivos seguem anônimos.',
+    'landing.signin.card.lead'  => 'Um clique com Google. Nunca compartilhamos seus dados — você decide quando apagar cada arquivo.',
     'landing.signin.btn'     => 'Continuar com Google',
     'landing.signin.tooltip' => 'Login com Google chega em breve',
     'landing.signin.soon'    => 'Autenticação chegando em breve',
@@ -99,8 +99,8 @@ return [
     'app.format.label'    => 'Formato',
     'app.cta'             => 'Converter pra Markdown',
 
-    'app.helper.anon'     => 'Anônimo por design',
-    'app.helper.streamed' => 'Streaming via pdftotext',
+    'app.helper.anon'     => 'Sem cadastro',
+    'app.helper.streamed' => 'Arquivos grandes sem travar',
     'app.helper.maxsize'  => 'Até %s',
 
     'app.result.badge'    => 'Convertido',
@@ -140,7 +140,7 @@ return [
     'api.meta.desc'  => 'Endpoint REST para converter PDF em Markdown: um POST, resposta em JSON e os limites de uso documentados por completo.',
     'api.eyebrow'    => '// rest api',
     'api.heading'    => 'Referência da <em>API</em>',
-    'api.lead'       => 'Integre o %s no seu fluxo com um único HTTP POST. Conversão por streaming via <code>pdftotext</code>, máximo de %s por requisição.',
+    'api.lead'       => 'Integre o %s no seu fluxo com um único HTTP POST. Máximo de %s por requisição.',
 
     'api.section.endpoint' => 'Endpoint',
     'api.endpoint.ct'      => 'Content-Type: <code>multipart/form-data</code>',
@@ -167,4 +167,9 @@ return [
     'api.section.examples'  => 'Exemplos',
     'api.copy'              => 'Copiar',
     'api.copied'            => 'Copiado',
+
+    // ── Fila / retry ────────────────────────────────────────────
+    'app.error.busy'      => 'O servidor está convertendo outros documentos agora. Tentando de novo em %s s…',
+    'app.status.queued'   => 'Na fila…',
+    'app.status.retrying' => 'Tentando de novo (%s de %s)…',
 ];

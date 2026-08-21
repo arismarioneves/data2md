@@ -106,6 +106,9 @@ final class I18n
             'app.tip.2',
             'app.tip.3',
             'app.tip.4',
+            'app.error.busy',
+            'app.status.queued',
+            'app.status.retrying',
         ];
         $out = [];
         foreach ($keys as $k) {

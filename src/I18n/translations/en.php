@@ -17,13 +17,13 @@ return [
     'nav.performance'   => 'Performance',
 
     // ── Footer (landing) ───────────────────────────────────────
-    'footer.text'       => '<strong>%s</strong>. Files are stored under anonymous identifiers.',
+    'footer.text'         => '<strong>%s</strong> — the uploaded file is discarded after conversion; the Markdown is kept until you delete it.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'About .md',
     'footer.home'       => 'Home',
     'footer.converter'  => 'Converter',
-    'footer.api.text'   => '<strong>%s</strong> API. Anonymous by design.',
+    'footer.api.text'     => '<strong>%s</strong> API — no account, no API key.',
 
     // ── Landing — meta ─────────────────────────────────────────
     'landing.title'     => '%s · Documents, distilled into Markdown',
@@ -36,8 +36,8 @@ return [
     'landing.hero.sub'     => 'Drop a PDF. Get clean, structured Markdown, ready to paste into ChatGPT, Claude, or any model. Large files welcome.',
     'landing.hero.cta'     => 'Convert a file',
     'landing.hero.cta2'    => 'Sign in',
-    'landing.hero.meta1'   => 'Anonymous by design',
-    'landing.hero.meta2'   => 'Streamed via pdftotext',
+    'landing.hero.meta1'   => 'No account needed',
+    'landing.hero.meta2'   => 'Large files, no freezing',
     'landing.hero.meta3'   => 'REST API included',
 
     // ── Landing — why markdown ─────────────────────────────────
@@ -64,19 +64,19 @@ return [
     // ── Landing — performance ──────────────────────────────────
     'landing.perf.eyebrow' => '// big files welcome',
     'landing.perf.title'   => 'A <em>%s</em> PDF doesn\'t scare us.',
-    'landing.perf.lead'    => 'Streaming conversion via <code>pdftotext</code> means constant memory regardless of file size. The browser never freezes. Upload progress and server-side extraction are tracked in real time, with friendly tips while you wait.',
+    'landing.perf.lead'    => 'Documents of any size are processed as a continuous stream, without exhausting memory or freezing the browser. Upload and extraction progress show in real time, with tips while you wait.',
     'landing.perf.stat1.lbl' => 'max upload',
     'landing.perf.stat2.lbl' => 'memory footprint',
     'landing.perf.stat3.lbl' => 'UI freezes',
     'landing.perf.bench.title' => 'Conversion benchmarks',
-    'landing.perf.bench.sub'   => 'pdftotext · streamed',
+    'landing.perf.bench.sub'   => 'measured conversion times',
 
     // ── Landing — sign in ──────────────────────────────────────
     'landing.signin.eyebrow' => '// coming soon',
     'landing.signin.title'   => 'Save your <em>conversions</em>.',
     'landing.signin.lead'    => 'Sign in to keep a private library of your converted documents, share download links and access them from anywhere.',
     'landing.signin.card.title' => 'Create your library',
-    'landing.signin.card.lead'  => 'One click with Google. We\'ll never share your data, and files remain anonymous.',
+    'landing.signin.card.lead'  => 'One click with Google. We\'ll never share your data — you decide when to delete each file.',
     'landing.signin.btn'     => 'Continue with Google',
     'landing.signin.tooltip' => 'Google sign-in is coming soon',
     'landing.signin.soon'    => 'Authentication arriving soon',
@@ -99,8 +99,8 @@ return [
     'app.format.label'    => 'Format',
     'app.cta'             => 'Convert to Markdown',
 
-    'app.helper.anon'     => 'Anonymous by design',
-    'app.helper.streamed' => 'Streamed via pdftotext',
+    'app.helper.anon'     => 'No account needed',
+    'app.helper.streamed' => 'Large files, no freezing',
     'app.helper.maxsize'  => 'Up to %s',
 
     'app.result.badge'    => 'Converted',
@@ -140,7 +140,7 @@ return [
     'api.meta.desc'  => 'REST endpoint for converting PDFs to Markdown: one POST, a JSON response, and the rate limits documented in full.',
     'api.eyebrow'    => '// rest api',
     'api.heading'    => 'API <em>Reference</em>',
-    'api.lead'       => 'Integrate %s in your workflow with a single HTTP POST. Streamed conversion via <code>pdftotext</code>, max %s per request.',
+    'api.lead'       => 'Integrate %s into your workflow with a single HTTP POST. Max %s per request.',
 
     'api.section.endpoint' => 'Endpoint',
     'api.endpoint.ct'      => 'Content-Type: <code>multipart/form-data</code>',
@@ -167,4 +167,9 @@ return [
     'api.section.examples'  => 'Examples',
     'api.copy'              => 'Copy',
     'api.copied'            => 'Copied',
+
+    // ── Queue / retry ──────────────────────────────────────────
+    'app.error.busy'      => 'The server is converting other documents right now. Retrying in %s s…',
+    'app.status.queued'   => 'Queued…',
+    'app.status.retrying' => 'Retrying (%s of %s)…',
 ];
