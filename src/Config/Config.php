@@ -30,6 +30,7 @@ final class Config
         'LOG_RETENTION_DAYS'         => ['type' => 'int', 'min' => 1, 'max' => 3650],
         'AUDIT_LOG_RETENTION_DAYS'   => ['type' => 'int', 'min' => 1, 'max' => 3650],
         'GC_PROBABILITY'             => ['type' => 'float', 'min' => 0.0, 'max' => 1.0],
+        'CONTACT_EMAIL'              => ['type' => 'email'],
     ];
 
     /** @param array<string,mixed> $values */
@@ -133,6 +134,12 @@ final class Config
                     throw new \InvalidArgumentException("scheme must be http or https, got \"$scheme\"");
                 }
                 return rtrim($input, '/');
+
+            case 'email':
+                if (filter_var($input, FILTER_VALIDATE_EMAIL) === false) {
+                    throw new \InvalidArgumentException("not a valid e-mail address: \"$input\"");
+                }
+                return $input;
 
             case 'path':
                 if (preg_match('#^(/|[A-Za-z]:[\\\\/])#', $input) !== 1) {

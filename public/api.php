@@ -427,6 +427,8 @@ data = r.json()
             <nav class="l-footer-links">
                 <a href="/"><?= t('footer.home') ?></a>
                 <a href="/app"><?= t('footer.converter') ?></a>
+                <a href="/terms"><?= t('nav.terms') ?></a>
+                <a href="/privacy"><?= t('nav.privacy') ?></a>
             </nav>
         </div>
     </div>

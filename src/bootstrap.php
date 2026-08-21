@@ -45,4 +45,6 @@ define('MAX_FILE_SIZE_LABEL', \Data2Md\format_bytes_label($config->int('MAX_FILE
 define('RATE_LIMIT_MAX',    $config->int('RATE_LIMIT_MAX'));
 define('RATE_LIMIT_WINDOW', $config->int('RATE_LIMIT_WINDOW_SECONDS'));
 
+define('CONTACT_EMAIL', $config->string('CONTACT_EMAIL'));
+
 return $config;

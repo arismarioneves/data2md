@@ -39,6 +39,7 @@ services:
       LOG_RETENTION_DAYS: "90"
       AUDIT_LOG_RETENTION_DAYS: "30"
       GC_PROBABILITY: "0"
+      CONTACT_EMAIL: "contato@data2md.example"
     command: ["vendor/bin/phpunit"]
 
 volumes:

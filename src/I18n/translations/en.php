@@ -172,4 +172,59 @@ return [
     'app.error.busy'      => 'The server is converting other documents right now. Retrying in %s s…',
     'app.status.queued'   => 'Queued…',
     'app.status.retrying' => 'Retrying (%s of %s)…',
+
+    // ── Legal pages ────────────────────────────────────────────
+    'nav.terms'          => 'Terms',
+    'nav.privacy'        => 'Privacy',
+    'legal.updated'      => 'Last updated 18 August 2026.',
+
+    'legal.terms.title'   => '%s — Terms of use',
+    'legal.terms.meta'    => 'Conditions for using the document-to-Markdown conversion service.',
+    'legal.terms.heading' => 'Terms of use',
+
+    'legal.terms.s1.h' => 'The service',
+    'legal.terms.s1.b' => 'data2md converts uploaded documents into Markdown text. It is free to use and requires no account.',
+
+    'legal.terms.s2.h' => 'Your responsibility',
+    'legal.terms.s2.b' => 'You are responsible for what you upload. By using the service you confirm you have the right to process that content. Do not upload unlawful material or content you are not authorised to handle.',
+
+    'legal.terms.s3.h' => 'Usage limits',
+    'legal.terms.s3.b' => 'Each file may be at most %s, and there is a limit of %s conversions per minute per source address. These limits keep the service available to everyone and may change without notice.',
+
+    'legal.terms.s4.h' => 'Availability and results',
+    'legal.terms.s4.b' => 'The service is provided as is, with no guarantee of continuous availability or of conversion fidelity. Documents with no text layer — scanned images, for instance — cannot be converted. Check the result before relying on it for anything that depends on accuracy.',
+
+    'legal.terms.s5.h' => 'Content removal',
+    'legal.terms.s5.b' => 'We may remove any conversion at any time, including for operational reasons, without prior notice.',
+
+    'legal.terms.s6.h' => 'Changes to these terms',
+    'legal.terms.s6.b' => 'These terms may change. The version in force is always the one published on this page. Questions: <a href="mailto:%3$s">%3$s</a>.',
+
+    'legal.privacy.title'   => '%s — Privacy',
+    'legal.privacy.meta'    => 'What the service keeps, for how long, and how to request deletion.',
+    'legal.privacy.heading' => 'Privacy',
+
+    'legal.privacy.s1.h' => 'Who is responsible',
+    'legal.privacy.s1.b' => 'data2md is responsible for handling the data described on this page. Contact: <a href="mailto:%3$s">%3$s</a>.',
+
+    'legal.privacy.s2.h' => 'The file you upload',
+    'legal.privacy.s2.b' => '<strong>It is deleted from the server right after conversion</strong>, including when the conversion fails. It is used only to extract the text and is not retained.',
+
+    'legal.privacy.s3.h' => 'The Markdown produced',
+    'legal.privacy.s3.b' => 'It is kept and reachable through the download link <strong>until it is deleted</strong>. It does not expire on its own.',
+
+    'legal.privacy.s4.h' => 'The file name',
+    'legal.privacy.s4.b' => 'It is stored alongside the conversion, because it is what names the file you download. If your file name contains personal data, that data is kept for as long as the conversion exists.',
+
+    'legal.privacy.s5.h' => 'IP address',
+    'legal.privacy.s5.b' => 'It is recorded for security and to enforce the usage limit. In the operational record the address is stored in reduced form, without its final part. In the access record the full address is kept for up to 30 days and then deleted.',
+
+    'legal.privacy.s6.h' => 'Who can reach your conversion',
+    'legal.privacy.s6.b' => 'Anyone holding the download link. The link contains a random identifier and is not listed anywhere, but <strong>do not share links to sensitive documents</strong>.',
+
+    'legal.privacy.s7.h' => 'Cookies',
+    'legal.privacy.s7.b' => 'We use a single cookie, to remember the language you picked. There is no tracking, no behavioural analytics and no advertising.',
+
+    'legal.privacy.s8.h' => 'Requesting deletion',
+    'legal.privacy.s8.b' => 'Write to <a href="mailto:%3$s">%3$s</a> with the identifier shown in the download link. The conversion and its record are deleted.',
 ];

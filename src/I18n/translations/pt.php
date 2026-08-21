@@ -172,4 +172,59 @@ return [
     'app.error.busy'      => 'O servidor está convertendo outros documentos agora. Tentando de novo em %s s…',
     'app.status.queued'   => 'Na fila…',
     'app.status.retrying' => 'Tentando de novo (%s de %s)…',
+
+    // ── Páginas legais ─────────────────────────────────────────
+    'nav.terms'          => 'Termos',
+    'nav.privacy'        => 'Privacidade',
+    'legal.updated'      => 'Atualizado em 18 de agosto de 2026.',
+
+    'legal.terms.title'   => '%s — Termos de uso',
+    'legal.terms.meta'    => 'Condições de uso do serviço de conversão de documentos em Markdown.',
+    'legal.terms.heading' => 'Termos de uso',
+
+    'legal.terms.s1.h' => 'O serviço',
+    'legal.terms.s1.b' => 'O data2md converte documentos enviados em texto Markdown. O uso é gratuito e não exige cadastro.',
+
+    'legal.terms.s2.h' => 'Sua responsabilidade',
+    'legal.terms.s2.b' => 'Você é responsável pelo que envia. Ao usar o serviço, você declara ter o direito de processar aquele conteúdo. Não envie material ilegal nem conteúdo sobre o qual não tenha autorização.',
+
+    'legal.terms.s3.h' => 'Limites de uso',
+    'legal.terms.s3.b' => 'Cada arquivo pode ter no máximo %s, e há um limite de %s conversões por minuto por endereço de origem. Esses limites existem para manter o serviço disponível a todos e podem mudar sem aviso.',
+
+    'legal.terms.s4.h' => 'Disponibilidade e resultado',
+    'legal.terms.s4.b' => 'O serviço é oferecido como está, sem garantia de disponibilidade contínua nem de fidelidade da conversão. Documentos sem camada de texto — imagens digitalizadas, por exemplo — não podem ser convertidos. Confira o resultado antes de usá-lo para qualquer finalidade que dependa de exatidão.',
+
+    'legal.terms.s5.h' => 'Remoção de conteúdo',
+    'legal.terms.s5.b' => 'Podemos remover qualquer conversão a qualquer momento, inclusive por motivo operacional, sem aviso prévio.',
+
+    'legal.terms.s6.h' => 'Mudanças nestes termos',
+    'legal.terms.s6.b' => 'Estes termos podem ser alterados. A versão vigente é sempre a publicada nesta página. Dúvidas: <a href="mailto:%3$s">%3$s</a>.',
+
+    'legal.privacy.title'   => '%s — Privacidade',
+    'legal.privacy.meta'    => 'O que o serviço guarda, por quanto tempo e como pedir exclusão.',
+    'legal.privacy.heading' => 'Privacidade',
+
+    'legal.privacy.s1.h' => 'Quem é o responsável',
+    'legal.privacy.s1.b' => 'O data2md é responsável pelo tratamento dos dados descritos nesta página. Contato: <a href="mailto:%3$s">%3$s</a>.',
+
+    'legal.privacy.s2.h' => 'O arquivo que você envia',
+    'legal.privacy.s2.b' => '<strong>É apagado do servidor logo após a conversão</strong>, inclusive quando a conversão falha. Ele é usado apenas para extrair o texto e não é guardado.',
+
+    'legal.privacy.s3.h' => 'O Markdown gerado',
+    'legal.privacy.s3.b' => 'Fica guardado e acessível pelo link de download <strong>até ser apagado</strong>. Não expira sozinho.',
+
+    'legal.privacy.s4.h' => 'O nome do arquivo',
+    'legal.privacy.s4.b' => 'É guardado junto da conversão, porque é ele que dá nome ao arquivo baixado. Se o nome do seu arquivo contiver dados pessoais, esses dados ficam guardados enquanto a conversão existir.',
+
+    'legal.privacy.s5.h' => 'Endereço IP',
+    'legal.privacy.s5.b' => 'É registrado para segurança e para aplicar o limite de uso. No registro operacional o endereço é guardado de forma reduzida, sem a parte final. No registro de acesso, o endereço completo é mantido por até 30 dias e depois apagado.',
+
+    'legal.privacy.s6.h' => 'Quem consegue acessar sua conversão',
+    'legal.privacy.s6.b' => 'Qualquer pessoa com o link de download. O link contém um identificador aleatório e não é listado em lugar nenhum, mas <strong>não compartilhe links de documentos sensíveis</strong>.',
+
+    'legal.privacy.s7.h' => 'Cookies',
+    'legal.privacy.s7.b' => 'Usamos um único cookie, para lembrar o idioma que você escolheu. Não há rastreamento, análise de comportamento nem publicidade.',
+
+    'legal.privacy.s8.h' => 'Como pedir exclusão',
+    'legal.privacy.s8.b' => 'Escreva para <a href="mailto:%3$s">%3$s</a> informando o identificador que aparece no link de download. A conversão e o registro correspondente são apagados.',
 ];

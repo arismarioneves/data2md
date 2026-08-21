@@ -317,6 +317,8 @@ driven by enterprise contracts in EMEA.
                 <a href="/app"><?= t('footer.app') ?></a>
                 <a href="/api"><?= t('footer.api') ?></a>
                 <a href="https://daringfireball.net/projects/markdown/" target="_blank" rel="noreferrer"><?= t('footer.about_md') ?></a>
+                <a href="/terms"><?= t('nav.terms') ?></a>
+                <a href="/privacy"><?= t('nav.privacy') ?></a>
             </nav>
         </div>
     </div>

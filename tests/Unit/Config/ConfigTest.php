@@ -32,6 +32,7 @@ final class ConfigTest extends TestCase
             'LOG_RETENTION_DAYS'         => '90',
             'AUDIT_LOG_RETENTION_DAYS'   => '30',
             'GC_PROBABILITY'             => '0.01',
+            'CONTACT_EMAIL'              => 'contato@data2md.example',
         ];
     }
 
@@ -169,5 +170,11 @@ final class ConfigTest extends TestCase
     {
         $this->expectException(ConfigError::class);
         Config::fromArray(self::valid(['APP_NAME' => str_repeat('a', 65)]));
+    }
+
+    public function testContactEmailMustBeValid(): void
+    {
+        $this->expectException(ConfigError::class);
+        Config::fromArray(self::valid(['CONTACT_EMAIL' => 'not-an-email']));
     }
 }

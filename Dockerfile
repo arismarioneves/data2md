@@ -66,7 +66,8 @@ ENV APP_ENV=production \
     CORS_ALLOWED_ORIGINS= \
     LOG_RETENTION_DAYS=90 \
     AUDIT_LOG_RETENTION_DAYS=30 \
-    GC_PROBABILITY=0.01
+    GC_PROBABILITY=0.01 \
+    CONTACT_EMAIL=contato@data2md.com.br
 
 VOLUME ["/var/lib/data2md"]
 EXPOSE 80
