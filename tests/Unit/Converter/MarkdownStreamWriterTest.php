@@ -10,14 +10,26 @@ use PHPUnit\Framework\TestCase;
 
 final class MarkdownStreamWriterTest extends TestCase
 {
-    /** @return array{0:string,1:\Data2Md\Converter\SanitizeStats} */
+    /**
+     * Feeds $input the way PdfConverter::render() actually does: split only
+     * on "\n" (what fgets() stops at), then rtrim() each piece of a
+     * trailing "\r\n" or "\r". An interior "\r" — one not immediately
+     * followed by "\n" — is deliberately NOT normalised here, because
+     * production does not normalise it either; it survives into the string
+     * handed to writeLine(). Pre-splitting on every "\r" here (as an
+     * earlier version of this harness did) would hide exactly the input
+     * class where the streaming writer and clean() can diverge — see
+     * testInteriorCarriageReturnDivergesFromClean().
+     *
+     * @return array{0:string,1:\Data2Md\Converter\SanitizeStats}
+     */
     private function stream(string $input): array
     {
         $out    = fopen('php://memory', 'r+');
         $writer = new MarkdownStreamWriter($out, new MarkdownSanitizer());
 
-        foreach (explode("\n", str_replace(["\r\n", "\r"], "\n", $input)) as $line) {
-            $writer->writeLine($line);
+        foreach (explode("\n", $input) as $rawLine) {
+            $writer->writeLine(rtrim($rawLine, "\r\n"));
         }
 
         $stats = $writer->finish();
@@ -71,6 +83,39 @@ final class MarkdownStreamWriterTest extends TestCase
             'real garbage at start and end'      => ["GSVWJJGTGMUEN\nRFGMEMfMfXY\n;<='& >??#A\nReal text.\nGSVWJJGTGMUEN\nRFGMEMfMfXY\n;<='& >??#A"],
             'two real garbage lines, no marker'  => ["GSVWJJGTGMUEN\nRFGMEMfMfXY\nReal text."],
         ];
+    }
+
+    /**
+     * Production reads with fgets(), which only breaks lines on "\n";
+     * rtrim($rawLine, "\r\n") strips a trailing "\r" but not one in the
+     * middle. An interior "\r" therefore reaches writeLine() still joined
+     * to the text after it — stripControlChars() then turns it into an
+     * embedded "\n" without re-splitting, so isGarbage() judges the whole
+     * two-part blob as a single line. clean() does not have this problem:
+     * it normalises every "\r" to "\n" over the whole document *before*
+     * splitting on "\n", so the same two parts become two independent
+     * lines there.
+     *
+     * Verified empirically, and the divergence is worse than cosmetic: for
+     * "Real text.\rGSVWJJGTGMUEN", clean() drops only the garbage half and
+     * keeps "Real text." — but in the merged blob, the long consonant run
+     * from "GSVWJJGTGMUEN" (rule 5 in isGarbage()) still matches, so
+     * isGarbage() reports the *whole* line as garbage and the streaming
+     * writer silently drops "Real text." too. This is a real content-loss
+     * bug for any source line broken by a bare \r not followed by \n, not
+     * merely a formatting difference — flagging for a decision rather than
+     * changing the heuristic here.
+     */
+    public function testInteriorCarriageReturnDivergesFromClean(): void
+    {
+        $input = "Real text.\rGSVWJJGTGMUEN";
+
+        [$streamed] = $this->stream($input);
+        $inMemory   = (new MarkdownSanitizer())->clean($input);
+
+        self::assertSame('Real text.', $inMemory, 'clean() keeps the real half and drops the garbage half');
+        self::assertSame('', $streamed, 'the streaming writer currently drops the whole merged line, real text included');
+        self::assertNotSame($inMemory, $streamed, 'the two implementations diverge on an interior carriage return');
     }
 
     public function testStreamingMatchesTheInMemorySanitizerOnRandomDocuments(): void
