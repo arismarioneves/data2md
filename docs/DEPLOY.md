@@ -2,6 +2,10 @@
 
 A imagem é construída pelo GitHub Actions e publicada no GHCR. O EasyPanel apenas consome a imagem pronta.
 
+Este é o passo a passo prático. Para a tabela completa das 19 variáveis, a
+aritmética de dimensionamento e a arquitetura, veja
+[`DEPLOYMENT.md`](DEPLOYMENT.md).
+
 ```
 commit → push em main → Actions roda a suíte → publica no GHCR
        → EasyPanel puxa a imagem → /health confirma a versão
@@ -117,7 +121,7 @@ Demais variáveis e seus domínios estão em [`.env.example`](../.env.example).
 | Memory | 2 GB |
 | CPU | 1.0 |
 
-O pico de memória é `CONVERT_CONCURRENCY × PHP_MEMORY_LIMIT_MB`, hoje `2 × 512 MB`. A conversão roda com prioridade baixa de CPU e I/O, cedendo espaço aos outros serviços da VPS.
+O pico de memória é `CONVERT_CONCURRENCY × (PHP_MEMORY_LIMIT_MB + ~60 MB)`, hoje `2 × (512 + 60) ≈ 1,1 GB` — a aritmética completa está em [`DEPLOYMENT.md`](DEPLOYMENT.md#5-sizing-arithmetic). A conversão roda com prioridade baixa de CPU e I/O, cedendo espaço aos outros serviços da VPS.
 
 ---
 
