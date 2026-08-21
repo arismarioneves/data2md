@@ -93,30 +93,39 @@ final class PdfConverter implements ConverterInterface
                 while (($rawLine = fgets($in)) !== false) {
                     $line = rtrim($rawLine, "\r\n");
 
-                    // pdftotext separates pages with a form feed, which may
-                    // share a line with content on either side of it.
-                    $segments = explode(self::PAGE_BREAK, $line);
+                    // An interior \r — one rtrim() above didn't strip because
+                    // it wasn't at the end — is a line break clean() would
+                    // have normalised to \n before splitting. Split on it
+                    // here for the same reason: left joined, the text before
+                    // and after it becomes one string handed to a single
+                    // writeLine() call, which can trip the garbage heuristic
+                    // as a unit and drop legitimate text along with it.
+                    foreach (explode("\r", $line) as $crLine) {
+                        // pdftotext separates pages with a form feed, which may
+                        // share a line with content on either side of it.
+                        $segments = explode(self::PAGE_BREAK, $crLine);
 
-                    foreach ($segments as $index => $segment) {
-                        if ($index > 0) {
-                            $pageOpen = false; // the form feed closed the previous page
-                        }
-
-                        if (trim($segment) === '') {
-                            if ($pageOpen) {
-                                $writer->blankLine();
+                        foreach ($segments as $index => $segment) {
+                            if ($index > 0) {
+                                $pageOpen = false; // the form feed closed the previous page
                             }
-                            continue;
-                        }
 
-                        if (!$pageOpen) {
-                            $pages++;
-                            $writer->writeRaw('## Page ' . $pages);
-                            $writer->blankLine();
-                            $pageOpen = true;
-                        }
+                            if (trim($segment) === '') {
+                                if ($pageOpen) {
+                                    $writer->blankLine();
+                                }
+                                continue;
+                            }
 
-                        $writer->writeLine($segment);
+                            if (!$pageOpen) {
+                                $pages++;
+                                $writer->writeRaw('## Page ' . $pages);
+                                $writer->blankLine();
+                                $pageOpen = true;
+                            }
+
+                            $writer->writeLine($segment);
+                        }
                     }
                 }
 

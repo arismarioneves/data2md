@@ -11,15 +11,13 @@ use PHPUnit\Framework\TestCase;
 final class MarkdownStreamWriterTest extends TestCase
 {
     /**
-     * Feeds $input the way PdfConverter::render() actually does: split only
-     * on "\n" (what fgets() stops at), then rtrim() each piece of a
-     * trailing "\r\n" or "\r". An interior "\r" — one not immediately
-     * followed by "\n" — is deliberately NOT normalised here, because
-     * production does not normalise it either; it survives into the string
-     * handed to writeLine(). Pre-splitting on every "\r" here (as an
-     * earlier version of this harness did) would hide exactly the input
-     * class where the streaming writer and clean() can diverge — see
-     * testInteriorCarriageReturnDivergesFromClean().
+     * Feeds $input the way PdfConverter::render() actually does: split on
+     * "\n" (what fgets() stops at), rtrim() each piece of a trailing
+     * "\r\n" or "\r", then split what remains on any interior "\r" — the
+     * same normalisation clean() applies up front via
+     * str_replace(["\r\n", "\r"], "\n", ...) before it ever splits on "\n".
+     * PdfConverter does not have page-break ("\x0c") handling to replicate
+     * here; that logic sits above MarkdownStreamWriter, not inside it.
      *
      * @return array{0:string,1:\Data2Md\Converter\SanitizeStats}
      */
@@ -29,7 +27,11 @@ final class MarkdownStreamWriterTest extends TestCase
         $writer = new MarkdownStreamWriter($out, new MarkdownSanitizer());
 
         foreach (explode("\n", $input) as $rawLine) {
-            $writer->writeLine(rtrim($rawLine, "\r\n"));
+            $line = rtrim($rawLine, "\r\n");
+
+            foreach (explode("\r", $line) as $crLine) {
+                $writer->writeLine($crLine);
+            }
         }
 
         $stats = $writer->finish();
@@ -86,36 +88,26 @@ final class MarkdownStreamWriterTest extends TestCase
     }
 
     /**
-     * Production reads with fgets(), which only breaks lines on "\n";
-     * rtrim($rawLine, "\r\n") strips a trailing "\r" but not one in the
-     * middle. An interior "\r" therefore reaches writeLine() still joined
-     * to the text after it — stripControlChars() then turns it into an
-     * embedded "\n" without re-splitting, so isGarbage() judges the whole
-     * two-part blob as a single line. clean() does not have this problem:
-     * it normalises every "\r" to "\n" over the whole document *before*
-     * splitting on "\n", so the same two parts become two independent
-     * lines there.
-     *
-     * Verified empirically, and the divergence is worse than cosmetic: for
-     * "Real text.\rGSVWJJGTGMUEN", clean() drops only the garbage half and
-     * keeps "Real text." — but in the merged blob, the long consonant run
-     * from "GSVWJJGTGMUEN" (rule 5 in isGarbage()) still matches, so
-     * isGarbage() reports the *whole* line as garbage and the streaming
-     * writer silently drops "Real text." too. This is a real content-loss
-     * bug for any source line broken by a bare \r not followed by \n, not
-     * merely a formatting difference — flagging for a decision rather than
-     * changing the heuristic here.
+     * PdfConverter::render() used to only rtrim() a trailing "\r\n" off
+     * each fgets() line, so an interior "\r" stayed joined to the text
+     * after it — one writeLine() call for what clean() (which normalises
+     * every "\r" to "\n" before splitting) would treat as two lines. Worse
+     * than a formatting gap: for "Real text.\rGSVWJJGTGMUEN", the merged
+     * blob still tripped the consonant-run rule from the garbage half, so
+     * isGarbage() dropped the *whole* line, real text included, where
+     * clean() drops only the garbage half. Fixed by splitting on "\r" in
+     * PdfConverter's read loop, the same way it already splits on the
+     * page-break "\x0c" — now both paths see the same two lines and agree.
      */
-    public function testInteriorCarriageReturnDivergesFromClean(): void
+    public function testInteriorCarriageReturnMatchesClean(): void
     {
         $input = "Real text.\rGSVWJJGTGMUEN";
 
         [$streamed] = $this->stream($input);
         $inMemory   = (new MarkdownSanitizer())->clean($input);
 
-        self::assertSame('Real text.', $inMemory, 'clean() keeps the real half and drops the garbage half');
-        self::assertSame('', $streamed, 'the streaming writer currently drops the whole merged line, real text included');
-        self::assertNotSame($inMemory, $streamed, 'the two implementations diverge on an interior carriage return');
+        self::assertSame('Real text.', $inMemory);
+        self::assertSame($inMemory, $streamed);
     }
 
     public function testStreamingMatchesTheInMemorySanitizerOnRandomDocuments(): void
@@ -138,6 +130,11 @@ final class MarkdownStreamWriterTest extends TestCase
             '- a list item',
             '---',
             $nonGarbageTrap,
+            // A "line" that is really two lines joined by an interior \r —
+            // see testInteriorCarriageReturnMatchesClean(). Keeping it in
+            // the pool means every random document has a chance of
+            // exercising the case, permanently.
+            "Real sentence about ordinary things.\rGSVWJJGTGMUEN",
         ]);
 
         mt_srand(424242);
