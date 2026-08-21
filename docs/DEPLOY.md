@@ -121,7 +121,7 @@ Demais variáveis e seus domínios estão em [`.env.example`](../.env.example).
 | Memory | 2 GB |
 | CPU | 1.0 |
 
-O pico de memória é `CONVERT_CONCURRENCY × (PHP_MEMORY_LIMIT_MB + ~60 MB)`, hoje `2 × (512 + 60) ≈ 1,1 GB` — a aritmética completa está em [`DEPLOYMENT.md`](DEPLOYMENT.md#5-sizing-arithmetic). A conversão roda com prioridade baixa de CPU e I/O, cedendo espaço aos outros serviços da VPS.
+O pico de memória não é só das conversões: cada worker do Apache é um processo mod_php residente, esteja convertendo, na fila do semáforo ou ocioso. A fórmula real é `CONVERT_CONCURRENCY × (PHP_MEMORY_LIMIT_MB + ~60 MB) + (MaxRequestWorkers − CONVERT_CONCURRENCY) × ~35 MB`, hoje `2 × (512 + 60) + 22 × 35 ≈ 1,9 GB` de 2 GB — sem margem real, e é por isso que `MaxRequestWorkers` (24, em `docker/apache/mpm.conf`) não pode ser aumentado para dar mais fôlego à fila. A aritmética completa está em [`DEPLOYMENT.md`](DEPLOYMENT.md#5-sizing-arithmetic). A conversão roda com prioridade baixa de CPU e I/O, cedendo espaço aos outros serviços da VPS.
 
 ---
 
