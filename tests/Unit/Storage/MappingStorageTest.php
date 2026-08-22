@@ -116,6 +116,55 @@ final class MappingStorageTest extends TestCase
         self::assertSame(['aaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbb'], $all);
     }
 
+    public function testRecentReturnsNewestFirst(): void
+    {
+        $now = time();
+        $this->storage->save('aaaaaaaaaaaaaaa', 'older.pdf', 'pdf', 10, $now - 7200);
+        $this->storage->save('bbbbbbbbbbbbbbb', 'newest.pdf', 'pdf', 20, $now);
+        $this->storage->save('ccccccccccccccc', 'middle.pdf', 'pdf', 30, $now - 3600);
+
+        $rows = $this->storage->recent(10);
+
+        self::assertSame(
+            ['newest.pdf', 'middle.pdf', 'older.pdf'],
+            array_column($rows, 'original_name')
+        );
+        self::assertSame(20, $rows[0]['size_bytes']);
+        self::assertSame('bbbbbbbbbbbbbbb', $rows[0]['hash']);
+    }
+
+    public function testRecentHonoursTheLimit(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->storage->save(str_repeat((string) $i, 15), "f$i.pdf", 'pdf', 1, time() - $i);
+        }
+
+        self::assertCount(2, $this->storage->recent(2));
+    }
+
+    public function testRecentClampsANonPositiveLimit(): void
+    {
+        $this->storage->save('aaaaaaaaaaaaaaa', 'one.pdf', 'pdf', 1);
+
+        self::assertCount(1, $this->storage->recent(0));
+        self::assertCount(1, $this->storage->recent(-5));
+    }
+
+    public function testRecentOnAnEmptyTable(): void
+    {
+        self::assertSame([], $this->storage->recent(10));
+    }
+
+    public function testCount(): void
+    {
+        self::assertSame(0, $this->storage->count());
+
+        $this->storage->save('aaaaaaaaaaaaaaa', 'a.pdf', 'pdf', 1);
+        $this->storage->save('bbbbbbbbbbbbbbb', 'b.pdf', 'pdf', 1);
+
+        self::assertSame(2, $this->storage->count());
+    }
+
     public function testUnicodeNamesSurvive(): void
     {
         $this->storage->save('a1b2c3d4e5f6789', 'relatório anual.pdf', 'pdf', 1);

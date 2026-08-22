@@ -106,6 +106,40 @@ final class MappingStorage
         );
     }
 
+    /**
+     * Most recent conversions first.
+     *
+     * @return list<array{hash:string,original_name:string,format:string,size_bytes:int,created_at:int}>
+     */
+    public function recent(int $limit): array
+    {
+        $statement = $this->db->pdo()->prepare(
+            'SELECT hash, original_name, format, size_bytes, created_at
+               FROM mappings ORDER BY created_at DESC, hash LIMIT :limit'
+        );
+        $statement->bindValue('limit', max(1, $limit), \PDO::PARAM_INT);
+        $statement->execute();
+
+        $rows = [];
+
+        foreach ($statement->fetchAll() as $row) {
+            $rows[] = [
+                'hash'          => (string) $row['hash'],
+                'original_name' => (string) $row['original_name'],
+                'format'        => (string) $row['format'],
+                'size_bytes'    => (int) $row['size_bytes'],
+                'created_at'    => (int) $row['created_at'],
+            ];
+        }
+
+        return $rows;
+    }
+
+    public function count(): int
+    {
+        return (int) $this->db->pdo()->query('SELECT COUNT(*) FROM mappings')->fetchColumn();
+    }
+
     public function delete(string $hash): void
     {
         $statement = $this->db->pdo()->prepare('DELETE FROM mappings WHERE hash = :hash');

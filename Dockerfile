@@ -80,7 +80,7 @@ EXPOSE 80
 # consecutive failures before a restart — a queued request now waits at most
 # CONVERT_QUEUE_WAIT_SECONDS=20s before its worker frees up, so one busy burst
 # costs at most one or two failed checks, never enough on its own to reach 5.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
-    CMD php -r 'exit(@file_get_contents("http://127.0.0.1/health") && str_contains(@file_get_contents("http://127.0.0.1/health"), "\"status\":\"ok\"") ? 0 : 1);'
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD php -r '$b = @file_get_contents("http://127.0.0.1/health"); exit(is_string($b) && str_contains($b, "\"status\":\"ok\"") ? 0 : 1);'
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

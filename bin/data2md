@@ -39,6 +39,17 @@ function option(array $argv, string $name, string $default): string
     return $default;
 }
 
+function humanBytes(int $bytes): string
+{
+    if ($bytes >= 1048576) {
+        return round($bytes / 1048576, 1) . ' MB';
+    }
+    if ($bytes >= 1024) {
+        return round($bytes / 1024, 1) . ' KB';
+    }
+    return $bytes . ' B';
+}
+
 /** Shared by gc, delete and prune, so the three can never drift apart. */
 function makeGc(\Data2Md\Config\Config $config, string $dataDir): Gc
 {
@@ -111,6 +122,39 @@ switch ($command) {
         fwrite(STDOUT, "removed $removed conversion(s) older than $days day(s)\n");
         exit(0);
 
+    case 'list':
+        $limit = (int) option($argv, 'limit', '20');
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        $db->migrate();
+
+        $mappings = new MappingStorage($db);
+        $files    = new FileStorage($dataDir . '/md', $dataDir . '/tmp');
+
+        $rows  = $mappings->recent($limit);
+        $total = $mappings->count();
+
+        if ($rows === []) {
+            fwrite(STDOUT, "no conversions stored\n");
+            exit(0);
+        }
+
+        fwrite(STDOUT, sprintf("%-16s %10s %10s  %-16s %s\n", 'HASH', 'UPLOAD', 'MARKDOWN', 'CREATED', 'NAME'));
+
+        foreach ($rows as $row) {
+            fwrite(STDOUT, sprintf(
+                "%-16s %10s %10s  %-16s %s\n",
+                $row['hash'],
+                humanBytes($row['size_bytes']),
+                $files->markdownExists($row['hash']) ? humanBytes($files->markdownSize($row['hash'])) : 'MISSING',
+                gmdate('Y-m-d H:i', $row['created_at']),
+                $row['original_name']
+            ));
+        }
+
+        fwrite(STDOUT, sprintf("\nshowing %d of %d\n", count($rows), $total));
+        exit(0);
+
     case 'logs':
         $channel = option($argv, 'channel', 'app');
         $tail    = (int) option($argv, 'tail', '50');
@@ -176,6 +220,7 @@ switch ($command) {
 
           config:check          validate every environment variable
           migrate               apply the SQLite schema (idempotent)
+          list [--limit=N]      stored conversions, newest first
           gc                    housekeeping: orphans, rate limits, rotated logs
           delete <hash>         permanently remove one conversion
           prune --older-than=N  permanently remove conversions older than N days

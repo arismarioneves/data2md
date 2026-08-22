@@ -186,6 +186,8 @@ Comandos disponíveis no container:
 ```bash
 bin/data2md health          # mesmos checks de /health
 bin/data2md config:check    # valida as variáveis de ambiente
+bin/data2md list            # conversões guardadas, mais recentes primeiro
+bin/data2md list --limit=50
 bin/data2md logs --tail=50  # últimas entradas do log operacional
 bin/data2md logs --channel=audit --tail=50
 bin/data2md gc              # remove órfãos, contadores vencidos, logs rotacionados
