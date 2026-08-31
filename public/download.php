@@ -36,7 +36,7 @@ $rateLimiter = new RateLimiter(
 );
 
 if (!$rateLimiter->isAllowed('download:' . $clientIp)) {
-    header('Retry-After: ' . $rateLimiter->retryAfter());
+    header('Retry-After: ' . $rateLimiter->retryAfter('download:' . $clientIp));
     http_response_code(429);
     header('Content-Type: text/plain; charset=utf-8');
     echo "Rate limit exceeded.\n";

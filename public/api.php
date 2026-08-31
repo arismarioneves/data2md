@@ -78,7 +78,7 @@ $rateLimiter = new RateLimiter(
 if (!$rateLimiter->isAllowed($clientIp)) {
     $logger->app('ratelimit.block', ['ip' => $loggedIp], 'warning');
 
-    header('Retry-After: ' . $rateLimiter->retryAfter());
+    header('Retry-After: ' . $rateLimiter->retryAfter($clientIp));
     ApiResponse::error(
         'Rate limit exceeded. Maximum ' . RATE_LIMIT_MAX . ' requests per ' . RATE_LIMIT_WINDOW . ' seconds.',
         429

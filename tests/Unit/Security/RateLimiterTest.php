@@ -84,8 +84,78 @@ final class RateLimiterTest extends TestCase
         self::assertCount(1, glob($this->dir . '/*') ?: [], 'no separate .lock file should be left behind');
     }
 
-    public function testRetryAfterMatchesTheWindow(): void
+    public function testRetryAfterIsTheWholeWindowForAnUntouchedIdentifier(): void
     {
-        self::assertSame(60, (new RateLimiter($this->dir, 1, 60))->retryAfter());
+        self::assertSame(60, (new RateLimiter($this->dir, 1, 60))->retryAfter('1.2.3.4'));
+    }
+
+    public function testRetryAfterDoesNotCreateABucket(): void
+    {
+        (new RateLimiter($this->dir, 1, 60))->retryAfter('1.2.3.4');
+
+        self::assertCount(0, glob($this->dir . '/*') ?: []);
+    }
+
+    /**
+     * A one-hour window would otherwise tell a caller to wait an hour when a
+     * few seconds remain.
+     */
+    public function testRetryAfterCountsDownFromTheOldestHit(): void
+    {
+        $limiter = new RateLimiter($this->dir, 1, 4);
+
+        self::assertTrue($limiter->isAllowed('1.2.3.4'));
+        self::assertFalse($limiter->isAllowed('1.2.3.4'));
+        self::assertSame(4, $limiter->retryAfter('1.2.3.4'));
+
+        sleep(2);
+
+        self::assertSame(2, $limiter->retryAfter('1.2.3.4'));
+    }
+
+    public function testRetryAfterIsNeverBelowOne(): void
+    {
+        $limiter = new RateLimiter($this->dir, 1, 1);
+        $limiter->isAllowed('1.2.3.4');
+
+        sleep(1);
+
+        self::assertSame(1, $limiter->retryAfter('1.2.3.4'));
+    }
+
+    public function testRefundReleasesTheMostRecentHit(): void
+    {
+        $limiter = new RateLimiter($this->dir, 1, 60);
+
+        self::assertTrue($limiter->isAllowed('1.2.3.4'));
+        self::assertFalse($limiter->isAllowed('1.2.3.4'));
+
+        $limiter->refund('1.2.3.4');
+
+        self::assertTrue($limiter->isAllowed('1.2.3.4'));
+    }
+
+    public function testRefundOnlyReleasesOneHit(): void
+    {
+        $limiter = new RateLimiter($this->dir, 3, 60);
+
+        $limiter->isAllowed('1.2.3.4');
+        $limiter->isAllowed('1.2.3.4');
+        $limiter->isAllowed('1.2.3.4');
+        self::assertFalse($limiter->isAllowed('1.2.3.4'));
+
+        $limiter->refund('1.2.3.4');
+
+        self::assertTrue($limiter->isAllowed('1.2.3.4'));
+        self::assertFalse($limiter->isAllowed('1.2.3.4'));
+    }
+
+    public function testRefundOnAnUnchargedIdentifierIsHarmless(): void
+    {
+        $limiter = new RateLimiter($this->dir, 1, 60);
+
+        $limiter->refund('1.2.3.4');
+
+        self::assertTrue($limiter->isAllowed('1.2.3.4'));
     }
 }
