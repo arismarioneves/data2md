@@ -211,12 +211,86 @@ O log operacional também aparece no visualizador de logs do EasyPanel.
 
 ---
 
+## 11b. Stripe
+
+O produto e o preço são criados pelo CLI, nunca à mão no painel — assim a moeda,
+o intervalo e a opção em reais saem sempre iguais, e ficam registrados aqui.
+
+```bash
+data2md billing:create-product --name="Data2MD Premium"          # mostra o payload
+data2md billing:create-product --name="Data2MD Premium" --confirm
+```
+
+Depois, ponha o `price_...` devolvido em `STRIPE_PRICE_ID` e confirme:
+
+```bash
+data2md billing:validate-prices
+```
+
+**Um preço da Stripe não pode ser editado nem apagado, só arquivado.** Um valor
+errado fica na conta para sempre, e a correção é sempre um preço novo mais uma
+mudança de configuração. Por isso o comando exige `--confirm` e recusa quando já
+existe um `STRIPE_PRICE_ID` configurado.
+
+### Um preço, duas moedas
+
+Há **um** preço: `usd 1900` como moeda padrão, com `currency_options[brl] 9500`.
+Não são dois preços, porque a Stripe escolhe a moeda pelo país de emissão do
+cartão e a moeda de um cliente fica travada na primeira assinatura dele.
+
+Sem a opção em reais, **todo cartão brasileiro é recusado** com
+`currency_not_supported`. Não é otimização, é requisito — e é o tipo de falha que
+passa no teste com `4242 4242 4242 4242` em dólar e quebra no primeiro cliente
+brasileiro real. O `billing:validate-prices` sai não-zero se a opção faltar.
+
+Uma pegadinha da API que o validador já contorna: `currency_options` **não vem na
+resposta** sem `expand[]=currency_options`. Uma leitura sem o expand mostra
+`null` num preço perfeitamente configurado.
+
+O toggle de idioma do site **não** muda a moeda. Um brasileiro lendo em inglês
+continua pagando em reais. Trocar de moeda depois é operação de suporte — cliente
+novo na Stripe —, não um recurso do produto.
+
+### Webhook
+
+Endpoint em `https://<dominio>/billing/webhook`, assinando quatro eventos:
+`checkout.session.completed` e `customer.subscription.created|updated|deleted`.
+Fixe a versão da API do endpoint na mesma que o app envia (`STRIPE_API_VERSION`),
+senão os payloads mudam de forma sob os pés do parser.
+
+O segredo de assinatura é devolvido **apenas na criação** do endpoint. Se ele se
+perder, gere outro no painel; não há como reler pela API.
+
+O endpoint fica de fora de tudo o que o resto do app atravessa: sem limite de
+uso, sem CORS, sem CSRF, sem sessão, sem coleta de lixo. Um limite de uso ali
+colocaria os poucos endereços de saída da Stripe num só contador, responderia
+429, e a Stripe desabilitaria o endpoint depois de falhas repetidas. Ele também
+responde com `ACCOUNTS_ENABLED=false`: desligar contas não pode fazer uma
+assinatura paga deixar de ser registrada em silêncio.
+
+### Do lado da Stripe, no painel
+
+- **Customer Portal** ativado, com cancelamento permitido. É por onde o assinante
+  cancela; o app só abre uma sessão do portal.
+- **Descritor de fatura** que o cliente reconheça. Descritor confuso é causa
+  direta de chargeback.
+- Métodos de pagamento restritos a cartão. Com Pix ou boleto, o
+  `checkout.session.completed` dispara com a cobrança ainda em trânsito, e
+  conceder acesso nesse momento dá um mês grátis a quem começar e abandonar um
+  pagamento. O app já pede apenas cartão na sessão; manter isso alinhado no
+  painel evita surpresa.
+
+---
+
 ## 12. Ciclo de vida dos dados
 
 | Dado | Retenção |
 |---|---|
 | Arquivo enviado | descartado após a conversão |
-| Markdown convertido | permanente, até `delete` ou `prune` |
+| Markdown convertido | sem expiração; até `delete`, `prune`, ou exclusão pelo usuário no painel |
+| Conta e sessões | até encerrar a conta; sessões expiram por inatividade |
+| Link de acesso por e-mail | expira em minutos, uso único |
+| Registro de eventos da Stripe | 30 dias |
 | Log operacional | 90 dias |
 | Registro de acesso | 30 dias |
 
@@ -236,6 +310,14 @@ A coleta oportunista (`gc`) roda a cada requisição de conversão, mas uma falh
 
 **HTTP 413.** Arquivo acima de `MAX_FILE_SIZE_MB`.
 
-**Limite de uso não funciona.** `TRUSTED_PROXIES` não corresponde à rede do proxy. Confira conforme a seção 5.
+**Limite de uso não funciona, ou ninguém consegue entrar.** `TRUSTED_PROXIES` não corresponde à rede do proxy, então todo visitante aparece com o mesmo endereço. Antes disso era só um limite mal aplicado; com contas, o limite por endereço nos pedidos de link de acesso passa a atingir todos os visitantes juntos, e entrar deixa de funcionar. Confira conforme a seção 5.
+
+**O link de acesso não chega.** Rode `bin/data2md mail:test <seu-endereco>` dentro do container: ele imprime o transporte que vai usar e diz se o relay aceitou. Aceitação pelo relay não é entrega na caixa — confira também a pasta de spam, e confirme SPF e DKIM do domínio remetente. Sem esse comando o problema é indiagnosticável de dentro do container.
+
+**Todo webhook da Stripe responde 400.** Duas causas, ambas silenciosas em tudo o mais. A chave e o segredo de webhook podem estar em modos trocados (teste contra produção) — o `config:check` recusa subir nessa combinação, então verifique se alguém sobrescreveu no painel. Ou o relógio do container está fora: a assinatura carrega um timestamp e a tolerância da Stripe é de cinco minutos. Procure o evento `billing.webhook.signature_fail`.
+
+**Alguém pagou e continua sem premium.** Procure `billing.reconcile.drift` (a resposta guardada estava errada, ou seja um webhook não chegou) e `billing.reconcile.recovered` (a assinatura foi encontrada sem nenhum webhook ter chegado). Ambos são nível de erro. Reentregue o evento pelo painel da Stripe, ou rode `bin/data2md billing:reconcile`. Se aparecer `billing.webhook.unmatched`, a assinatura não pertence a nenhuma conta — foi criada fora do checkout do app.
+
+**Os hashes de download aparecem no registro de acesso do EasyPanel.** É esperado: o `combined` registra a linha de requisição inteira, e `/download?hash=...` leva o identificador. Quem tem o identificador tem o arquivo, então trate esse visualizador de logs como material sensível. A exceção é `/login`, cujo formato de log omite a query string justamente porque ela carrega o token.
 
 **Falha ao puxar a imagem.** O pacote é privado e não há credencial cadastrada. Veja a seção 3.

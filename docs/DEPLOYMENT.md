@@ -107,16 +107,42 @@ for tuning.
 | `LOG_RETENTION_DAYS` | `90` | 1–3650 | Operational log |
 | `AUDIT_LOG_RETENTION_DAYS` | `30` | 1–3650 | Access/audit log |
 | `GC_PROBABILITY` | `0.01` | 0.0–1.0 | Chance GC runs after any given request |
-| `CONTACT_EMAIL` | `support@aiu4.com` | valid e-mail | Placeholder — override for a real deployment |
+| `CONTACT_EMAIL` | `support@aiu4.com` | valid e-mail | Published on the Terms and Privacy pages |
 
-There is no `MD_RETENTION_DAYS` and there never was one. Converted Markdown is
-permanent; a retention variable would imply otherwise. The only way Markdown
-is removed is `bin/data2md delete <hash>` (one conversion) or
-`bin/data2md prune --older-than=N` (by age) — both CLI-only, with no
-self-service deletion exposed to users. Because of that, the data volume
-grows monotonically over the life of the deployment; a disk-space alert on
-the VPS is not optional, it's the only thing that will tell you before the
-volume fills.
+### Optional keys
+
+Everything above is required and has a value in the image. Accounts, mail and
+billing add keys that each carry a default in code, so an operator sets only
+what they mean to change — `bin/data2md config:check` prints how many of each
+the running build has, and names every problem at once rather than the first.
+
+Three cross-checks refuse to boot rather than degrade quietly:
+
+- `ACCOUNTS_ENABLED=true` with `MAIL_TRANSPORT=smtp` and no `SMTP_HOST`. A
+  sign-in link is the only way into an account, so mail that cannot be sent
+  is an outage, not a warning.
+- `BILLING_ENABLED=true` without accounts, or with any `STRIPE_*` empty. Half
+  a billing configuration is worse than none.
+- A test-mode Stripe key with `APP_ENV=production`, or a live key in
+  development. A key in the wrong mode fails silently: every webhook answers
+  400 and nothing else looks wrong.
+
+Do not set `APP_VERSION` on the service. It is written into the image by the
+CI build and is how `/health` reports which commit is running; setting it in
+the panel replaces that with whatever was typed.
+
+There is no `MD_RETENTION_DAYS` and there never was one. Converted Markdown does
+not expire; a retention variable would imply otherwise. It is removed by
+`bin/data2md delete <hash>`, by `bin/data2md prune --older-than=N`, or by a
+signed-in user deleting their own conversion from the dashboard. Nothing
+removes it on a timer, so the data volume still grows over the life of the
+deployment; a disk-space alert on the VPS is not optional, it's the only
+thing that will tell you before the volume fills.
+
+Deleting an account does **not** delete its conversions. They are detached
+from it and stay reachable by hash, exactly as an anonymous conversion is.
+The privacy page says so, and `bin/data2md user:delete` says so before it
+acts.
 
 ---
 

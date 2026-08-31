@@ -14,13 +14,18 @@ Tudo que persiste vive em `/var/lib/data2md/`, o volume montado no EasyPanel:
 
 ```
 /var/lib/data2md/
-├── md/                  markdown convertido — o produto, permanente
+├── md/                  markdown convertido — o produto, sem expiração
 │   └── <hash>.md
-├── db/
-│   └── mappings.sqlite  hash → nome original, formato, tamanho, data
+├── db/                  contém dados pessoais: e-mails de conta,
+│   │                    identificadores de cliente da Stripe, hashes de token
+│   ├── mappings.sqlite  conversões, contas, sessões, assinaturas
+│   ├── mappings.sqlite-wal   diário do WAL — parte do banco, não descarte
+│   └── mappings.sqlite-shm   memória compartilhada do WAL
 ├── logs/
 │   ├── app.jsonl        operacional, sem dados pessoais
-│   └── audit.jsonl      nome do arquivo e IP completo
+│   ├── audit.jsonl      nome do arquivo e IP completo
+│   └── mail.jsonl       só com MAIL_TRANSPORT=log; contém links de acesso
+│                        válidos, modo 0600, nunca espelhado no stderr
 ├── tmp/
 │   └── slot-N.lock      locks do semáforo de conversão
 └── ratelimit/           um arquivo por endereço, nome hasheado
@@ -71,6 +76,34 @@ grep gc.fail         app.jsonl               # falhas do coletor
 O último merece atenção especial: uma falha do coletor **não interrompe a
 requisição** e só deixa rastro nesse evento. Se ele aparecer de forma recorrente,
 o volume passa a crescer sem que nada mais acuse.
+
+### Os eventos que valem vigiar
+
+Nenhum destes interrompe uma requisição. Todos aparecem só no log, e cada um
+significa dinheiro ou acesso errado se ficar sem resposta.
+
+| Evento | Nível | O que significa |
+|---|---|---|
+| `gc.fail` | erro | O coletor parou. O disco cresce sem que nada mais acuse. |
+| `billing.reconcile.drift` | erro | O estado guardado estava errado, ou seja **um webhook não chegou**. Um é falha; um padrão é um endpoint que a Stripe está a ponto de desabilitar. |
+| `billing.reconcile.recovered` | erro | Uma assinatura foi encontrada sem nenhum webhook ter chegado. Alguém pagou e só não ficou sem acesso porque o app foi procurar. |
+| `billing.webhook.unmatched` | erro | Uma assinatura não pertence a nenhuma conta. Alguém pagou e não recebeu nada. |
+| `billing.webhook.signature_fail` | erro | Segredo trocado entre modos, ou relógio do container fora dos cinco minutos de tolerância. |
+| `billing.price_mismatch` | aviso | Chegou um preço que este deploy não vende. Nada foi alterado, de propósito. |
+| `billing.subscription.foreign` | aviso | Uma segunda assinatura tentou rebaixar a conta. Recusado, de propósito. |
+| `mail.send.fail` | erro | O link de acesso não saiu. Quem tentou entrar não entra. |
+| `api.auth.reject` | aviso | Chamada à API sem token, com token inexistente, ou fora do plano. |
+| `ratelimit.block` | aviso | Limite de uso atingido. Volume alto sugere limite apertado demais para o tráfego real. |
+
+```bash
+grep -E 'reconcile.drift|reconcile.recovered|webhook.unmatched' app.jsonl
+grep signature_fail app.jsonl        # segredo trocado, ou relógio fora
+grep mail.send.fail  app.jsonl        # ninguém consegue entrar
+```
+
+**Nenhum endereço de e-mail entra no `app.jsonl`.** As linhas de cobrança e de
+autenticação identificam a conta por número, não por endereço, justamente porque
+este canal é espelhado no stdout e no visualizador de logs do EasyPanel.
 
 ### A diferença entre os canais
 
@@ -124,9 +157,13 @@ cat /var/lib/data2md/md/<hash>.md
 
 ## 4. Espaço em disco
 
-O markdown convertido é permanente: não há expiração automática, então o volume
-só cresce. **Configure um alerta de espaço em disco na VPS** — é a única proteção
-contra o disco encher.
+O markdown convertido não expira: nada o remove por tempo, então o volume só
+cresce. É removido por `delete`, por `prune`, ou pelo próprio usuário logado
+excluindo a conversão dele no painel. **Configure um alerta de espaço em disco
+na VPS** — é a única proteção contra o disco encher.
+
+O evento `delete.ok` passou a ocorrer em tráfego de usuário, não só em uso do
+CLI: uma exclusão pelo painel gera a mesma linha de log.
 
 ```bash
 du -sh /var/lib/data2md/*        # consumo por área
