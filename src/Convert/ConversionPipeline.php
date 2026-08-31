@@ -59,6 +59,7 @@ final class ConversionPipeline
         array $requestPost,
         string $clientIp,
         string $userAgent = '',
+        ?int $userId = null,
     ): ConversionOutcome {
         $loggedIp = Logger::truncateIp($clientIp);
 
@@ -132,7 +133,7 @@ final class ConversionPipeline
 
             $result = $converter->convertToFile($originalPath, $this->files->markdownPath($hash));
 
-            $this->mappings->save($hash, $originalName, $upload->format, $upload->size);
+            $this->mappings->save($hash, $originalName, $upload->format, $upload->size, userId: $userId);
 
             $this->logger->app('convert.ok', [
                 'hash'     => $hash,
@@ -141,6 +142,7 @@ final class ConversionPipeline
                 'pages'    => $result->pages,
                 'queue_ms' => $slot->waitedMs(),
                 'ip'       => $loggedIp,
+                'user'     => $userId,
             ]);
 
             $this->logger->audit([

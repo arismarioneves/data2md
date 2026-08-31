@@ -148,6 +148,15 @@ final class Database
             'CREATE INDEX idx_login_tokens_email ON login_tokens (email)',
             'CREATE INDEX idx_login_tokens_expires ON login_tokens (expires_at)',
         ],
+        3 => [
+            // SQLite allows REFERENCES in ADD COLUMN only while the default is
+            // NULL, and a foreign key cannot be added to a table afterwards at
+            // all — so this clause has to be here or never. Deleting an account
+            // detaches its conversions rather than removing them: the markdown
+            // stays reachable by hash, as it is for an anonymous one.
+            'ALTER TABLE mappings ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL',
+            'CREATE INDEX idx_mappings_user ON mappings (user_id, created_at)',
+        ],
     ];
 
     /** @return list<int> */

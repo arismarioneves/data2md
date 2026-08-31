@@ -22,16 +22,18 @@ final class MappingStorage
         string $format,
         int $sizeBytes,
         ?int $createdAt = null,
+        ?int $userId = null,
     ): void {
         $statement = $this->db->pdo()->prepare(
             <<<'SQL'
-            INSERT INTO mappings (hash, original_name, format, size_bytes, created_at)
-            VALUES (:hash, :original_name, :format, :size_bytes, :created_at)
+            INSERT INTO mappings (hash, original_name, format, size_bytes, created_at, user_id)
+            VALUES (:hash, :original_name, :format, :size_bytes, :created_at, :user_id)
             ON CONFLICT (hash) DO UPDATE SET
                 original_name = excluded.original_name,
                 format        = excluded.format,
                 size_bytes    = excluded.size_bytes,
-                created_at    = excluded.created_at
+                created_at    = excluded.created_at,
+                user_id       = excluded.user_id
             SQL
         );
 
@@ -41,7 +43,77 @@ final class MappingStorage
             'format'        => $format,
             'size_bytes'    => $sizeBytes,
             'created_at'    => $createdAt ?? time(),
+            'user_id'       => $userId,
         ]);
+    }
+
+    /**
+     * One account's conversions, most recent first.
+     *
+     * @return list<array{hash:string,original_name:string,format:string,size_bytes:int,created_at:int}>
+     */
+    public function forUser(int $userId, int $limit, int $offset = 0): array
+    {
+        $statement = $this->db->pdo()->prepare(
+            'SELECT hash, original_name, format, size_bytes, created_at
+               FROM mappings
+              WHERE user_id = :user
+              ORDER BY created_at DESC, hash
+              LIMIT :limit OFFSET :offset'
+        );
+        $statement->bindValue('user', $userId, \PDO::PARAM_INT);
+        $statement->bindValue('limit', max(1, $limit), \PDO::PARAM_INT);
+        $statement->bindValue('offset', max(0, $offset), \PDO::PARAM_INT);
+        $statement->execute();
+
+        $rows = [];
+
+        foreach ($statement->fetchAll() as $row) {
+            $rows[] = [
+                'hash'          => (string) $row['hash'],
+                'original_name' => (string) $row['original_name'],
+                'format'        => (string) $row['format'],
+                'size_bytes'    => (int) $row['size_bytes'],
+                'created_at'    => (int) $row['created_at'],
+            ];
+        }
+
+        return $rows;
+    }
+
+    public function countForUser(int $userId): int
+    {
+        $statement = $this->db->pdo()->prepare('SELECT COUNT(*) FROM mappings WHERE user_id = :user');
+        $statement->execute(['user' => $userId]);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    /**
+     * Deletes only when the row belongs to this account.
+     *
+     * Ownership is part of the statement rather than a check before it, so a
+     * detached row -- user_id NULL, which every conversion made before accounts
+     * existed is -- can never match: SQL equality against NULL is never true.
+     */
+    public function deleteForUser(string $hash, int $userId): bool
+    {
+        $statement = $this->db->pdo()->prepare(
+            'DELETE FROM mappings WHERE hash = :hash AND user_id = :user'
+        );
+        $statement->execute(['hash' => $hash, 'user' => $userId]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    public function belongsTo(string $hash, int $userId): bool
+    {
+        $statement = $this->db->pdo()->prepare(
+            'SELECT 1 FROM mappings WHERE hash = :hash AND user_id = :user'
+        );
+        $statement->execute(['hash' => $hash, 'user' => $userId]);
+
+        return $statement->fetchColumn() !== false;
     }
 
     /** @return array{original_name:string,format:string,size_bytes:int,created_at:int}|null */
