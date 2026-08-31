@@ -5,11 +5,11 @@ declare(strict_types=1);
 use Data2Md\Config\Config;
 use Data2Md\Config\ConfigError;
 
+// helpers.php and View/helpers.php come in through composer's autoload.files:
+// production classes call them, so they cannot depend on this file being
+// included, and a page must not be able to call e() before an include defines
+// it.
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/helpers.php';
-// e() is loaded here rather than by the view partials, so a page cannot call it
-// before whichever include would have defined it.
-require_once __DIR__ . '/View/helpers.php';
 
 try {
     $config = Config::fromEnvironment();
