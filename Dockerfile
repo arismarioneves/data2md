@@ -73,7 +73,7 @@ ENV APP_ENV=production \
     LOG_RETENTION_DAYS=90 \
     AUDIT_LOG_RETENTION_DAYS=30 \
     GC_PROBABILITY=0.01 \
-    CONTACT_EMAIL=contato@data2md.com.br
+    CONTACT_EMAIL=support@aiu4.com
 
 VOLUME ["/var/lib/data2md"]
 EXPOSE 80

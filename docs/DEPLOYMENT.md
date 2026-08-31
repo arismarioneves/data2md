@@ -107,7 +107,7 @@ for tuning.
 | `LOG_RETENTION_DAYS` | `90` | 1–3650 | Operational log |
 | `AUDIT_LOG_RETENTION_DAYS` | `30` | 1–3650 | Access/audit log |
 | `GC_PROBABILITY` | `0.01` | 0.0–1.0 | Chance GC runs after any given request |
-| `CONTACT_EMAIL` | `contato@data2md.com.br` | valid e-mail | Placeholder — override for a real deployment |
+| `CONTACT_EMAIL` | `support@aiu4.com` | valid e-mail | Placeholder — override for a real deployment |
 
 There is no `MD_RETENTION_DAYS` and there never was one. Converted Markdown is
 permanent; a retention variable would imply otherwise. The only way Markdown
