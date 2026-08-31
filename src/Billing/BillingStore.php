@@ -62,6 +62,20 @@ final class BillingStore
     }
 
     /**
+     * Records that Stripe was asked about this account and had nothing to
+     * report, so the question is not asked again on the next page load.
+     */
+    public function touchRead(int $userId, int $now): void
+    {
+        $statement = $this->db->pdo()->prepare(
+            'UPDATE users SET subscription_updated_at = :now
+              WHERE id = :id
+                AND (subscription_updated_at IS NULL OR subscription_updated_at <= :now)'
+        );
+        $statement->execute(['now' => $now, 'id' => $userId]);
+    }
+
+    /**
      * How long ago this account's subscription was last read from Stripe, or
      * null when it never has been.
      */

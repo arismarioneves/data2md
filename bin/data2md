@@ -15,7 +15,10 @@ use Data2Md\Auth\LoginTokenStore;
 use Data2Md\Auth\SessionStore;
 use Data2Md\Auth\UserStore;
 use Data2Md\Billing\Entitlement;
+use Data2Md\Billing\BillingStore;
+use Data2Md\Billing\EntitlementWriter;
 use Data2Md\Billing\PriceValidator;
+use Data2Md\Billing\Reconciler;
 use Data2Md\Billing\StripeGateway;
 use Data2Md\Billing\WebhookEventStore;
 use Data2Md\Log\Logger;
@@ -266,6 +269,42 @@ switch ($command) {
         }
         exit(0);
 
+    case 'billing:reconcile':
+        if (!$config->bool('BILLING_ENABLED')) {
+            fwrite(STDERR, "BILLING_ENABLED is off\n");
+            exit(1);
+        }
+
+        // For the host's cron: this container has none, and without a second
+        // reader an account keeps whatever the last delivered webhook said.
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $logger = new Logger($dataDir . '/logs');
+        $store  = new BillingStore($db);
+
+        $gateway = StripeGateway::fromConfig($config);
+
+        $reconciler = new Reconciler(
+            $gateway,
+            new EntitlementWriter($store, $logger, $config->string('STRIPE_PRICE_ID')),
+            $logger,
+            $gateway,
+            $store,
+        );
+
+        $accounts = $store->withSubscriptions();
+        $changed  = 0;
+
+        foreach ($accounts as $account) {
+            if ($reconciler->refresh($account)) {
+                $changed++;
+            }
+        }
+
+        fwrite(STDOUT, sprintf("checked %d account(s), %d updated\n", count($accounts), $changed));
+        exit(0);
+
     case 'billing:validate-prices':
         if ($config->string('STRIPE_SECRET_KEY') === '' || $config->string('STRIPE_PRICE_ID') === '') {
             fwrite(STDERR, "STRIPE_SECRET_KEY and STRIPE_PRICE_ID must both be set\n");
@@ -486,6 +525,7 @@ switch ($command) {
           delete <hash>         permanently remove one conversion
           prune --older-than=N  permanently remove conversions older than N days
           user:premium <email>  grant premium directly: --days=N, 0 revokes
+          billing:reconcile              re-read every subscription from Stripe
           billing:validate-prices        check the configured Stripe price
           billing:create-product         create the product and price (--confirm)
           token:create <email>  issue or replace an account's API token

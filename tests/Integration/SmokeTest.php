@@ -609,4 +609,64 @@ final class SmokeTest extends TestCase
 
         self::assertStringContainsString('no-store', $headers);
     }
+    /**
+     * Off means gone, not broken: an endpoint that is not configured should not
+     * advertise that it exists. Both states are legitimate, and this suite runs
+     * against each -- billing on locally, off in CI, which has no Stripe key.
+     */
+    public function testTheBillingSurfaceIsAllOnOrAllOff(): void
+    {
+        $pricing  = $this->get('/pricing')['status'];
+        $checkout = $this->get('/billing/checkout')['status'];
+        $portal   = $this->get('/billing/portal')['status'];
+
+        if ($pricing === 404) {
+            self::assertSame(404, $checkout, 'billing is off, so no billing route may answer');
+            self::assertSame(404, $portal, 'billing is off, so no billing route may answer');
+
+            return;
+        }
+
+        self::assertSame(200, $pricing);
+        // GET is not how a payment starts, so both redirect rather than acting.
+        self::assertSame(303, $checkout);
+        self::assertSame(303, $portal);
+    }
+
+    /**
+     * The webhook is the exception. Switching billing off must not silently stop
+     * a paid subscription from being recorded.
+     */
+    public function testTheWebhookAnswersWhateverBillingIsSetTo(): void
+    {
+        self::assertNotSame(404, $this->postJson('/billing/webhook', '{}')['status']);
+    }
+
+    public function testPricingNamesBothCurrencies(): void
+    {
+        $response = $this->get('/pricing');
+
+        if ($response['status'] === 404) {
+            self::markTestSkipped('billing is off on this deployment');
+        }
+
+        self::assertStringContainsString('US$', $response['body']);
+        self::assertStringContainsString('R$', $response['body']);
+        // Stripe picks the currency from the customer's country, so offering a
+        // choice here would be a promise this app cannot keep.
+        self::assertStringNotContainsString('name="currency"', $response['body']);
+    }
+
+    /** Starting a payment must be something the visitor did, not something a link did. */
+    public function testStartingAPaymentNeedsASession(): void
+    {
+        $response = $this->postJson('/billing/checkout', '');
+
+        if ($response['status'] === 404) {
+            self::markTestSkipped('billing is off on this deployment');
+        }
+
+        self::assertNotSame(200, $response['status']);
+        self::assertStringNotContainsString('checkout.stripe.com', $response['headers']);
+    }
 }

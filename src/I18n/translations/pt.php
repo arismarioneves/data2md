@@ -120,6 +120,24 @@ return [
     'dash.account.head'     => 'Conta',
     'dash.account.since'    => 'Na casa desde %s',
 
+    'dash.bill.head'        => 'Plano',
+    'dash.bill.plan.free'   => 'Gratuito',
+    'dash.bill.plan.premium' => 'Premium',
+    'dash.bill.renews'      => 'Renova em %s',
+    'dash.bill.ends'        => 'Termina em %s',
+    'dash.bill.active'      => 'Sua assinatura está ativa.',
+    'dash.bill.cancelling'  => 'Cancelada. O acesso continua até o fim do período já pago.',
+    'dash.bill.granted'     => 'Acesso premium concedido diretamente, sem assinatura.',
+    'dash.bill.free.head'   => 'Plano gratuito',
+    'dash.bill.free.sub'    => 'Até %s por arquivo, e sem acesso à API.',
+    'dash.bill.subscribe'   => 'Assinar',
+    'dash.bill.manage'      => 'Gerenciar cobrança',
+    'dash.bill.compare'     => 'O que cada plano inclui está na página de %s.',
+    'dash.bill.thanks'      => 'Obrigado. Sua assinatura está sendo confirmada; esta página atualiza assim que estiver.',
+    'dash.bill.already'     => 'Esta conta já tem uma assinatura ativa. Use Gerenciar cobrança para alterá-la.',
+    'dash.bill.nothing'     => 'Ainda não há nada cobrado nesta conta.',
+    'dash.bill.error'       => 'Não foi possível abrir a página de cobrança. Tente de novo em instantes.',
+
     'dash.api.head'         => 'Acesso à API',
     'dash.api.limits'       => '%d chamada(s) / %d s · até %s',
     'dash.api.none'         => 'Nenhum token ainda',
@@ -212,6 +230,53 @@ return [
     'app.tip.2' => 'Um PDF de 50 MB pode virar um arquivo de texto pequeno que qualquer editor abre.',
     'app.tip.3' => 'Arquivos Markdown geram diffs limpos no Git, perfeito pra rastrear mudanças no documento ao longo do tempo.',
     'app.tip.4' => 'Títulos estruturados ajudam modelos de IA a localizar e citar seções específicas com precisão.',
+
+    // ── Pricing (/pricing) ─────────────────────────────────────
+    'nav.pricing'          => 'Planos',
+
+    'price.title'          => '%s · Planos',
+    'price.meta.desc'      => 'Gratuito para conversões manuais. A assinatura aumenta o limite de tamanho e abre a API HTTP.',
+    'price.eyebrow'        => '// planos',
+    'price.heading'        => 'Converta de <em>graça</em>. Assine para escalar.',
+    'price.lead'           => 'O conversor deste site continua gratuito, sem precisar de conta. A assinatura é para documentos maiores e para chamar a API pelo seu próprio código.',
+
+    'price.free.name'      => 'Gratuito',
+    'price.free.amount'    => 'Sem custo',
+    'price.free.sub'       => 'Sem cartão, e sem conta a menos que você queira suas conversões listadas.',
+    'price.free.f1'        => 'Até %s por arquivo sem entrar',
+    'price.free.f2'        => 'Até %s por arquivo com conta',
+    'price.free.f3'        => 'Suas conversões listadas, para baixar e excluir',
+    'price.free.f4'        => 'Sem acesso à API',
+
+    'price.premium.badge'  => 'Assinatura',
+    'price.premium.name'   => 'Premium',
+    'price.premium.currency' => 'A cobrança sai na moeda do país onde o cartão foi emitido. Os dois valores aparecem aqui para não haver surpresa no checkout.',
+    'price.premium.f1'     => 'Até %s por arquivo',
+    'price.premium.f2'     => 'API HTTP, %d requisição(ões) a cada %d segundos',
+    'price.premium.f3'     => 'Um token de API que você pode trocar ou revogar quando quiser',
+    'price.premium.f4'     => 'Cancele quando quiser, na sua própria página de cobrança',
+
+    'price.per.month'      => '/mês',
+
+    'price.cta.subscribe'  => 'Assinar',
+    'price.cta.note'       => 'O pagamento é processado pela Stripe. Os dados do cartão não passam por este site.',
+    'price.cta.manage'     => 'Gerenciar cobrança',
+    'price.cta.current'    => 'Este é o seu plano atual.',
+    'price.cta.signin'     => 'Entre para assinar',
+    'price.cta.signin.note' => 'A assinatura pertence a uma conta, então entrar vem primeiro.',
+
+    'price.flash.cancelled' => 'O checkout foi cancelado. Nada foi cobrado.',
+    'price.flash.error'    => 'Não foi possível abrir a página de pagamento. Tente de novo em instantes.',
+
+    'price.faq.head'       => 'Antes de assinar',
+    'price.faq.q1'         => 'Em qual moeda eu sou cobrado?',
+    'price.faq.a1'         => 'A Stripe decide pelo país de emissão do seu cartão, não pelo idioma do site. Cartão brasileiro é cobrado em reais; cartões de fora, em dólares. Ler esta página em português não muda o que você paga.',
+    'price.faq.q2'         => 'O que acontece se eu cancelar?',
+    'price.faq.a2'         => 'O acesso continua até o fim do período já pago e depois a conta volta ao plano gratuito. Nada do que você converteu é apagado.',
+    'price.faq.q3'         => 'Preciso de assinatura para converter arquivos?',
+    'price.faq.a3'         => 'Não. O conversor deste site é gratuito. A assinatura aumenta o limite de tamanho e é o que abre a API HTTP.',
+    'price.faq.q4'         => 'Para onde vão os dados do meu cartão?',
+    'price.faq.a4'         => 'Para a Stripe, numa página hospedada por eles. Este site nunca vê nem guarda um número de cartão.',
 
     // ── API docs (/api) ────────────────────────────────────────
     'api.title'      => '%s · Referência da API',

@@ -11,7 +11,8 @@ declare(strict_types=1);
  *               optional; omit on a page that is its own destination
  *
  * $session, when a page has required src/Auth/bootstrap.php, adds the sign-in
- * or dashboard entry so every page agrees about it.
+ * or dashboard entry so every page agrees about it. The plans link appears the
+ * same way, from BILLING_ENABLED.
  *
  * @var list<array{href:string,label:string,hideSm?:bool}> $navLinks
  * @var array{href:string,label:string,icon:string}|null $navCta
@@ -24,6 +25,10 @@ require_once __DIR__ . '/helpers.php';
 
 $navCta  = $navCta ?? null;
 $session = $session ?? null;
+
+if (defined('BILLING_ENABLED') && BILLING_ENABLED) {
+    $navLinks[] = ['href' => '/pricing', 'label' => t('nav.pricing')];
+}
 
 if ($session !== null) {
     $navLinks[] = $session->isAuthenticated()

@@ -47,4 +47,8 @@ define('RATE_LIMIT_WINDOW', $config->int('RATE_LIMIT_WINDOW_SECONDS'));
 
 define('CONTACT_EMAIL', $config->string('CONTACT_EMAIL'));
 
+// Read by the shared header, so every page agrees about whether there is a
+// plan to link to.
+define('BILLING_ENABLED', $config->bool('BILLING_ENABLED'));
+
 return $config;

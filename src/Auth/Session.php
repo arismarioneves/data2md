@@ -63,6 +63,26 @@ final class Session
         $this->user     = $user;
     }
 
+    /**
+     * Re-reads the account behind this session.
+     *
+     * For a page that changed the row it is about to render from: the copy
+     * loaded at the start of the request would otherwise show the state from
+     * before its own write.
+     */
+    public function reload(): void
+    {
+        if ($this->rawToken === null) {
+            return;
+        }
+
+        $user = $this->store->find($this->rawToken);
+
+        if ($user !== null) {
+            $this->user = $user;
+        }
+    }
+
     public function isAuthenticated(): bool
     {
         return $this->user !== null;

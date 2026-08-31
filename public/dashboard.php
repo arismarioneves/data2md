@@ -11,6 +11,11 @@ require BASE_PATH . '/src/Auth/bootstrap.php';
 
 use Data2Md\Auth\ApiTokenStore;
 use Data2Md\Auth\Session;
+use Data2Md\Billing\BillingStore;
+use Data2Md\Billing\Entitlement;
+use Data2Md\Billing\EntitlementWriter;
+use Data2Md\Billing\Reconciler;
+use Data2Md\Billing\StripeGateway;
 use Data2Md\I18n\I18n;
 use Data2Md\Log\Logger;
 use Data2Md\Storage\Database;
@@ -88,6 +93,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Webhooks are the fast path; this is the safety net for a delivery that was
+// lost for good. It only calls Stripe when the stored reading is old or its
+// paid period has run out, so an ordinary visit costs nothing.
+if ($config->bool('BILLING_ENABLED')) {
+    $gateway      = StripeGateway::fromConfig($config);
+    $billingStore = new BillingStore($database);
+
+    $reconciled = (new Reconciler(
+        $gateway,
+        new EntitlementWriter($billingStore, $logger, $config->string('STRIPE_PRICE_ID')),
+        $logger,
+        $gateway,
+        $billingStore,
+    ))->refresh($session->user() ?? [], null);
+
+    if ($reconciled) {
+        $session->reload();
+    }
+}
+
+$account   = $session->user() ?? [];
+$isPremium = Entitlement::isPremium($account);
 $tokenInfo = $apiTokens->describeFor($userId);
 $flash     = (string) ($_GET['f'] ?? '');
 
@@ -95,6 +122,22 @@ if ($flash === 'deleted') {
     $notice = t('dash.deleted');
 } elseif ($flash === 'denied') {
     $error = t('dash.delete.failed');
+}
+
+$notice ??= match ((string) ($_GET['checkout'] ?? '')) {
+    'done'  => t('dash.bill.thanks'),
+    default => null,
+};
+
+$billingFlash = match ((string) ($_GET['billing'] ?? '')) {
+    'already' => t('dash.bill.already'),
+    'nothing' => t('dash.bill.nothing'),
+    'error'   => t('dash.bill.error'),
+    default   => null,
+};
+
+if ($billingFlash !== null) {
+    $error = $billingFlash;
 }
 
 $total = $mappings->countForUser($userId);
@@ -166,6 +209,51 @@ require BASE_PATH . '/src/View/header.php';
                 </form>
             </div>
         </section>
+
+        <?php if (BILLING_ENABLED): ?>
+        <section class="dash-panel">
+            <div class="dash-panel-head">
+                <h2 class="dash-h2"><?= t('dash.bill.head') ?></h2>
+                <span class="dash-count"><?= $isPremium ? t('dash.bill.plan.premium') : t('dash.bill.plan.free') ?></span>
+            </div>
+
+            <div class="dash-account">
+                <div>
+                    <?php if ($isPremium && ($account['current_period_end'] ?? null) !== null): ?>
+                        <p class="dash-email"><?= ((int) $account['cancel_at_period_end']) === 1
+                            ? t('dash.bill.ends', gmdate($dateFmt, (int) $account['current_period_end']))
+                            : t('dash.bill.renews', gmdate($dateFmt, (int) $account['current_period_end'])) ?></p>
+                        <p class="dash-sub"><?= ((int) $account['cancel_at_period_end']) === 1
+                            ? t('dash.bill.cancelling')
+                            : t('dash.bill.active') ?></p>
+                    <?php elseif ($isPremium): ?>
+                        <p class="dash-email"><?= t('dash.bill.plan.premium') ?></p>
+                        <p class="dash-sub"><?= t('dash.bill.granted') ?></p>
+                    <?php else: ?>
+                        <p class="dash-email"><?= t('dash.bill.free.head') ?></p>
+                        <p class="dash-sub"><?= t('dash.bill.free.sub', $viewerTier->maxFileSizeLabel()) ?></p>
+                    <?php endif; ?>
+                </div>
+
+                <div class="dash-actions">
+                    <?php if (($account['stripe_customer_id'] ?? null) !== null): ?>
+                    <form method="post" action="/billing/portal">
+                        <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                        <button type="submit" class="l-btn l-btn--ghost dash-btn-sm"><?= t('dash.bill.manage') ?></button>
+                    </form>
+                    <?php endif; ?>
+                    <?php if (!$isPremium): ?>
+                    <form method="post" action="/billing/checkout">
+                        <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                        <button type="submit" class="l-btn l-btn--primary dash-btn-sm"><?= t('dash.bill.subscribe') ?></button>
+                    </form>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <p class="dash-sub dash-api-foot"><?= t('dash.bill.compare', '<a class="dash-link" href="/pricing">' . e(t('nav.pricing')) . '</a>') ?></p>
+        </section>
+        <?php endif; ?>
 
         <section class="dash-panel">
             <div class="dash-panel-head">

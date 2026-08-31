@@ -18,7 +18,7 @@ use Stripe\Webhook;
  * account default, so a version change in the Stripe dashboard cannot alter the
  * payloads this app parses.
  */
-final class StripeGateway implements SubscriptionReader
+final class StripeGateway implements SubscriptionReader, CustomerSubscriptionReader
 {
     /**
      * The SDK defaults are 30s to connect and 80s to read, and mod_php has 24
@@ -151,6 +151,102 @@ final class StripeGateway implements SubscriptionReader
             ],
             'expand'           => ['currency_options'],
         ])->toArray();
+    }
+
+    /**
+     * Creates the Stripe customer for an account.
+     *
+     * Done before the first checkout rather than left to Stripe to create from
+     * an e-mail, so this app knows the customer id from the start. Without it,
+     * an account whose webhooks were all lost has no Stripe identifier stored at
+     * all, and nothing can find the subscription it paid for.
+     *
+     * @throws ApiErrorException
+     */
+    public function createCustomer(string $email, int $userId): string
+    {
+        return (string) $this->client->customers->create([
+            'email'    => $email,
+            'metadata' => ['user_id' => (string) $userId],
+        ])->id;
+    }
+
+    /**
+     * The most recent subscription belonging to a customer, whatever its state.
+     *
+     * The recovery path for an account with a customer but no subscription
+     * recorded, which is what a lost delivery looks like from this side.
+     *
+     * @throws ApiErrorException
+     */
+    public function latestSubscriptionFor(string $customerId): ?SubscriptionSnapshot
+    {
+        $subscriptions = $this->client->subscriptions->all([
+            'customer' => $customerId,
+            'status'   => 'all',
+            'limit'    => 1,
+        ]);
+
+        $first = $subscriptions->data[0] ?? null;
+
+        return $first === null ? null : SubscriptionSnapshot::fromArray($first->toArray());
+    }
+
+    /**
+     * Starts a hosted checkout and returns the URL to send the browser to.
+     *
+     * Cards only. With an asynchronous method enabled, Stripe fires
+     * checkout.session.completed while the money is still in flight, and the
+     * session reads as unpaid -- a free month for anyone who starts a payment
+     * and abandons it.
+     *
+     * The account id travels in metadata and in client_reference_id, and never
+     * as an e-mail: the address on the session is whatever the payer types into
+     * it, so matching on it would land one customer's payment on another's
+     * account.
+     *
+     * @throws ApiErrorException
+     */
+    public function createCheckoutSession(
+        string $priceId,
+        int $userId,
+        ?string $customerId,
+        ?string $email,
+        string $successUrl,
+        string $cancelUrl,
+    ): string {
+        $params = [
+            'mode'                 => 'subscription',
+            'payment_method_types' => ['card'],
+            'line_items'           => [['price' => $priceId, 'quantity' => 1]],
+            'client_reference_id'  => (string) $userId,
+            'metadata'             => ['user_id' => (string) $userId],
+            // On the subscription itself, so every later subscription event
+            // carries the account without needing the session it came from.
+            'subscription_data'    => ['metadata' => ['user_id' => (string) $userId]],
+            'success_url'          => $successUrl,
+            'cancel_url'           => $cancelUrl,
+        ];
+
+        // Reusing the stored customer is what keeps one account to one customer.
+        // Passing an e-mail instead on a second checkout makes Stripe create
+        // another customer, and the billing portal then shows only one of them.
+        if ($customerId !== null && $customerId !== '') {
+            $params['customer'] = $customerId;
+        } elseif ($email !== null && $email !== '') {
+            $params['customer_email'] = $email;
+        }
+
+        return (string) $this->client->checkout->sessions->create($params)->url;
+    }
+
+    /** @throws ApiErrorException */
+    public function createPortalSession(string $customerId, string $returnUrl): string
+    {
+        return (string) $this->client->billingPortal->sessions->create([
+            'customer'   => $customerId,
+            'return_url' => $returnUrl,
+        ])->url;
     }
 
     /** @return array<string,mixed> */

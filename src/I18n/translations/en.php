@@ -120,6 +120,24 @@ return [
     'dash.account.head'     => 'Account',
     'dash.account.since'    => 'Member since %s',
 
+    'dash.bill.head'        => 'Plan',
+    'dash.bill.plan.free'   => 'Free',
+    'dash.bill.plan.premium' => 'Premium',
+    'dash.bill.renews'      => 'Renews %s',
+    'dash.bill.ends'        => 'Ends %s',
+    'dash.bill.active'      => 'Your subscription is active.',
+    'dash.bill.cancelling'  => 'Cancelled. Access continues to the end of the period you have paid for.',
+    'dash.bill.granted'     => 'Premium access, granted directly rather than through a subscription.',
+    'dash.bill.free.head'   => 'Free plan',
+    'dash.bill.free.sub'    => 'Up to %s per file, and no API access.',
+    'dash.bill.subscribe'   => 'Subscribe',
+    'dash.bill.manage'      => 'Manage billing',
+    'dash.bill.compare'     => 'What each plan includes is on the %s page.',
+    'dash.bill.thanks'      => 'Thank you. Your subscription is being confirmed; this page updates once it is.',
+    'dash.bill.already'     => 'This account already has an active subscription. Use Manage billing to change it.',
+    'dash.bill.nothing'     => 'There is nothing billed on this account yet.',
+    'dash.bill.error'       => 'The billing page could not be opened. Please try again shortly.',
+
     'dash.api.head'         => 'API access',
     'dash.api.limits'       => '%d call(s) / %d s · up to %s',
     'dash.api.none'         => 'No token yet',
@@ -212,6 +230,53 @@ return [
     'app.tip.2' => 'A 50 MB PDF can shrink to a tiny plain-text file that every editor can open.',
     'app.tip.3' => 'Markdown files diff cleanly in Git, great for tracking document changes over time.',
     'app.tip.4' => 'Structured headings help AI models locate and cite specific sections accurately.',
+
+    // ── Pricing (/pricing) ─────────────────────────────────────
+    'nav.pricing'          => 'Pricing',
+
+    'price.title'          => '%s · Pricing',
+    'price.meta.desc'      => 'Free for manual conversions. A subscription raises the size limit and opens the HTTP API.',
+    'price.eyebrow'        => '// plans',
+    'price.heading'        => 'Convert for <em>free</em>. Subscribe for scale.',
+    'price.lead'           => 'The converter on this site stays free, with no account needed. A subscription is for larger documents and for calling the API from your own code.',
+
+    'price.free.name'      => 'Free',
+    'price.free.amount'    => 'No charge',
+    'price.free.sub'       => 'No card, and no account unless you want your conversions listed.',
+    'price.free.f1'        => 'Up to %s per file without signing in',
+    'price.free.f2'        => 'Up to %s per file with an account',
+    'price.free.f3'        => 'Your conversions listed, downloadable and deletable',
+    'price.free.f4'        => 'No API access',
+
+    'price.premium.badge'  => 'Subscription',
+    'price.premium.name'   => 'Premium',
+    'price.premium.currency' => 'Charged in the currency of the country your card is issued in. Both amounts are shown so there is no surprise at checkout.',
+    'price.premium.f1'     => 'Up to %s per file',
+    'price.premium.f2'     => 'HTTP API, %d request(s) per %d seconds',
+    'price.premium.f3'     => 'An API token you can rotate or revoke at any time',
+    'price.premium.f4'     => 'Cancel whenever you like, from your own billing page',
+
+    'price.per.month'      => '/month',
+
+    'price.cta.subscribe'  => 'Subscribe',
+    'price.cta.note'       => 'Payment is handled by Stripe. Card details never reach this site.',
+    'price.cta.manage'     => 'Manage billing',
+    'price.cta.current'    => 'This is your current plan.',
+    'price.cta.signin'     => 'Sign in to subscribe',
+    'price.cta.signin.note' => 'A subscription belongs to an account, so signing in comes first.',
+
+    'price.flash.cancelled' => 'Checkout was cancelled. Nothing was charged.',
+    'price.flash.error'    => 'The payment page could not be opened. Please try again shortly.',
+
+    'price.faq.head'       => 'Before you subscribe',
+    'price.faq.q1'         => 'Which currency am I charged in?',
+    'price.faq.a1'         => 'Stripe decides from where your card was issued, not from the language this site is in. A Brazilian card is charged in reais; cards from elsewhere are charged in US dollars. Reading this page in English does not change what you pay.',
+    'price.faq.q2'         => 'What happens if I cancel?',
+    'price.faq.a2'         => 'Access continues to the end of the period you have already paid for, then the account returns to the free plan. Nothing you converted is deleted.',
+    'price.faq.q3'         => 'Do I need a subscription to convert files?',
+    'price.faq.a3'         => 'No. The converter on this site is free. A subscription raises the size limit and is what opens the HTTP API.',
+    'price.faq.q4'         => 'Where do my card details go?',
+    'price.faq.a4'         => 'To Stripe, on a page they host. This site never sees or stores a card number.',
 
     // ── API docs (/api) ────────────────────────────────────────
     'api.title'      => '%s · API Reference',
