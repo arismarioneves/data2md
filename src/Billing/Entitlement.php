@@ -42,9 +42,7 @@ final class Entitlement
             return self::PREMIUM;
         }
 
-        $status = $user['subscription_status'] ?? null;
-
-        if (is_string($status) && in_array($status, self::ACTIVE_STATUSES, true)) {
+        if (self::isEntitlingStatus($user['subscription_status'] ?? null)) {
             return self::PREMIUM;
         }
 
@@ -55,5 +53,15 @@ final class Entitlement
     public static function isPremium(?array $user, ?int $now = null): bool
     {
         return self::forUser($user, $now) === self::PREMIUM;
+    }
+
+    /**
+     * Whether a Stripe subscription status entitles. The allowlist lives here
+     * and nowhere else, so a status Stripe invents later falls outside premium
+     * by construction rather than by someone remembering to add it.
+     */
+    public static function isEntitlingStatus(mixed $status): bool
+    {
+        return is_string($status) && in_array($status, self::ACTIVE_STATUSES, true);
     }
 }

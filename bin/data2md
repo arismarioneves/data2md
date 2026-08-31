@@ -15,6 +15,8 @@ use Data2Md\Auth\LoginTokenStore;
 use Data2Md\Auth\SessionStore;
 use Data2Md\Auth\UserStore;
 use Data2Md\Billing\Entitlement;
+use Data2Md\Billing\PriceValidator;
+use Data2Md\Billing\StripeGateway;
 use Data2Md\Billing\WebhookEventStore;
 use Data2Md\Log\Logger;
 use Data2Md\Storage\Database;
@@ -264,6 +266,107 @@ switch ($command) {
         }
         exit(0);
 
+    case 'billing:validate-prices':
+        if ($config->string('STRIPE_SECRET_KEY') === '' || $config->string('STRIPE_PRICE_ID') === '') {
+            fwrite(STDERR, "STRIPE_SECRET_KEY and STRIPE_PRICE_ID must both be set\n");
+            exit(1);
+        }
+
+        $gateway = StripeGateway::fromConfig($config);
+        $priceId = $config->string('STRIPE_PRICE_ID');
+
+        try {
+            $price = $gateway->price($priceId);
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            fwrite(STDERR, "cannot read $priceId: " . $e->getMessage() . "\n");
+            exit(1);
+        }
+
+        $problems = PriceValidator::problems(
+            $price,
+            $config->int('PREMIUM_PRICE_USD'),
+            $config->int('PREMIUM_PRICE_BRL')
+        );
+
+        fwrite(STDOUT, sprintf(
+            "%s  %s mode\n",
+            $priceId,
+            $gateway->isLiveMode() ? 'LIVE' : 'test'
+        ));
+
+        foreach (['usd', 'brl'] as $currency) {
+            $amount = $price['currency_options'][$currency]['unit_amount'] ?? null;
+
+            fwrite(STDOUT, sprintf(
+                "  %-4s %s\n",
+                strtoupper($currency),
+                $amount === null ? '—' : number_format((int) $amount / 100, 2)
+            ));
+        }
+
+        if ($problems === []) {
+            fwrite(STDOUT, "price is usable\n");
+            exit(0);
+        }
+
+        foreach ($problems as $problem) {
+            fwrite(STDERR, "  ! $problem\n");
+        }
+        exit(1);
+
+    case 'billing:create-product':
+        if ($config->string('STRIPE_SECRET_KEY') === '') {
+            fwrite(STDERR, "STRIPE_SECRET_KEY is not set\n");
+            exit(1);
+        }
+
+        $gateway = StripeGateway::fromConfig($config);
+        $usd     = $config->int('PREMIUM_PRICE_USD');
+        $brl     = $config->int('PREMIUM_PRICE_BRL');
+        $name    = $config->string('APP_NAME') . ' Premium';
+
+        // A Stripe price cannot be edited or deleted, only archived, so a wrong
+        // amount is permanent. Show the exact payload and make the operator ask
+        // for it twice.
+        fwrite(STDOUT, sprintf(
+            "%s mode\n  product  %s\n  price    USD %s / month\n           BRL %s as a currency option\n",
+            $gateway->isLiveMode() ? 'LIVE — this bills real cards' : 'test',
+            $name,
+            number_format($usd, 2),
+            number_format($brl, 2)
+        ));
+
+        if ($config->string('STRIPE_PRICE_ID') !== '' && !in_array('--force', $argv, true)) {
+            fwrite(STDERR, "\nSTRIPE_PRICE_ID is already set to " . $config->string('STRIPE_PRICE_ID') . "\n");
+            fwrite(STDERR, "creating another price leaves the first one in the account for good;\n");
+            fwrite(STDERR, "pass --force only if a second price is what you mean\n");
+            exit(1);
+        }
+
+        if (!in_array('--confirm', $argv, true)) {
+            fwrite(STDERR, "\nnothing created. Re-run with --confirm to create it\n");
+            exit(1);
+        }
+
+        try {
+            $productId = $gateway->createProduct($name, 'Subscription access: larger uploads and the HTTP API.');
+            $price     = $gateway->createMonthlyPrice($productId, $usd * 100, $brl * 100);
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            fwrite(STDERR, 'Stripe refused it: ' . $e->getMessage() . "\n");
+            exit(1);
+        }
+
+        fwrite(STDOUT, sprintf("\ncreated product %s\ncreated price   %s\n", $productId, $price['id']));
+
+        $problems = PriceValidator::problems($price, $usd, $brl);
+
+        foreach ($problems as $problem) {
+            fwrite(STDERR, "  ! $problem\n");
+        }
+
+        fwrite(STDOUT, sprintf("\nset STRIPE_PRICE_ID=%s and re-run billing:validate-prices\n", $price['id']));
+        exit($problems === [] ? 0 : 1);
+
     case 'user:premium':
         $email = $argv[2] ?? '';
         $days  = (int) option($argv, 'days', '-1');
@@ -383,6 +486,8 @@ switch ($command) {
           delete <hash>         permanently remove one conversion
           prune --older-than=N  permanently remove conversions older than N days
           user:premium <email>  grant premium directly: --days=N, 0 revokes
+          billing:validate-prices        check the configured Stripe price
+          billing:create-product         create the product and price (--confirm)
           token:create <email>  issue or replace an account's API token
           token:revoke <email>  remove an account's API token
           logs [--channel=app|audit|mail] [--tail=N]
