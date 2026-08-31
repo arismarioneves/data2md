@@ -44,6 +44,67 @@ final class Gc
     ) {
     }
 
+    /**
+     * Queues a sweep for after the response is on the wire.
+     *
+     * run() globs the whole markdown directory and scans the mappings table, so
+     * its cost grows with every conversion ever made rather than with this
+     * request. A shutdown callback still runs after ApiResponse's exit(), and by
+     * then the response has been flushed with an explicit Content-Length, so the
+     * client does not wait on it. A failure here is logged and swallowed: there
+     * is no response left to fail.
+     *
+     * Called by a front controller, once. The pipeline must not know about it.
+     */
+    public static function registerShutdownSweep(
+        \Data2Md\Config\Config $config,
+        Logger $logger,
+        Database $database,
+        FileStorage $files,
+        MappingStorage $mappings,
+    ): void {
+        $probability = $config->float('GC_PROBABILITY');
+
+        if ($probability <= 0.0) {
+            return;
+        }
+
+        $dataDir = $config->string('APP_DATA_DIR');
+
+        register_shutdown_function(static function () use (
+            $config,
+            $logger,
+            $database,
+            $files,
+            $mappings,
+            $dataDir,
+            $probability
+        ): void {
+            try {
+                (new self(
+                    files:                     $files,
+                    mappings:                  $mappings,
+                    logger:                    $logger,
+                    logDir:                    $dataDir . '/logs',
+                    rateLimitDir:              $dataDir . '/ratelimit',
+                    logRetentionDays:          $config->int('LOG_RETENTION_DAYS'),
+                    auditLogRetentionDays:     $config->int('AUDIT_LOG_RETENTION_DAYS'),
+                    rateLimitMaxWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
+                    convertTimeoutSeconds:     $config->int('CONVERT_TIMEOUT_SECONDS'),
+                    lockDir:                   $dataDir . '/tmp',
+                    sessions:                  new SessionStore(
+                        $database,
+                        $config->int('SESSION_LIFETIME_DAYS'),
+                        $config->int('SESSION_IDLE_DAYS'),
+                    ),
+                    loginTokens:               new LoginTokenStore($database, $config->int('LOGIN_TOKEN_TTL_SECONDS')),
+                ))->maybeRun($probability);
+            } catch (\Throwable $e) {
+                $logger->app('gc.fail', ['reason' => $e::class, 'detail' => $e->getMessage()], 'error');
+            }
+        });
+    }
+
     public function maybeRun(float $probability): ?GcReport
     {
         if ($probability <= 0.0) {

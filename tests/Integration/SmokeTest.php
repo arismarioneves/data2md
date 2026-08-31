@@ -214,9 +214,40 @@ final class SmokeTest extends TestCase
             'timeout'       => 60,
         ]]);
 
-        $raw = (string) file_get_contents($this->baseUrl . '/api', false, $context);
+        $raw = (string) file_get_contents($this->baseUrl . '/convert', false, $context);
 
         return json_decode($raw, true);
+    }
+
+    /** The browser endpoint refuses a cross-origin post; /api is the API. */
+    public function testConvertRefusesACrossSitePost(): void
+    {
+        $context = stream_context_create(['http' => [
+            'method'          => 'POST',
+            'header'          => "Origin: https://evil.example.com\r\n"
+                               . "Content-Type: application/x-www-form-urlencoded",
+            'content'         => '',
+            'ignore_errors'   => true,
+            'follow_location' => 0,
+            'timeout'         => 30,
+        ]]);
+
+        @file_get_contents($this->baseUrl . '/convert', false, $context);
+
+        $status = 0;
+
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m) === 1) {
+                $status = (int) $m[1];
+            }
+        }
+
+        self::assertSame(403, $status);
+    }
+
+    public function testConvertIsPostOnly(): void
+    {
+        self::assertSame(405, $this->get('/convert')['status']);
     }
 
     /** The probe reaches this verdict from the first pages, before charging quota. */
@@ -263,7 +294,7 @@ final class SmokeTest extends TestCase
             'timeout'        => 30,
         ]]);
 
-        $responseBody = (string) @file_get_contents($this->baseUrl . '/api', false, $context);
+        $responseBody = (string) @file_get_contents($this->baseUrl . '/convert', false, $context);
         $status       = 0;
 
         foreach ($http_response_header ?? [] as $header) {

@@ -8,24 +8,12 @@ define('BASE_PATH', dirname(__DIR__));
 $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 
-use Data2Md\Auth\LoginTokenStore;
-use Data2Md\Auth\SessionStore;
-use Data2Md\Convert\ConversionPipeline;
-use Data2Md\Converter\MarkdownSanitizer;
-use Data2Md\Converter\PdfConverter;
 use Data2Md\Http\ClientIp;
 use Data2Md\Http\Cors;
 use Data2Md\I18n\I18n;
 use Data2Md\Log\Logger;
 use Data2Md\Response\ApiResponse;
-use Data2Md\Runtime\ConversionSemaphore;
-use Data2Md\Runtime\Process;
-use Data2Md\Security\RateLimiter;
-use Data2Md\Security\Validator;
-use Data2Md\Storage\Database;
-use Data2Md\Storage\FileStorage;
 use Data2Md\Storage\Gc;
-use Data2Md\Storage\MappingStorage;
 
 const PREVIEW_BYTES = 8000;
 
@@ -65,41 +53,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     ApiResponse::error('Method not allowed. Use POST.', 405);
 }
 
-// ── Bootstrap ────────────────────────────────────────────────────────────────
-$database  = new Database($dataDir . '/db/mappings.sqlite');
-$mappings  = new MappingStorage($database);
-$files     = new FileStorage($dataDir . '/md', $dataDir . '/tmp');
+// ── Convert ──────────────────────────────────────────────────────────────────
+require BASE_PATH . '/src/Convert/bootstrap.php';
 
 $clientIp = (new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER);
 
-$pipeline = new ConversionPipeline(
-    validator:              new Validator(MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL),
-    mappings:               $mappings,
-    files:                  $files,
-    semaphore:              new ConversionSemaphore(
-        $dataDir . '/tmp',
-        $config->int('CONVERT_CONCURRENCY'),
-        $config->int('CONVERT_QUEUE_WAIT_SECONDS'),
-    ),
-    rateLimiter:            new RateLimiter($dataDir . '/ratelimit', RATE_LIMIT_MAX, RATE_LIMIT_WINDOW),
-    logger:                 $logger,
-    converterFactory:       static fn (string $format): PdfConverter => match ($format) {
-        'pdf'   => new PdfConverter(
-            'pdftotext',
-            new Process(
-                $config->int('CONVERT_TIMEOUT_SECONDS'),
-                Process::priorityPrefix($config->int('CONVERT_NICE')),
-            ),
-            new MarkdownSanitizer(),
-            $dataDir . '/tmp',
-        ),
-        default => throw new \LogicException("Unsupported format: $format"),
-    },
-    previewBytes:           PREVIEW_BYTES,
-    rateLimitMax:           RATE_LIMIT_MAX,
-    rateLimitWindowSeconds: RATE_LIMIT_WINDOW,
-);
-
+// No session is resolved here: this endpoint reads Authorization, never a
+// cookie. Honouring one would re-create CSRF on the only route that sends CORS
+// headers.
 $outcome = $pipeline->handle(
     $_FILES,
     $_POST,
@@ -107,40 +68,7 @@ $outcome = $pipeline->handle(
     (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
 );
 
-// Registered before the response is sent, and only here: the pipeline must not
-// know about it, and two front controllers must not each register a sweep.
-// Gc::run() globs the whole markdown directory and scans the mappings table, so
-// its cost grows with every conversion ever made rather than with this request.
-// A register_shutdown_function callback still runs after ApiResponse's exit(),
-// and by then the response has been flushed with an explicit Content-Length, so
-// the client does not wait on this. A failure here is logged and swallowed:
-// there is no response left to fail.
-if ($config->float('GC_PROBABILITY') > 0.0) {
-    register_shutdown_function(static function () use ($config, $files, $mappings, $database, $logger, $dataDir): void {
-        try {
-            (new Gc(
-                files:                     $files,
-                mappings:                  $mappings,
-                logger:                    $logger,
-                logDir:                    $dataDir . '/logs',
-                rateLimitDir:              $dataDir . '/ratelimit',
-                logRetentionDays:          $config->int('LOG_RETENTION_DAYS'),
-                auditLogRetentionDays:     $config->int('AUDIT_LOG_RETENTION_DAYS'),
-                rateLimitMaxWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
-                convertTimeoutSeconds:     $config->int('CONVERT_TIMEOUT_SECONDS'),
-                lockDir:                   $dataDir . '/tmp',
-                sessions:                  new SessionStore(
-                    $database,
-                    $config->int('SESSION_LIFETIME_DAYS'),
-                    $config->int('SESSION_IDLE_DAYS'),
-                ),
-                loginTokens:               new LoginTokenStore($database, $config->int('LOGIN_TOKEN_TTL_SECONDS')),
-            ))->maybeRun($config->float('GC_PROBABILITY'));
-        } catch (\Throwable $e) {
-            $logger->app('gc.fail', ['reason' => $e::class, 'detail' => $e->getMessage()], 'error');
-        }
-    });
-}
+Gc::registerShutdownSweep($config, $logger, $database, $files, $mappings);
 
 foreach ($outcome->headers as $name => $value) {
     header("$name: $value");

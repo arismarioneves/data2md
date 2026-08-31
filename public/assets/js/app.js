@@ -215,7 +215,7 @@ function trf(key, fallback) {
         });
 
         xhr.timeout = D2MD.timeout;
-        xhr.open('POST', '/api');
+        xhr.open('POST', '/convert');
         xhr.send(fd);
     }
 
