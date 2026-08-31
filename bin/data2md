@@ -50,11 +50,25 @@ function humanBytes(int $bytes): string
     return $bytes . ' B';
 }
 
+/**
+ * Migration belongs to `data2md migrate`, which the entrypoint runs. Read and
+ * maintenance commands only report a missing schema.
+ */
+function requireSchema(Database $db): void
+{
+    if ($db->version() !== 0) {
+        return;
+    }
+
+    fwrite(STDERR, "database has no schema yet — run: data2md migrate\n");
+    exit(1);
+}
+
 /** Shared by gc, delete and prune, so the three can never drift apart. */
 function makeGc(\Data2Md\Config\Config $config, string $dataDir): Gc
 {
     $db = new Database($dataDir . '/db/mappings.sqlite');
-    $db->migrate();
+    requireSchema($db);
 
     return new Gc(
         files:                     new FileStorage($dataDir . '/md', $dataDir . '/tmp'),
@@ -77,8 +91,46 @@ switch ($command) {
         exit(0);
 
     case 'migrate':
-        (new Database($dataDir . '/db/mappings.sqlite'))->migrate();
-        fwrite(STDOUT, "schema up to date\n");
+        $db     = new Database($dataDir . '/db/mappings.sqlite');
+        $latest = Database::latestVersion();
+
+        if (in_array('--status', $argv, true)) {
+            $version = $db->version();
+
+            fwrite(STDOUT, sprintf("database %d, build %d\n", $version, $latest));
+
+            if ($version < $latest) {
+                fwrite(STDOUT, "pending: " . implode(', ', array_filter(
+                    Database::migrationVersions(),
+                    static fn (int $v): bool => $v > $version
+                )) . "\n");
+                exit(1);
+            }
+
+            fwrite(STDOUT, $version > $latest
+                ? "schema is ahead of this build (older image, or a rollback)\n"
+                : "up to date\n");
+            exit(0);
+        }
+
+        $applied = $db->migrate();
+        $version = $db->version();
+
+        // migrate() treats this as a no-op, so this is the only place an
+        // operator hears about a rollback onto a newer volume.
+        if ($version > $latest) {
+            (new Logger($dataDir . '/logs'))->app(
+                'schema.ahead',
+                ['db' => $version, 'build' => $latest],
+                'warning'
+            );
+            fwrite(STDOUT, "schema is ahead of this build (database $version, build $latest) — no changes made\n");
+            exit(0);
+        }
+
+        fwrite(STDOUT, $applied === []
+            ? "schema up to date (version $version)\n"
+            : 'applied ' . implode(', ', $applied) . " — now at version $version\n");
         exit(0);
 
     case 'gc':
@@ -126,7 +178,7 @@ switch ($command) {
         $limit = (int) option($argv, 'limit', '20');
 
         $db = new Database($dataDir . '/db/mappings.sqlite');
-        $db->migrate();
+        requireSchema($db);
 
         $mappings = new MappingStorage($db);
         $files    = new FileStorage($dataDir . '/md', $dataDir . '/tmp');
@@ -219,7 +271,7 @@ switch ($command) {
         data2md CLI
 
           config:check          validate every environment variable
-          migrate               apply the SQLite schema (idempotent)
+          migrate [--status]    apply pending schema migrations; --status only reports
           list [--limit=N]      stored conversions, newest first
           gc                    housekeeping: orphans, rate limits, rotated logs
           delete <hash>         permanently remove one conversion

@@ -81,22 +81,133 @@ final class Database
         }
     }
 
-    public function migrate(): void
-    {
-        $this->pdo()->exec(
-            <<<'SQL'
-            CREATE TABLE IF NOT EXISTS mappings (
+    /**
+     * Schema migrations in application order. PRAGMA user_version records how
+     * far a given file has got.
+     *
+     * ADDITIVE ONLY: during a rolling deploy the old container serves requests
+     * against a schema the new container has already migrated. A release may
+     * add tables, nullable columns and indexes, and nothing else -- no renames,
+     * no drops, no NOT NULL without a default, no type changes.
+     *
+     * Migration 1 uses IF NOT EXISTS because databases in production sit at
+     * user_version 0 with the mappings table already present. Later migrations
+     * should not.
+     *
+     * @var array<int,list<string>>
+     */
+    private const MIGRATIONS = [
+        1 => [
+            'CREATE TABLE IF NOT EXISTS mappings (
                 hash          TEXT    PRIMARY KEY,
                 original_name TEXT    NOT NULL,
                 format        TEXT    NOT NULL,
                 size_bytes    INTEGER NOT NULL,
                 created_at    INTEGER NOT NULL
-            );
-            SQL
-        );
+            )',
+            'CREATE INDEX IF NOT EXISTS idx_mappings_created_at ON mappings (created_at)',
+        ],
+    ];
 
-        $this->pdo()->exec(
-            'CREATE INDEX IF NOT EXISTS idx_mappings_created_at ON mappings (created_at)'
-        );
+    /** @return list<int> */
+    public static function migrationVersions(): array
+    {
+        return array_map('intval', array_keys(self::MIGRATIONS));
+    }
+
+    public static function latestVersion(): int
+    {
+        return max(self::migrationVersions());
+    }
+
+    /** Schema version recorded in this file. 0 for a new or pre-runner database. */
+    public function version(): int
+    {
+        return $this->readVersion($this->pdo());
+    }
+
+    /**
+     * Applies every migration this file has not seen yet.
+     *
+     * @return list<int> versions applied by this call; empty when already current
+     */
+    public function migrate(): array
+    {
+        $pdo = $this->pdo();
+
+        // A migration may wait longer than a request: two containers sharing the
+        // volume during a rolling deploy contend on the write lock below.
+        $pdo->exec('PRAGMA busy_timeout = 30000');
+
+        try {
+            $current = $this->readVersion($pdo);
+
+            // Ahead of this build means an older image against a volume a newer
+            // one migrated, which docs/DEPLOY.md documents as the rollback path.
+            // The caller logs it.
+            if ($current > self::latestVersion()) {
+                return [];
+            }
+
+            $applied = [];
+
+            foreach (self::MIGRATIONS as $version => $statements) {
+                if ($version <= $current) {
+                    continue;
+                }
+
+                if ($this->apply($pdo, (int) $version, $statements)) {
+                    $applied[] = (int) $version;
+                }
+            }
+
+            return $applied;
+        } finally {
+            $pdo->exec('PRAGMA busy_timeout = 5000');
+        }
+    }
+
+    /**
+     * @param list<string> $statements
+     * @return bool false when another process had already applied this version
+     */
+    private function apply(\PDO $pdo, int $version, array $statements): bool
+    {
+        // IMMEDIATE takes the write lock up front, so a second container waits
+        // here rather than racing into the DDL. It does not block WAL readers.
+        $pdo->exec('BEGIN IMMEDIATE');
+
+        try {
+            // Re-read under the lock: another process may have applied this
+            // version in the meantime, and re-running the DDL would throw.
+            if ($this->readVersion($pdo) >= $version) {
+                $pdo->exec('ROLLBACK');
+                return false;
+            }
+
+            foreach ($statements as $sql) {
+                $pdo->exec($sql);
+            }
+
+            // PRAGMA cannot be parameterised.
+            $pdo->exec('PRAGMA user_version = ' . (int) $version);
+
+            $pdo->exec('COMMIT');
+
+            return true;
+        } catch (\Throwable $e) {
+            try {
+                $pdo->exec('ROLLBACK');
+            } catch (\Throwable) {
+                // A transaction already gone must not replace the real error.
+            }
+
+            throw $e;
+        }
+    }
+
+    private function readVersion(\PDO $pdo): int
+    {
+        return (int) $pdo->query('PRAGMA user_version')->fetchColumn();
     }
 }
