@@ -110,6 +110,37 @@ return [
     'nav.dashboard'         => 'Dashboard',
     'nav.signout'           => 'Sign out',
 
+    // ── Dashboard ──────────────────────────────────────────────
+    'dash.title'            => '%s · Dashboard',
+    'dash.meta.desc'        => 'Your converted documents, ready to download or share.',
+    'dash.eyebrow'          => '// your library',
+    'dash.heading'          => 'Your <em>conversions</em>.',
+
+    'dash.account.head'     => 'Account',
+    'dash.account.since'    => 'Member since %s',
+
+    'dash.files.head'       => 'Files',
+    'dash.files.count'      => '%d converted',
+    'dash.files.note'       => 'A download link works for anyone who has it. Delete a file to stop the link working.',
+    'dash.empty.head'       => 'Nothing here yet',
+    'dash.empty.body'       => 'Convert a document while signed in and it shows up here.',
+    'dash.empty.cta'        => 'Convert a document',
+
+    'dash.col.name'         => 'File',
+    'dash.col.size'         => 'Size',
+    'dash.col.date'         => 'Converted',
+    'dash.download'         => 'Download',
+    'dash.copy'             => 'Copy link',
+    'dash.copied'           => 'Copied',
+    'dash.delete'           => 'Delete',
+    'dash.delete.confirm'   => 'Delete this file? The download link stops working for everyone who has it.',
+    'dash.deleted'          => 'File deleted.',
+    'dash.delete.failed'    => 'That file is not yours, or no longer exists.',
+
+    'dash.newer'            => 'Newer',
+    'dash.older'            => 'Older',
+    'dash.page'             => 'Page %d of %d',
+
     // ── Converter (/app) ───────────────────────────────────────
     'app.title'           => '%s · Convert',
     'app.meta.desc'       => 'Upload a PDF and get clean, structured Markdown back. No account needed, and the full converted file is always yours to download.',

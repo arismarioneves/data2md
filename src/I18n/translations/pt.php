@@ -110,6 +110,37 @@ return [
     'nav.dashboard'         => 'Painel',
     'nav.signout'           => 'Sair',
 
+    // ── Painel ─────────────────────────────────────────────────
+    'dash.title'            => '%s · Painel',
+    'dash.meta.desc'        => 'Seus documentos convertidos, prontos pra baixar ou compartilhar.',
+    'dash.eyebrow'          => '// sua biblioteca',
+    'dash.heading'          => 'Suas <em>conversões</em>.',
+
+    'dash.account.head'     => 'Conta',
+    'dash.account.since'    => 'Na casa desde %s',
+
+    'dash.files.head'       => 'Arquivos',
+    'dash.files.count'      => '%d convertidos',
+    'dash.files.note'       => 'Um link de download funciona pra quem tiver ele. Apague o arquivo pra derrubar o link.',
+    'dash.empty.head'       => 'Ainda não tem nada aqui',
+    'dash.empty.body'       => 'Converta um documento com a sessão aberta e ele aparece aqui.',
+    'dash.empty.cta'        => 'Converter um documento',
+
+    'dash.col.name'         => 'Arquivo',
+    'dash.col.size'         => 'Tamanho',
+    'dash.col.date'         => 'Convertido',
+    'dash.download'         => 'Baixar',
+    'dash.copy'             => 'Copiar link',
+    'dash.copied'           => 'Copiado',
+    'dash.delete'           => 'Apagar',
+    'dash.delete.confirm'   => 'Apagar este arquivo? O link de download para de funcionar pra todo mundo que tiver ele.',
+    'dash.deleted'          => 'Arquivo apagado.',
+    'dash.delete.failed'    => 'Esse arquivo não é seu, ou não existe mais.',
+
+    'dash.newer'            => 'Mais recentes',
+    'dash.older'            => 'Mais antigos',
+    'dash.page'             => 'Página %d de %d',
+
     // ── Conversor (/app) ───────────────────────────────────────
     'app.title'           => '%s · Converter',
     'app.meta.desc'       => 'Envie um PDF e receba Markdown limpo e estruturado. Sem conta, sem cadastro, e o arquivo convertido fica sempre disponível pra baixar.',

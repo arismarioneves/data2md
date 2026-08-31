@@ -17,6 +17,22 @@ if (!function_exists(__NAMESPACE__ . '\format_bytes_label')) {
     }
 }
 
+if (!function_exists(__NAMESPACE__ . '\format_bytes')) {
+    /** Human-readable label for a byte count. */
+    function format_bytes(int $bytes): string
+    {
+        if ($bytes >= 1_048_576) {
+            return round($bytes / 1_048_576, 1) . ' MB';
+        }
+
+        if ($bytes >= 1024) {
+            return round($bytes / 1024, 1) . ' KB';
+        }
+
+        return $bytes . ' B';
+    }
+}
+
 if (!function_exists(__NAMESPACE__ . '\request_ceiling_seconds')) {
     /**
      * Upper bound in seconds for one request: the conversion timeout, plus

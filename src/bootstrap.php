@@ -7,6 +7,9 @@ use Data2Md\Config\ConfigError;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/helpers.php';
+// e() is loaded here rather than by the view partials, so a page cannot call it
+// before whichever include would have defined it.
+require_once __DIR__ . '/View/helpers.php';
 
 try {
     $config = Config::fromEnvironment();

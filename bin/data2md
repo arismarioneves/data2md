@@ -41,17 +41,6 @@ function option(array $argv, string $name, string $default): string
     return $default;
 }
 
-function humanBytes(int $bytes): string
-{
-    if ($bytes >= 1048576) {
-        return round($bytes / 1048576, 1) . ' MB';
-    }
-    if ($bytes >= 1024) {
-        return round($bytes / 1024, 1) . ' KB';
-    }
-    return $bytes . ' B';
-}
-
 /**
  * Migration belongs to `data2md migrate`, which the entrypoint runs. Read and
  * maintenance commands only report a missing schema.
@@ -209,8 +198,10 @@ switch ($command) {
             fwrite(STDOUT, sprintf(
                 "%-16s %10s %10s  %-16s %s\n",
                 $row['hash'],
-                humanBytes($row['size_bytes']),
-                $files->markdownExists($row['hash']) ? humanBytes($files->markdownSize($row['hash'])) : 'MISSING',
+                \Data2Md\format_bytes($row['size_bytes']),
+                $files->markdownExists($row['hash'])
+                    ? \Data2Md\format_bytes($files->markdownSize($row['hash']))
+                    : 'MISSING',
                 gmdate('Y-m-d H:i', $row['created_at']),
                 $row['original_name']
             ));

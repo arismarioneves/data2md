@@ -153,6 +153,14 @@ final class SmokeTest extends TestCase
         self::assertSame(303, $this->get('/logout')['status']);
     }
 
+    public function testDashboardSendsAnAnonymousVisitorToSignIn(): void
+    {
+        $response = $this->get('/dashboard');
+
+        self::assertSame(303, $response['status']);
+        self::assertStringContainsString('/login', strtolower($response['headers']));
+    }
+
     public function testLegalPagesCarryTheContactAddress(): void
     {
         foreach (['/terms', '/privacy'] as $path) {
