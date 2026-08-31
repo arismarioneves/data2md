@@ -32,30 +32,15 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/'), ENT
 <body>
 
 <!-- ── Header ──────────────────────────────────────────────── -->
-<header class="l-header" id="l-header">
-    <div class="l-container">
-        <div class="l-header-inner">
-            <a href="/" class="l-logo" aria-label="<?= htmlspecialchars(APP_NAME, ENT_QUOTES) ?> home">
-                <img class="l-logo-mark" src="/assets/img/icon.svg" width="30" height="30" alt="" aria-hidden="true">
-                <span class="l-logo-name"><?= htmlspecialchars(APP_NAME) ?></span>
-            </a>
-            <nav class="l-nav">
-                <a href="#why" class="l-nav-link" data-hide-sm><?= t('nav.why') ?></a>
-                <a href="#performance" class="l-nav-link" data-hide-sm><?= t('nav.performance') ?></a>
-                <a href="/api" class="l-nav-link"><?= t('nav.api') ?></a>
-                <a href="/app" class="l-nav-cta">
-                    <?= t('nav.app') ?>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                </a>
-                <span class="l-lang" role="group" aria-label="<?= htmlspecialchars(t('lang.aria'), ENT_QUOTES) ?>">
-                    <a href="/lang?to=en&amp;back=<?= $back ?>" class="<?= I18n::current() === 'en' ? 'is-active' : '' ?>"><?= t('lang.label.en') ?></a>
-                    <span class="l-lang-sep" aria-hidden="true">·</span>
-                    <a href="/lang?to=pt&amp;back=<?= $back ?>" class="<?= I18n::current() === 'pt' ? 'is-active' : '' ?>"><?= t('lang.label.pt') ?></a>
-                </span>
-            </nav>
-        </div>
-    </div>
-</header>
+<?php
+$navLinks = [
+    ['href' => '#why',          'label' => t('nav.why'),         'hideSm' => true],
+    ['href' => '#performance',  'label' => t('nav.performance'), 'hideSm' => true],
+    ['href' => '/api',          'label' => t('nav.api')],
+];
+$navCta = ['href' => '/app', 'label' => t('nav.app'), 'icon' => 'arrow'];
+require BASE_PATH . '/src/View/header.php';
+?>
 
 <main class="l-main">
 
@@ -309,32 +294,17 @@ driven by enterprise contracts in EMEA.
 </main>
 
 <!-- ── Footer ─────────────────────────────────────────────── -->
-<footer class="l-footer">
-    <div class="l-container">
-        <div class="l-footer-inner">
-            <p class="l-footer-text"><?= t('footer.text', htmlspecialchars(APP_NAME)) ?></p>
-            <nav class="l-footer-links">
-                <a href="/app"><?= t('footer.app') ?></a>
-                <a href="/api"><?= t('footer.api') ?></a>
-                <a href="https://daringfireball.net/projects/markdown/" target="_blank" rel="noreferrer"><?= t('footer.about_md') ?></a>
-                <a href="/terms"><?= t('nav.terms') ?></a>
-                <a href="/privacy"><?= t('nav.privacy') ?></a>
-            </nav>
-        </div>
-    </div>
-</footer>
-
-<script>
-(function(){
-    var header = document.getElementById('l-header');
-    var onScroll = function(){
-        if (window.scrollY > 8) header.classList.add('is-scrolled');
-        else header.classList.remove('is-scrolled');
-    };
-    document.addEventListener('scroll', onScroll, { passive:true });
-    onScroll();
-})();
-</script>
+<?php
+$footerText  = t('footer.text', e(APP_NAME));
+$footerLinks = [
+    ['href' => '/app', 'label' => t('footer.app')],
+    ['href' => '/api', 'label' => t('footer.api')],
+    ['href' => 'https://daringfireball.net/projects/markdown/', 'label' => t('footer.about_md'), 'external' => true],
+    ['href' => '/terms',   'label' => t('nav.terms')],
+    ['href' => '/privacy', 'label' => t('nav.privacy')],
+];
+require BASE_PATH . '/src/View/footer.php';
+?>
 
 </body>
 </html>

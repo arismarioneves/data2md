@@ -17,8 +17,7 @@ declare(strict_types=1);
 
 use Data2Md\I18n\I18n;
 
-$back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/'), ENT_QUOTES);
-$esc  = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES);
+require_once __DIR__ . '/helpers.php';
 ?>
 <!DOCTYPE html>
 <html lang="<?= I18n::current() ?>">
@@ -31,42 +30,27 @@ $esc  = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES);
 </head>
 <body>
 
-<header class="l-header" id="l-header">
-    <div class="l-container">
-        <div class="l-header-inner">
-            <a href="/" class="l-logo" aria-label="<?= $esc(APP_NAME) ?> home">
-                <img class="l-logo-mark" src="/assets/img/icon.svg" width="30" height="30" alt="" aria-hidden="true">
-                <span class="l-logo-name"><?= $esc(APP_NAME) ?></span>
-            </a>
-            <nav class="l-nav">
-                <a href="/" class="l-nav-link" data-hide-sm><?= t('nav.about') ?></a>
-                <a href="/api" class="l-nav-link"><?= t('nav.api') ?></a>
-                <a href="/app" class="l-nav-cta">
-                    <?= t('nav.app') ?>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                </a>
-                <span class="l-lang" role="group" aria-label="<?= $esc(t('lang.aria')) ?>">
-                    <a href="/lang?to=en&amp;back=<?= $back ?>" class="<?= I18n::current() === 'en' ? 'is-active' : '' ?>"><?= t('lang.label.en') ?></a>
-                    <span class="l-lang-sep" aria-hidden="true">·</span>
-                    <a href="/lang?to=pt&amp;back=<?= $back ?>" class="<?= I18n::current() === 'pt' ? 'is-active' : '' ?>"><?= t('lang.label.pt') ?></a>
-                </span>
-            </nav>
-        </div>
-    </div>
-</header>
+<?php
+$navLinks = [
+    ['href' => '/',    'label' => t('nav.about'), 'hideSm' => true],
+    ['href' => '/api', 'label' => t('nav.api')],
+];
+$navCta = ['href' => '/app', 'label' => t('nav.app'), 'icon' => 'arrow'];
+require BASE_PATH . '/src/View/header.php';
+?>
 
 <main class="l-main">
     <div class="l-container">
         <div class="docs-main">
             <article class="docs">
                 <header class="docs-hero">
-                    <h1 class="docs-title"><?= $esc($legalHeading) ?></h1>
-                    <p class="docs-sub"><?= $esc($legalUpdated) ?></p>
+                    <h1 class="docs-title"><?= e($legalHeading) ?></h1>
+                    <p class="docs-sub"><?= e($legalUpdated) ?></p>
                 </header>
 
                 <?php foreach ($legalSections as $section): ?>
                 <section class="docs-section">
-                    <h2><?= $esc($section['h']) ?></h2>
+                    <h2><?= e($section['h']) ?></h2>
                     <p><?= $section['b'] ?></p>
                 </section>
                 <?php endforeach; ?>
@@ -75,19 +59,16 @@ $esc  = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES);
     </div>
 </main>
 
-<footer class="l-footer">
-    <div class="l-container">
-        <div class="l-footer-inner">
-            <p class="l-footer-text"><?= t('footer.text', $esc(APP_NAME)) ?></p>
-            <nav class="l-footer-links">
-                <a href="/"><?= t('footer.home') ?></a>
-                <a href="/app"><?= t('footer.converter') ?></a>
-                <a href="/terms"><?= t('nav.terms') ?></a>
-                <a href="/privacy"><?= t('nav.privacy') ?></a>
-            </nav>
-        </div>
-    </div>
-</footer>
+<?php
+$footerText  = t('footer.text', e(APP_NAME));
+$footerLinks = [
+    ['href' => '/',        'label' => t('footer.home')],
+    ['href' => '/app',     'label' => t('footer.converter')],
+    ['href' => '/terms',   'label' => t('nav.terms')],
+    ['href' => '/privacy', 'label' => t('nav.privacy')],
+];
+require BASE_PATH . '/src/View/footer.php';
+?>
 
 </body>
 </html>
