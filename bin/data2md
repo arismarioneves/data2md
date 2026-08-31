@@ -22,6 +22,7 @@ use Data2Md\Billing\Reconciler;
 use Data2Md\Billing\StripeGateway;
 use Data2Md\Billing\WebhookEventStore;
 use Data2Md\Log\Logger;
+use Data2Md\Mail\Mailer;
 use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
 use Data2Md\Storage\Gc;
@@ -362,7 +363,9 @@ switch ($command) {
         $gateway = StripeGateway::fromConfig($config);
         $usd     = $config->int('PREMIUM_PRICE_USD');
         $brl     = $config->int('PREMIUM_PRICE_BRL');
-        $name    = $config->string('APP_NAME') . ' Premium';
+        // The name a customer reads on the Stripe receipt and the card
+        // statement, which is not always how the app names itself.
+        $name    = option($argv, 'name', $config->string('APP_NAME') . ' Premium');
 
         // A Stripe price cannot be edited or deleted, only archived, so a wrong
         // amount is permanent. Show the exact payload and make the operator ask
@@ -405,6 +408,114 @@ switch ($command) {
 
         fwrite(STDOUT, sprintf("\nset STRIPE_PRICE_ID=%s and re-run billing:validate-prices\n", $price['id']));
         exit($problems === [] ? 0 : 1);
+
+    case 'mail:test':
+        $to = $argv[2] ?? '';
+
+        if (filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
+            fwrite(STDERR, "usage: data2md mail:test <email>\n");
+            exit(1);
+        }
+
+        // A sign-in link is the only way into an account, so mail that does not
+        // arrive locks everyone out -- and from inside the container there is
+        // otherwise no way to tell a wrong password from a blocked port from a
+        // domain that fails SPF.
+        fwrite(STDOUT, sprintf(
+            "transport %s\n",
+            $config->string('MAIL_TRANSPORT') === 'log'
+                ? 'log (written to logs/mail.jsonl, nothing is sent)'
+                : sprintf(
+                    'smtp %s:%d %s as %s',
+                    $config->string('SMTP_HOST'),
+                    $config->int('SMTP_PORT'),
+                    $config->string('SMTP_ENCRYPTION'),
+                    $config->string('SMTP_USER') ?: '(no user)'
+                )
+        ));
+
+        $logger = new Logger($dataDir . '/logs');
+        $sent   = Mailer::fromConfig($config, $logger)->send(
+            $to,
+            $config->string('APP_NAME') . ' — test message',
+            "This is a test from `data2md mail:test`.\n\n"
+            . "If it arrived, sign-in links will too.\n"
+        );
+
+        if (!$sent) {
+            fwrite(STDERR, "not sent — the reason is in the app log:\n");
+            fwrite(STDERR, "  data2md logs --tail=5\n");
+            exit(1);
+        }
+
+        fwrite(STDOUT, "accepted by the server for $to\n");
+        fwrite(STDOUT, "the relay accepting it is not the same as an inbox keeping it:\n");
+        fwrite(STDOUT, "check the inbox, and the spam folder, before trusting SPF and DKIM\n");
+        exit(0);
+
+    case 'user:list':
+        $limit = (int) option($argv, 'limit', '20');
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $users = new UserStore($db);
+        $rows  = $users->recent($limit);
+
+        if ($rows === []) {
+            fwrite(STDOUT, "no accounts yet\n");
+            exit(0);
+        }
+
+        fwrite(STDOUT, sprintf("%-4s %-34s %-8s %-16s %s\n", 'ID', 'EMAIL', 'PLAN', 'CREATED', 'SUBSCRIPTION'));
+
+        foreach ($rows as $row) {
+            fwrite(STDOUT, sprintf(
+                "%-4d %-34s %-8s %-16s %s\n",
+                $row['id'],
+                $row['email'],
+                Entitlement::forUser($row),
+                gmdate('Y-m-d H:i', (int) $row['created_at']),
+                $row['subscription_status'] ?? '-'
+            ));
+        }
+
+        fwrite(STDOUT, sprintf("\nshowing %d of %d\n", count($rows), $users->count()));
+        exit(0);
+
+    case 'user:delete':
+        $email = $argv[2] ?? '';
+
+        if ($email === '') {
+            fwrite(STDERR, "usage: data2md user:delete <email>\n");
+            exit(1);
+        }
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $users = new UserStore($db);
+        $user  = $users->findByEmail($email);
+
+        if ($user === null) {
+            fwrite(STDERR, "no such account: $email\n");
+            exit(1);
+        }
+
+        if (!in_array('--confirm', $argv, true)) {
+            fwrite(STDERR, "this removes the account, its sessions and its API token.\n");
+            fwrite(STDERR, "its conversions are detached, NOT deleted: the markdown stays\n");
+            fwrite(STDERR, "reachable by hash. Delete those first if they should go.\n");
+            fwrite(STDERR, "\nre-run with --confirm\n");
+            exit(1);
+        }
+
+        $deleted = $users->delete((int) $user['id']);
+
+        (new Logger($dataDir . '/logs'))->app('auth.user.delete', ['user' => (int) $user['id']], 'warning');
+
+        fwrite(STDOUT, $deleted ? "deleted the account for $email\n" : "nothing deleted\n");
+        exit($deleted ? 0 : 1);
 
     case 'user:premium':
         $email = $argv[2] ?? '';
@@ -524,10 +635,13 @@ switch ($command) {
           gc                    housekeeping: orphans, rate limits, rotated logs
           delete <hash>         permanently remove one conversion
           prune --older-than=N  permanently remove conversions older than N days
+          user:list [--limit=N] accounts, newest first
+          user:delete <email>   remove an account (--confirm)
           user:premium <email>  grant premium directly: --days=N, 0 revokes
+          mail:test <email>     send a test message through the configured transport
           billing:reconcile              re-read every subscription from Stripe
           billing:validate-prices        check the configured Stripe price
-          billing:create-product         create the product and price (--confirm)
+          billing:create-product         create the product and price (--confirm, --name=)
           token:create <email>  issue or replace an account's API token
           token:revoke <email>  remove an account's API token
           logs [--channel=app|audit|mail] [--tail=N]
