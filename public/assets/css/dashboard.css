@@ -196,6 +196,44 @@
   margin-top:1.5rem;
 }
 
+.dash-token-fresh{
+  background:var(--ok-soft);
+  border:1px solid var(--ok-ink);
+  border-radius:var(--r);
+  padding:1rem 1.15rem;
+  margin-bottom:1.25rem;
+}
+.dash-token-once{
+  color:var(--ok-ink);
+  font-size:.87rem;
+  font-weight:600;
+  margin-bottom:.7rem;
+}
+.dash-token-row{
+  display:flex;
+  align-items:center;
+  gap:.75rem;
+  flex-wrap:wrap;
+}
+.dash-token-value{
+  font-family:var(--mono);
+  font-size:.82rem;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--r);
+  padding:.55rem .7rem;
+  word-break:break-all;
+  flex:1 1 20rem;
+}
+.dash-token-mask{
+  font-family:var(--mono);
+  font-size:.95rem;
+  color:var(--ink);
+  margin-bottom:.2rem;
+}
+.dash-token-mask code{background:none;padding:0}
+.dash-api-foot{margin-top:1.25rem}
+
 @media (max-width:640px){
   .dash-panel{padding:1.35rem}
   .dash-name{max-width:52vw}

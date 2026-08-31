@@ -9,6 +9,7 @@ $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 require BASE_PATH . '/src/Auth/bootstrap.php';
 
+use Data2Md\Auth\ApiTokenStore;
 use Data2Md\Auth\Session;
 use Data2Md\I18n\I18n;
 use Data2Md\Log\Logger;
@@ -31,15 +32,19 @@ if (!$session->isAuthenticated()) {
 
 const PER_PAGE = 20;
 
-$dataDir  = $config->string('APP_DATA_DIR');
-$logger   = new Logger($dataDir . '/logs');
-$database = new Database($dataDir . '/db/mappings.sqlite');
-$mappings = new MappingStorage($database);
-$files    = new FileStorage($dataDir . '/md', $dataDir . '/tmp');
-$userId   = (int) $session->userId();
+$dataDir   = $config->string('APP_DATA_DIR');
+$logger    = new Logger($dataDir . '/logs');
+$database  = new Database($dataDir . '/db/mappings.sqlite');
+$mappings  = new MappingStorage($database);
+$files     = new FileStorage($dataDir . '/md', $dataDir . '/tmp');
+$apiTokens = new ApiTokenStore($database);
+$userId    = (int) $session->userId();
 
 $notice = null;
 $error  = null;
+// The raw token exists for this one response and is never stored, so the
+// token actions render in place instead of redirecting.
+$freshToken = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$session->checkCsrf($_POST['csrf'] ?? null)) {
@@ -67,9 +72,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: /dashboard?f=' . $flash . '&p=' . (int) ($_POST['page'] ?? 1), true, 303);
         exit;
     }
+
+    if (($_POST['action'] ?? '') === 'token:create') {
+        $freshToken = $apiTokens->issue($userId);
+        $notice     = t('dash.api.issued');
+
+        $logger->app('api.token.issue', ['user' => $userId], 'warning');
+    }
+
+    if (($_POST['action'] ?? '') === 'token:revoke') {
+        $apiTokens->revokeFor($userId);
+        $notice = t('dash.api.revoked');
+
+        $logger->app('api.token.revoke', ['user' => $userId], 'warning');
+    }
 }
 
-$flash = (string) ($_GET['f'] ?? '');
+$tokenInfo = $apiTokens->describeFor($userId);
+$flash     = (string) ($_GET['f'] ?? '');
 
 if ($flash === 'deleted') {
     $notice = t('dash.deleted');
@@ -149,6 +169,71 @@ require BASE_PATH . '/src/View/header.php';
 
         <section class="dash-panel">
             <div class="dash-panel-head">
+                <h2 class="dash-h2"><?= t('dash.api.head') ?></h2>
+                <span class="dash-count"><?= t(
+                    'dash.api.limits',
+                    $viewerTier->maxConversions,
+                    $viewerTier->windowSeconds,
+                    $viewerTier->maxFileSizeLabel()
+                ) ?></span>
+            </div>
+
+            <?php if ($freshToken !== null): ?>
+            <div class="dash-token-fresh">
+                <p class="dash-token-once"><?= t('dash.api.once') ?></p>
+                <div class="dash-token-row">
+                    <code class="dash-token-value"><?= e($freshToken) ?></code>
+                    <button type="button" class="l-btn l-btn--primary dash-btn-sm" data-copy-value="<?= e($freshToken) ?>"><?= t('dash.api.copy') ?></button>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!$viewerTier->allowsApi()): ?>
+            <p class="dash-note"><?= t('dash.api.locked', '<code>GET /api/me</code>') ?></p>
+            <?php endif; ?>
+
+            <div class="dash-account">
+                <?php if ($tokenInfo === null): ?>
+                <div>
+                    <p class="dash-email"><?= t('dash.api.none') ?></p>
+                    <p class="dash-sub"><?= t('dash.api.none.sub') ?></p>
+                </div>
+                <form method="post" action="/dashboard">
+                    <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                    <input type="hidden" name="action" value="token:create">
+                    <button type="submit" class="l-btn l-btn--primary dash-btn-sm"><?= t('dash.api.create') ?></button>
+                </form>
+                <?php else: ?>
+                <div>
+                    <p class="dash-token-mask"><code><?= e($tokenInfo['prefix']) ?></code>&hellip;<code><?= e($tokenInfo['last4']) ?></code></p>
+                    <p class="dash-sub">
+                        <?= t('dash.api.created', gmdate($dateFmt, (int) $tokenInfo['created_at'])) ?>
+                        &middot;
+                        <?= $tokenInfo['last_used_at'] === null
+                            ? t('dash.api.unused')
+                            : t('dash.api.used', gmdate($dateFmt, (int) $tokenInfo['last_used_at'])) ?>
+                    </p>
+                </div>
+                <div class="dash-actions">
+                    <form method="post" action="/dashboard" class="dash-inline" data-confirm="<?= e(t('dash.api.rotate.confirm')) ?>">
+                        <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                        <input type="hidden" name="action" value="token:create">
+                        <button type="submit" class="l-btn l-btn--ghost dash-btn-sm"><?= t('dash.api.rotate') ?></button>
+                    </form>
+                    <form method="post" action="/dashboard" class="dash-inline" data-confirm="<?= e(t('dash.api.revoke.confirm')) ?>">
+                        <input type="hidden" name="csrf" value="<?= $csrf ?>">
+                        <input type="hidden" name="action" value="token:revoke">
+                        <button type="submit" class="dash-link dash-link--danger"><?= t('dash.api.revoke') ?></button>
+                    </form>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <p class="dash-sub dash-api-foot"><?= t('dash.api.docs', '<a class="dash-link" href="/api">/api</a>') ?></p>
+        </section>
+
+        <section class="dash-panel">
+            <div class="dash-panel-head">
                 <h2 class="dash-h2"><?= t('dash.files.head') ?></h2>
                 <span class="dash-count"><?= t('dash.files.count', $total) ?></span>
             </div>
@@ -183,7 +268,7 @@ require BASE_PATH . '/src/View/header.php';
                                 <td class="dash-date"><?= e(gmdate($dateFmt, $row['created_at'])) ?></td>
                                 <td class="dash-actions">
                                     <a class="dash-link" href="/download?hash=<?= e($row['hash']) ?>"><?= t('dash.download') ?></a>
-                                    <button type="button" class="dash-link" data-copy-link="<?= e(rtrim(APP_URL, '/')) ?>/download?hash=<?= e($row['hash']) ?>"><?= t('dash.copy') ?></button>
+                                    <button type="button" class="dash-link" data-copy-value="<?= e(rtrim(APP_URL, '/')) ?>/download?hash=<?= e($row['hash']) ?>"><?= t('dash.copy') ?></button>
                                     <form method="post" action="/dashboard" class="dash-inline"
                                           data-confirm="<?= e(t('dash.delete.confirm')) ?>">
                                         <input type="hidden" name="csrf" value="<?= $csrf ?>">
@@ -229,9 +314,9 @@ require BASE_PATH . '/src/View/footer.php';
 (function(){
     var copied = <?= json_encode(t('dash.copied'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_APOS) ?>;
 
-    document.querySelectorAll('[data-copy-link]').forEach(function(btn){
+    document.querySelectorAll('[data-copy-value]').forEach(function(btn){
         btn.addEventListener('click', function(){
-            var url = btn.getAttribute('data-copy-link');
+            var url = btn.getAttribute('data-copy-value');
             var done = function(){
                 var label = btn.textContent;
                 btn.textContent = copied;

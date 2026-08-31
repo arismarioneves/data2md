@@ -226,9 +226,20 @@ final class SmokeTest extends TestCase
             'timeout'       => 60,
         ]]);
 
-        $raw = (string) file_get_contents($this->baseUrl . '/convert', false, $context);
+        $raw     = (string) file_get_contents($this->baseUrl . '/convert', false, $context);
+        $payload = json_decode($raw, true);
 
-        return json_decode($raw, true);
+        // The anonymous tier is one conversion an hour per address, so a second
+        // run of this suite inside the hour hits it. Say so, rather than leaving
+        // "failed asserting that false is true" to be diagnosed.
+        if (str_contains((string) ($payload['message'] ?? ''), 'Rate limit exceeded')) {
+            self::fail(
+                'the anonymous conversion quota for this address is already spent: '
+                . 'recreate the volume with `docker compose down -v` before re-running'
+            );
+        }
+
+        return $payload;
     }
 
     /** The browser endpoint refuses a cross-origin post; /api is the API. */
