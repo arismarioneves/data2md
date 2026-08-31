@@ -10,13 +10,21 @@ $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 require BASE_PATH . '/src/Auth/bootstrap.php';
 
+use Data2Md\Billing\Entitlement;
 use Data2Md\I18n\I18n;
 
 // X-Content-Type-Options, X-Frame-Options and Referrer-Policy come from the vhost.
 header('X-XSS-Protection: 1; mode=block');
 header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:");
 
-$back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/app'), ENT_QUOTES);
+$jsonFlags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_APOS;
+
+// What a rejected size can offer this visitor next.
+$sizeHint = match ($viewerTier->plan) {
+    Entitlement::ANON => t('app.error.toobig.anon'),
+    Entitlement::FREE => t('app.error.toobig.free'),
+    default           => '',
+};
 ?>
 <!DOCTYPE html>
 <html lang="<?= I18n::current() ?>">
@@ -71,7 +79,7 @@ require BASE_PATH . '/src/View/header.php';
                                 </div>
                                 <p class="dz-title"><?= t('app.dz.idle.title') ?></p>
                                 <p class="dz-sub"><?= t('app.dz.idle.sub', '<label for="file-input" class="browse-link">' . htmlspecialchars(t('app.dz.idle.browse')) . '</label>') ?></p>
-                                <p class="dz-hint"><?= t('app.dz.idle.hint', MAX_FILE_SIZE_LABEL) ?></p>
+                                <p class="dz-hint"><?= t('app.dz.idle.hint', $viewerTier->maxFileSizeLabel()) ?></p>
                             </div>
                             <div id="dz-selected" hidden>
                                 <div class="dz-icon dz-icon--ok" aria-hidden="true">
@@ -104,7 +112,7 @@ require BASE_PATH . '/src/View/header.php';
                     <span class="app-helper-sep" aria-hidden="true"></span>
                     <?= t('app.helper.streamed') ?>
                     <span class="app-helper-sep" aria-hidden="true"></span>
-                    <?= t('app.helper.maxsize', MAX_FILE_SIZE_LABEL) ?>
+                    <?= t('app.helper.maxsize', $viewerTier->maxFileSizeLabel()) ?>
                 </p>
             </section>
 
@@ -175,7 +183,10 @@ require BASE_PATH . '/src/View/footer.php';
 <script>
 window.D2MD = {
     timeout: <?= \Data2Md\request_ceiling_seconds($config) * 1000 ?>,
-    i18n: <?= json_encode(I18n::jsBundle(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_APOS) ?>
+    maxBytes: <?= $viewerTier->maxFileSizeBytes() ?>,
+    maxSizeLabel: <?= json_encode($viewerTier->maxFileSizeLabel(), $jsonFlags) ?>,
+    sizeHint: <?= json_encode($sizeHint, $jsonFlags) ?>,
+    i18n: <?= json_encode(I18n::jsBundle(), $jsonFlags) ?>
 };
 </script>
 <script src="/assets/js/app.js"></script>

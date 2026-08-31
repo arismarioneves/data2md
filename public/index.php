@@ -50,7 +50,7 @@ require BASE_PATH . '/src/View/header.php';
         <div class="l-container">
             <span class="l-hero-eyebrow">
                 <span class="l-hero-eyebrow-dot" aria-hidden="true"></span>
-                <?= t('landing.hero.eyebrow', MAX_FILE_SIZE_LABEL) ?>
+                <?= t($session?->isAuthenticated() ? 'landing.hero.eyebrow.signedin' : 'landing.hero.eyebrow', $viewerTier->maxFileSizeLabel()) ?>
             </span>
             <h1><?= t('landing.hero.title') ?></h1>
             <p class="l-hero-sub"><?= t('landing.hero.sub') ?></p>

@@ -32,6 +32,7 @@ return [
 
     // ── Landing — hero ─────────────────────────────────────────
     'landing.hero.eyebrow' => 'Free · No account · Up to %s',
+    'landing.hero.eyebrow.signedin' => 'Signed in · Up to %s',
     'landing.hero.title'   => 'Documents, <em>distilled</em> into Markdown.',
     'landing.hero.sub'     => 'Drop a PDF. Get clean, structured Markdown, ready to paste into ChatGPT, Claude, or any model. Large files welcome.',
     'landing.hero.cta'     => 'Convert a file',
@@ -220,13 +221,16 @@ return [
     'api.tag.error'         => '4xx · 5xx',
 
     'api.section.rate'      => 'Rate limits',
-    'api.rate.body'         => '%d requests per minute per IP. Exceeding returns <code>429 Too Many Requests</code> with a <code>Retry-After: %d</code> header.',
+    'api.rate.body'         => '%d request(s) per %d seconds, counted per account. Exceeding returns <code>429 Too Many Requests</code> with a <code>Retry-After</code> header saying when to try again.',
 
     'api.section.examples'  => 'Examples',
     'api.copy'              => 'Copy',
     'api.copied'            => 'Copied',
 
     // ── Queue / retry ──────────────────────────────────────────
+    'app.error.toobig'      => 'That file is larger than %s.',
+    'app.error.toobig.anon' => 'Sign in for a bigger limit, or subscribe for the largest.',
+    'app.error.toobig.free' => 'Subscribe to convert files up to the largest size.',
     'app.error.busy'      => 'The server is converting other documents right now. Retrying in %s s…',
     'app.status.queued'   => 'Queued…',
     'app.status.retrying' => 'Retrying (%s of %s)…',
@@ -241,13 +245,13 @@ return [
     'legal.terms.heading' => 'Terms of use',
 
     'legal.terms.s1.h' => 'The service',
-    'legal.terms.s1.b' => 'data2md converts uploaded documents into Markdown text. It is free to use and requires no account.',
+    'legal.terms.s1.b' => 'data2md converts uploaded documents into Markdown text. Converting without an account is free. An account raises the limits, and a paid subscription raises them further and unlocks the HTTP API.',
 
     'legal.terms.s2.h' => 'Your responsibility',
     'legal.terms.s2.b' => 'You are responsible for what you upload. By using the service you confirm you have the right to process that content. Do not upload unlawful material or content you are not authorised to handle.',
 
     'legal.terms.s3.h' => 'Usage limits',
-    'legal.terms.s3.b' => 'Each file may be at most %s, and there is a limit of %s conversions per minute per source address. These limits keep the service available to everyone and may change without notice.',
+    'legal.terms.s3.b' => 'File size and how often you may convert both depend on whether you are signed in and whether you subscribe. Without an account the limit is %s per file; with a free account, %s; with a subscription, %s. A rate limit also applies, counted per address for anonymous use and per account otherwise. These limits keep the service available to everyone and may change without notice.',
 
     'legal.terms.s4.h' => 'Availability and results',
     'legal.terms.s4.b' => 'The service is provided as is, with no guarantee of continuous availability or of conversion fidelity. Documents with no text layer — scanned images, for instance — cannot be converted. Check the result before relying on it for anything that depends on accuracy.',
@@ -281,7 +285,7 @@ return [
     'legal.privacy.s6.b' => 'Anyone holding the download link. The link contains a random identifier and is not listed anywhere, but <strong>do not share links to sensitive documents</strong>.',
 
     'legal.privacy.s7.h' => 'Cookies',
-    'legal.privacy.s7.b' => 'We use a single cookie, to remember the language you picked. There is no tracking, no behavioural analytics and no advertising.',
+    'legal.privacy.s7.b' => 'We use two cookies: one to remember the language you picked, and one to keep you signed in, which exists only while you have an account session. There is no tracking, no behavioural analytics and no advertising.',
 
     'legal.privacy.s8.h' => 'Requesting deletion',
     'legal.privacy.s8.b' => 'Write to <a href="mailto:%3$s">%3$s</a> with the identifier shown in the download link. The conversion and its record are deleted.',

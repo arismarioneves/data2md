@@ -32,6 +32,7 @@ return [
 
     // ── Landing — hero ─────────────────────────────────────────
     'landing.hero.eyebrow' => 'Grátis · Sem cadastro · Até %s',
+    'landing.hero.eyebrow.signedin' => 'Conectado · Até %s',
     'landing.hero.title'   => 'Documentos, <em>destilados</em> em Markdown.',
     'landing.hero.sub'     => 'Solte um PDF e receba Markdown estruturado, pronto pra colar no ChatGPT, Claude ou qualquer modelo. Arquivos grandes são bem-vindos.',
     'landing.hero.cta'     => 'Converter um arquivo',
@@ -220,13 +221,16 @@ return [
     'api.tag.error'         => '4xx · 5xx',
 
     'api.section.rate'      => 'Limites de uso',
-    'api.rate.body'         => '%d requisições por minuto por IP. Exceder retorna <code>429 Too Many Requests</code> com cabeçalho <code>Retry-After: %d</code>.',
+    'api.rate.body'         => '%d requisição(ões) a cada %d segundos, contadas por conta. Exceder retorna <code>429 Too Many Requests</code> com um cabeçalho <code>Retry-After</code> dizendo quando tentar de novo.',
 
     'api.section.examples'  => 'Exemplos',
     'api.copy'              => 'Copiar',
     'api.copied'            => 'Copiado',
 
     // ── Fila / retry ────────────────────────────────────────────
+    'app.error.toobig'      => 'Esse arquivo é maior que %s.',
+    'app.error.toobig.anon' => 'Entre para um limite maior, ou assine para o maior de todos.',
+    'app.error.toobig.free' => 'Assine para converter arquivos no maior tamanho.',
     'app.error.busy'      => 'O servidor está convertendo outros documentos agora. Tentando de novo em %s s…',
     'app.status.queued'   => 'Na fila…',
     'app.status.retrying' => 'Tentando de novo (%s de %s)…',
@@ -241,13 +245,13 @@ return [
     'legal.terms.heading' => 'Termos de uso',
 
     'legal.terms.s1.h' => 'O serviço',
-    'legal.terms.s1.b' => 'O data2md converte documentos enviados em texto Markdown. O uso é gratuito e não exige cadastro.',
+    'legal.terms.s1.b' => 'O data2md converte documentos enviados em texto Markdown. Converter sem cadastro é gratuito. Uma conta aumenta os limites, e uma assinatura aumenta mais e libera a API HTTP.',
 
     'legal.terms.s2.h' => 'Sua responsabilidade',
     'legal.terms.s2.b' => 'Você é responsável pelo que envia. Ao usar o serviço, você declara ter o direito de processar aquele conteúdo. Não envie material ilegal nem conteúdo sobre o qual não tenha autorização.',
 
     'legal.terms.s3.h' => 'Limites de uso',
-    'legal.terms.s3.b' => 'Cada arquivo pode ter no máximo %s, e há um limite de %s conversões por minuto por endereço de origem. Esses limites existem para manter o serviço disponível a todos e podem mudar sem aviso.',
+    'legal.terms.s3.b' => 'O tamanho do arquivo e a frequência de conversão dependem de você estar conectado e de assinar. Sem conta o limite é %s por arquivo; com conta gratuita, %s; com assinatura, %s. Também existe limite de frequência, contado por endereço no uso anônimo e por conta nos demais casos. Esses limites existem para manter o serviço disponível a todos e podem mudar sem aviso.',
 
     'legal.terms.s4.h' => 'Disponibilidade e resultado',
     'legal.terms.s4.b' => 'O serviço é oferecido como está, sem garantia de disponibilidade contínua nem de fidelidade da conversão. Documentos sem camada de texto — imagens digitalizadas, por exemplo — não podem ser convertidos. Confira o resultado antes de usá-lo para qualquer finalidade que dependa de exatidão.',
@@ -281,7 +285,7 @@ return [
     'legal.privacy.s6.b' => 'Qualquer pessoa com o link de download. O link contém um identificador aleatório e não é listado em lugar nenhum, mas <strong>não compartilhe links de documentos sensíveis</strong>.',
 
     'legal.privacy.s7.h' => 'Cookies',
-    'legal.privacy.s7.b' => 'Usamos um único cookie, para lembrar o idioma que você escolheu. Não há rastreamento, análise de comportamento nem publicidade.',
+    'legal.privacy.s7.b' => 'Usamos dois cookies: um para lembrar o idioma que você escolheu e outro para manter você conectado, que só existe enquanto há sessão de conta. Não há rastreamento, análise de comportamento nem publicidade.',
 
     'legal.privacy.s8.h' => 'Como pedir exclusão',
     'legal.privacy.s8.b' => 'Escreva para <a href="mailto:%3$s">%3$s</a> informando o identificador que aparece no link de download. A conversão e o registro correspondente são apagados.',

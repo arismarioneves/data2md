@@ -24,7 +24,7 @@ $legalSections = [];
 for ($i = 1; $i <= 8; $i++) {
     $legalSections[] = [
         'h' => t("legal.privacy.s$i.h"),
-        'b' => t("legal.privacy.s$i.b", MAX_FILE_SIZE_LABEL, RATE_LIMIT_MAX, CONTACT_EMAIL),
+        'b' => t("legal.privacy.s$i.b", $tiers->for('anon')->maxFileSizeLabel(), $tiers->for('free')->maxFileSizeLabel(), $tiers->for('premium')->maxFileSizeLabel(), CONTACT_EMAIL),
     ];
 }
 

@@ -109,6 +109,7 @@ final class I18n
             'app.error.busy',
             'app.status.queued',
             'app.status.retrying',
+            'app.error.toobig',
         ];
         $out = [];
         foreach ($keys as $k) {
