@@ -10,8 +10,11 @@ declare(strict_types=1);
  *   docker compose exec app bin/data2md logs --tail=50
  */
 
+use Data2Md\Auth\ApiTokenStore;
 use Data2Md\Auth\LoginTokenStore;
 use Data2Md\Auth\SessionStore;
+use Data2Md\Auth\UserStore;
+use Data2Md\Billing\Entitlement;
 use Data2Md\Log\Logger;
 use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
@@ -259,6 +262,72 @@ switch ($command) {
         }
         exit(0);
 
+    case 'token:create':
+        $email = $argv[2] ?? '';
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            fwrite(STDERR, "usage: data2md token:create <email>\n");
+            exit(1);
+        }
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $users  = new UserStore($db);
+        $known  = $users->findByEmail($email) !== null;
+        $userId = $users->ensure($email);
+
+        // Signing in is also signing up, so this stays true of the CLI: it is
+        // how the first account on a deployment gets made.
+        if (!$known) {
+            fwrite(STDOUT, "created account $email\n");
+        }
+
+        $tokens   = new ApiTokenStore($db);
+        $existing = $tokens->describeFor($userId);
+        $raw      = $tokens->issue($userId);
+
+        if ($existing !== null) {
+            fwrite(STDOUT, sprintf(
+                "replaced %s...%s — it stops working now\n",
+                $existing['prefix'],
+                $existing['last4']
+            ));
+        }
+
+        fwrite(STDOUT, "$raw\n");
+        fwrite(STDOUT, "shown once; it is stored hashed and cannot be read back\n");
+
+        // A token on a free account authenticates and is then refused by plan,
+        // which is confusing to discover from a 403.
+        if (Entitlement::forUser($users->findById($userId)) !== Entitlement::PREMIUM) {
+            fwrite(STDERR, "warning: $email has no subscription, so POST /api will answer 403\n");
+        }
+        exit(0);
+
+    case 'token:revoke':
+        $email = $argv[2] ?? '';
+
+        if ($email === '') {
+            fwrite(STDERR, "usage: data2md token:revoke <email>\n");
+            exit(1);
+        }
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $user = (new UserStore($db))->findByEmail($email);
+
+        if ($user === null) {
+            fwrite(STDERR, "no such account: $email\n");
+            exit(1);
+        }
+
+        $revoked = (new ApiTokenStore($db))->revokeFor((int) $user['id']);
+
+        fwrite(STDOUT, $revoked ? "revoked the token for $email\n" : "$email has no token\n");
+        exit($revoked ? 0 : 1);
+
     case 'health':
         $checks = require BASE_PATH . '/src/health-checks.php';
 
@@ -279,6 +348,8 @@ switch ($command) {
           gc                    housekeeping: orphans, rate limits, rotated logs
           delete <hash>         permanently remove one conversion
           prune --older-than=N  permanently remove conversions older than N days
+          token:create <email>  issue or replace an account's API token
+          token:revoke <email>  remove an account's API token
           logs [--channel=app|audit|mail] [--tail=N]
           health                run the same checks as GET /health
 
