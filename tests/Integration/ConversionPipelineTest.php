@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace Data2Md\Tests\Integration;
 
+use Data2Md\Auth\Actor;
+use Data2Md\Auth\UserStore;
+use Data2Md\Auth\Tier;
+use Data2Md\Auth\TierResolver;
+use Data2Md\Billing\Entitlement;
 use Data2Md\Convert\ConversionPipeline;
 use Data2Md\Converter\MarkdownSanitizer;
 use Data2Md\Converter\PdfConverter;
 use Data2Md\Log\Logger;
 use Data2Md\Runtime\ConversionSemaphore;
 use Data2Md\Runtime\Process;
-use Data2Md\Security\RateLimiter;
+use Data2Md\Security\RateLimiterFactory;
 use Data2Md\Security\Validator;
 use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
@@ -24,7 +29,7 @@ final class ConversionPipelineTest extends TestCase
     private string $root;
     private FileStorage $files;
     private MappingStorage $mappings;
-    private RateLimiter $rateLimiter;
+    private Database $db;
 
     protected function setUp(): void
     {
@@ -34,12 +39,11 @@ final class ConversionPipelineTest extends TestCase
             mkdir($this->root . '/' . $sub, 0770, true);
         }
 
-        $db = new Database($this->root . '/db/mappings.sqlite');
-        $db->migrate();
+        $this->db = new Database($this->root . '/db/mappings.sqlite');
+        $this->db->migrate();
 
         $this->files       = new FileStorage($this->root . '/md', $this->root . '/tmp');
-        $this->mappings    = new MappingStorage($db);
-        $this->rateLimiter = new RateLimiter($this->root . '/ratelimit', 5, 60);
+        $this->mappings    = new MappingStorage($this->db);
     }
 
     protected function tearDown(): void
@@ -56,30 +60,66 @@ final class ConversionPipelineTest extends TestCase
         rmdir($this->root);
     }
 
-    private function pipeline(int $slots = 2, int $queueWait = 0, int $rateLimitMax = 5): ConversionPipeline
+    /**
+     * @param array<string,int> $overrides plan => max conversions
+     */
+    private function tiers(array $overrides = [], int $freeIpWindow = 0): TierResolver
+    {
+        return TierResolver::of([
+            Entitlement::ANON    => new Tier(Entitlement::ANON, $overrides['anon'] ?? 5, 60, 10),
+            Entitlement::FREE    => new Tier(Entitlement::FREE, $overrides['free'] ?? 5, 60, 20),
+            Entitlement::PREMIUM => new Tier(Entitlement::PREMIUM, $overrides['premium'] ?? 5, 60, 200),
+        ], $freeIpWindow);
+    }
+
+    private function anonymous(array $overrides = []): Actor
+    {
+        return Actor::anonymous(self::IP, $this->tiers($overrides));
+    }
+
+    /** @param array<string,mixed> $extra columns to set on the account row */
+    private function signedIn(array $extra = [], array $overrides = [], int $freeIpWindow = 0): Actor
+    {
+        $users  = new UserStore($this->db);
+        $userId = $users->ensure('alice-' . bin2hex(random_bytes(4)) . '@example.com');
+
+        if ($extra !== []) {
+            $sets = implode(', ', array_map(static fn (string $c): string => "$c = :$c", array_keys($extra)));
+            $stmt = $this->db->pdo()->prepare("UPDATE users SET $sets WHERE id = :id");
+            $stmt->execute($extra + ['id' => $userId]);
+        }
+
+        return Actor::forUser($users->findById($userId), self::IP, $this->tiers($overrides, $freeIpWindow));
+    }
+
+    private function pipeline(int $slots = 2, int $queueWait = 0): ConversionPipeline
     {
         return new ConversionPipeline(
-            validator:              new Validator(200 * 1024 * 1024, '200 MB'),
-            mappings:               $this->mappings,
-            files:                  $this->files,
-            semaphore:              new ConversionSemaphore($this->root . '/tmp', $slots, $queueWait),
-            rateLimiter:            new RateLimiter($this->root . '/ratelimit', $rateLimitMax, 60),
-            logger:                 new Logger($this->root . '/logs', 10_485_760, false),
-            converterFactory:       fn (string $format): PdfConverter => new PdfConverter(
+            validator:        new Validator(),
+            mappings:         $this->mappings,
+            files:            $this->files,
+            semaphore:        new ConversionSemaphore($this->root . '/tmp', $slots, $queueWait),
+            rateLimiters:     new RateLimiterFactory($this->root . '/ratelimit'),
+            logger:           new Logger($this->root . '/logs', 10_485_760, false),
+            converterFactory: fn (string $format): PdfConverter => new PdfConverter(
                 'pdftotext',
                 new Process(30),
                 new MarkdownSanitizer(),
                 $this->root . '/tmp',
             ),
-            previewBytes:           8000,
-            rateLimitMax:           $rateLimitMax,
-            rateLimitWindowSeconds: 60,
-            httpUploads:            false,
+            previewBytes:     8000,
+            httpUploads:      false,
         );
     }
 
-    /** A staged copy, because accepting an upload moves the file away. */
-    private function upload(string $fixture, ?string $asName = null): array
+    /**
+     * A staged copy, because accepting an upload moves the file away.
+     *
+     * $declaredSize stands in for a large file without writing one: the size
+     * limit is checked against what the request declares, which is what $_FILES
+     * carries.
+     */
+    private function upload(string $fixture, ?string $asName = null, ?int $declaredSize = null): array
     {
         $source = dirname(__DIR__) . '/fixtures/' . $fixture;
         $staged = $this->root . '/tmp/upload-' . bin2hex(random_bytes(6));
@@ -88,7 +128,7 @@ final class ConversionPipelineTest extends TestCase
 
         return ['file' => [
             'name'     => $asName ?? $fixture,
-            'size'     => (int) filesize($staged),
+            'size'     => $declaredSize ?? (int) filesize($staged),
             'tmp_name' => $staged,
             'error'    => UPLOAD_ERR_OK,
         ]];
@@ -149,7 +189,7 @@ final class ConversionPipelineTest extends TestCase
 
     public function testConvertsAndReportsTheResult(): void
     {
-        $outcome = $this->pipeline()->handle($this->upload('sample.pdf'), [], self::IP);
+        $outcome = $this->pipeline()->handle($this->upload('sample.pdf'), [], $this->anonymous());
 
         self::assertTrue($outcome->isSuccess(), (string) $outcome->message);
         self::assertSame(201, $outcome->status);
@@ -176,7 +216,7 @@ final class ConversionPipelineTest extends TestCase
         string $needle,
     ): void {
         $files   = $this->{$method}(...$args);
-        $outcome = $this->pipeline()->handle($files, [], self::IP);
+        $outcome = $this->pipeline()->handle($files, [], $this->anonymous());
 
         self::assertFalse($outcome->isSuccess());
         self::assertSame($status, $outcome->status);
@@ -199,7 +239,7 @@ final class ConversionPipelineTest extends TestCase
 
     public function testMissingFileFieldIsRejected(): void
     {
-        $outcome = $this->pipeline()->handle([], [], self::IP);
+        $outcome = $this->pipeline()->handle([], [], $this->anonymous());
 
         self::assertSame(400, $outcome->status);
         self::assertStringContainsString('No file provided', (string) $outcome->message);
@@ -212,7 +252,7 @@ final class ConversionPipelineTest extends TestCase
         $outcome = $this->pipeline()->handle(
             ['file' => ['name' => ['a.pdf', 'b.pdf'], 'size' => [1, 2], 'tmp_name' => ['x', 'y'], 'error' => [0, 0]]],
             [],
-            self::IP
+            $this->anonymous()
         );
 
         self::assertSame(400, $outcome->status);
@@ -224,7 +264,7 @@ final class ConversionPipelineTest extends TestCase
         $outcome = $this->pipeline()->handle(
             $this->upload('sample.pdf'),
             ['format' => ['pdf', 'pdf']],
-            self::IP
+            $this->anonymous()
         );
 
         self::assertSame(400, $outcome->status);
@@ -233,7 +273,7 @@ final class ConversionPipelineTest extends TestCase
 
     public function testUnsupportedFormatIsRejected(): void
     {
-        $outcome = $this->pipeline()->handle($this->upload('sample.pdf'), ['format' => 'docx'], self::IP);
+        $outcome = $this->pipeline()->handle($this->upload('sample.pdf'), ['format' => 'docx'], $this->anonymous());
 
         self::assertSame(400, $outcome->status);
         self::assertStringContainsString('Unsupported format', (string) $outcome->message);
@@ -247,7 +287,7 @@ final class ConversionPipelineTest extends TestCase
         $held = fopen($this->root . '/tmp/slot-0.lock', 'c');
         self::assertTrue(flock($held, LOCK_EX | LOCK_NB), 'could not hold the slot');
 
-        $outcome = $this->pipeline(slots: 1)->handle($this->upload('sample.pdf'), [], self::IP);
+        $outcome = $this->pipeline(slots: 1)->handle($this->upload('sample.pdf'), [], $this->anonymous());
 
         flock($held, LOCK_UN);
         fclose($held);
@@ -259,11 +299,12 @@ final class ConversionPipelineTest extends TestCase
 
     public function testOverQuotaIsRejectedWithACountdown(): void
     {
-        $pipeline = $this->pipeline(rateLimitMax: 1);
+        $pipeline = $this->pipeline();
+        $one      = ['anon' => 1];
 
-        self::assertTrue($pipeline->handle($this->upload('sample.pdf'), [], self::IP)->isSuccess());
+        self::assertTrue($pipeline->handle($this->upload('sample.pdf'), [], $this->anonymous($one))->isSuccess());
 
-        $outcome = $pipeline->handle($this->upload('sample.pdf'), [], self::IP);
+        $outcome = $pipeline->handle($this->upload('sample.pdf'), [], $this->anonymous($one));
 
         self::assertSame(429, $outcome->status);
         self::assertArrayHasKey('Retry-After', $outcome->headers);
@@ -273,12 +314,94 @@ final class ConversionPipelineTest extends TestCase
     }
 
     /**
+     * The ceiling follows the caller, not the deployment: 15 MB is over the
+     * anonymous limit and inside the free one.
+     *
+     * @dataProvider sizeByPlan
+     */
+    public function testFileSizeCeilingFollowsThePlan(string $plan, bool $accepted, string $label): void
+    {
+        $upload  = $this->upload('sample.pdf', declaredSize: 15 * 1024 * 1024);
+        $actor   = $plan === 'anon' ? $this->anonymous() : $this->signedIn(
+            $plan === 'premium' ? ['subscription_status' => 'active'] : []
+        );
+        $outcome = $this->pipeline()->handle($upload, [], $actor);
+
+        if ($accepted) {
+            self::assertTrue($outcome->isSuccess(), (string) $outcome->message);
+            return;
+        }
+
+        self::assertSame(422, $outcome->status);
+        self::assertStringContainsString($label, implode(' ', $outcome->errors));
+        self::assertSame(0, $this->chargedHits(), 'a rejected size costs no quota');
+    }
+
+    public static function sizeByPlan(): array
+    {
+        return [
+            'anonymous rejects 15 MB' => ['anon', false, '10 MB'],
+            'free accepts 15 MB'      => ['free', true, '20 MB'],
+            'premium accepts 15 MB'   => ['premium', true, '200 MB'],
+        ];
+    }
+
+    /**
+     * Accounts are free and self-serve, so a per-account limit alone means one
+     * machine gets as much as it wants by making more of them.
+     */
+    public function testAddressFloorLimitsSeveralFreeAccountsFromOneAddress(): void
+    {
+        $pipeline = $this->pipeline();
+
+        $first  = $this->signedIn([], [], freeIpWindow: 600);
+        $second = $this->signedIn([], [], freeIpWindow: 600);
+
+        self::assertNotSame($first->userId, $second->userId, 'two distinct accounts');
+        self::assertTrue($pipeline->handle($this->upload('sample.pdf'), [], $first)->isSuccess());
+
+        $outcome = $pipeline->handle($this->upload('sample.pdf'), [], $second);
+
+        self::assertSame(429, $outcome->status, 'the second account shares the address floor');
+    }
+
+    /** A subscription is the attribution, so the floor does not apply. */
+    public function testPremiumIsExemptFromTheAddressFloor(): void
+    {
+        $pipeline = $this->pipeline();
+        $paying   = ['subscription_status' => 'active'];
+
+        $first  = $this->signedIn($paying, [], freeIpWindow: 600);
+        $second = $this->signedIn($paying, [], freeIpWindow: 600);
+
+        self::assertTrue($pipeline->handle($this->upload('sample.pdf'), [], $first)->isSuccess());
+        self::assertTrue($pipeline->handle($this->upload('sample.pdf'), [], $second)->isSuccess());
+    }
+
+    /**
+     * A caller subject to two buckets must not be billed by the first when the
+     * second refuses.
+     */
+    public function testAChargeIsGivenBackWhenALaterBucketDenies(): void
+    {
+        $pipeline = $this->pipeline();
+        $actor    = $this->signedIn([], ['free' => 5], freeIpWindow: 600);
+
+        self::assertTrue($pipeline->handle($this->upload('sample.pdf'), [], $actor)->isSuccess());
+        self::assertSame(2, $this->chargedHits(), 'the account bucket and the address floor');
+
+        // The account bucket still allows this one; the floor does not.
+        self::assertSame(429, $pipeline->handle($this->upload('sample.pdf'), [], $actor)->status);
+        self::assertSame(2, $this->chargedHits(), 'the account charge was given back');
+    }
+
+    /**
      * A document that fails fast is given back, so the caller is not charged for
      * output that never materialised.
      */
     public function testFastFailureIsRefunded(): void
     {
-        $outcome = $this->pipeline()->handle($this->upload('corrupt.pdf'), [], self::IP);
+        $outcome = $this->pipeline()->handle($this->upload('corrupt.pdf'), [], $this->anonymous());
 
         self::assertSame(422, $outcome->status);
         self::assertSame(0, $this->chargedHits(), 'charged, then refunded');
@@ -289,25 +412,23 @@ final class ConversionPipelineTest extends TestCase
     public function testPreviewIsTruncatedAtALineBreak(): void
     {
         $pipeline = new ConversionPipeline(
-            validator:              new Validator(200 * 1024 * 1024, '200 MB'),
-            mappings:               $this->mappings,
-            files:                  $this->files,
-            semaphore:              new ConversionSemaphore($this->root . '/tmp', 2, 0),
-            rateLimiter:            $this->rateLimiter,
-            logger:                 new Logger($this->root . '/logs', 10_485_760, false),
-            converterFactory:       fn (string $f): PdfConverter => new PdfConverter(
+            validator:        new Validator(),
+            mappings:         $this->mappings,
+            files:            $this->files,
+            semaphore:        new ConversionSemaphore($this->root . '/tmp', 2, 0),
+            rateLimiters:     new RateLimiterFactory($this->root . '/ratelimit'),
+            logger:           new Logger($this->root . '/logs', 10_485_760, false),
+            converterFactory: fn (string $f): PdfConverter => new PdfConverter(
                 'pdftotext',
                 new Process(30),
                 new MarkdownSanitizer(),
                 $this->root . '/tmp',
             ),
-            previewBytes:           12,
-            rateLimitMax:           5,
-            rateLimitWindowSeconds: 60,
-            httpUploads:            false,
+            previewBytes:     12,
+            httpUploads:      false,
         );
 
-        $outcome = $pipeline->handle($this->upload('multi-page.pdf'), [], self::IP);
+        $outcome = $pipeline->handle($this->upload('multi-page.pdf'), [], $this->anonymous());
 
         self::assertTrue($outcome->isSuccess(), (string) $outcome->message);
 

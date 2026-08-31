@@ -13,7 +13,7 @@ final class ValidatorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->validator = new Validator(200 * 1024 * 1024, '200 MB');
+        $this->validator = new Validator();
     }
 
     public function testFormatSupport(): void
@@ -115,7 +115,7 @@ final class ValidatorTest extends TestCase
             'name'  => 'x.pdf',
             'size'  => 1,
             'tmp_name' => '/tmp/x',
-        ]);
+        ], 'pdf', 200 * 1024 * 1024, '200 MB');
 
         self::assertCount(1, $errors);
         self::assertStringContainsString('size', strtolower($errors[0]));
@@ -123,7 +123,7 @@ final class ValidatorTest extends TestCase
 
     public function testMissingErrorKeyIsRejected(): void
     {
-        self::assertNotSame([], $this->validator->validateUpload([]));
+        self::assertNotSame([], $this->validator->validateUpload([], 'pdf', 1024, '1 KB'));
     }
 
     public function testUnknownFormatIsRejected(): void
@@ -133,23 +133,48 @@ final class ValidatorTest extends TestCase
             'name'  => 'x.docx',
             'size'  => 1,
             'tmp_name' => '/tmp/x',
-        ], 'docx');
+        ], 'docx', 200 * 1024 * 1024, '200 MB');
 
         self::assertNotSame([], $errors);
     }
 
-    public function testOversizeIsReportedWithTheConfiguredLabel(): void
-    {
-        $validator = new Validator(1024, '1 KB');
-
-        $errors = $validator->validateUpload([
+    /**
+     * The limit is a parameter, so the same Validator reports whichever plan's
+     * ceiling the caller is subject to.
+     *
+     * @dataProvider sizeLimits
+     */
+    public function testOversizeIsReportedWithTheCallersLabel(
+        int $sizeBytes,
+        int $maxBytes,
+        string $label,
+        bool $shouldReject,
+    ): void {
+        $errors = $this->validator->validateUpload([
             'error'    => UPLOAD_ERR_OK,
             'name'     => 'x.pdf',
-            'size'     => 2048,
+            'size'     => $sizeBytes,
             'tmp_name' => '/tmp/definitely-not-an-upload',
-        ]);
+        ], 'pdf', $maxBytes, $label);
 
-        self::assertNotSame([], $errors);
-        self::assertStringContainsString('1 KB', implode(' ', $errors));
+        if (!$shouldReject) {
+            self::assertStringNotContainsString('maximum allowed size', implode(' ', $errors));
+            return;
+        }
+
+        self::assertStringContainsString($label, implode(' ', $errors));
+    }
+
+    public static function sizeLimits(): array
+    {
+        $mb = 1024 * 1024;
+
+        return [
+            'anonymous rejects 15 MB' => [15 * $mb, 10 * $mb, '10 MB', true],
+            'free accepts 15 MB'      => [15 * $mb, 20 * $mb, '20 MB', false],
+            'free rejects 25 MB'      => [25 * $mb, 20 * $mb, '20 MB', true],
+            'premium accepts 150 MB'  => [150 * $mb, 200 * $mb, '200 MB', false],
+            'premium rejects 250 MB'  => [250 * $mb, 200 * $mb, '200 MB', true],
+        ];
     }
 }

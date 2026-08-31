@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Data2Md\Convert;
 
+use Data2Md\Auth\Actor;
 use Data2Md\Converter\ConversionException;
 use Data2Md\Converter\ConverterInterface;
 use Data2Md\Converter\NoTextLayerException;
@@ -11,6 +12,7 @@ use Data2Md\Log\Logger;
 use Data2Md\Runtime\ConversionSemaphore;
 use Data2Md\Runtime\QueueTimeoutException;
 use Data2Md\Security\RateLimiter;
+use Data2Md\Security\RateLimiterFactory;
 use Data2Md\Security\Validator;
 use Data2Md\Storage\FileStorage;
 use Data2Md\Storage\MappingStorage;
@@ -36,12 +38,10 @@ final class ConversionPipeline
         private readonly MappingStorage $mappings,
         private readonly FileStorage $files,
         private readonly ConversionSemaphore $semaphore,
-        private readonly RateLimiter $rateLimiter,
+        private readonly RateLimiterFactory $rateLimiters,
         private readonly Logger $logger,
         private readonly \Closure $converterFactory,
         private readonly int $previewBytes,
-        private readonly int $rateLimitMax,
-        private readonly int $rateLimitWindowSeconds,
         /**
          * @param bool $httpUploads false only in tests, where there is no real
          *                          multipart upload to verify or move
@@ -57,11 +57,12 @@ final class ConversionPipeline
     public function handle(
         array $requestFiles,
         array $requestPost,
-        string $clientIp,
+        Actor $actor,
         string $userAgent = '',
-        ?int $userId = null,
     ): ConversionOutcome {
+        $clientIp = $actor->ip;
         $loggedIp = Logger::truncateIp($clientIp);
+        $tier     = $actor->tier;
 
         try {
             $upload = UploadedFile::fromRequest($requestFiles, $requestPost);
@@ -76,7 +77,13 @@ final class ConversionPipeline
             );
         }
 
-        $uploadErrors = $this->validator->validateUpload($upload->toArray(), $upload->format, $this->httpUploads);
+        $uploadErrors = $this->validator->validateUpload(
+            $upload->toArray(),
+            $upload->format,
+            $tier->maxFileSizeBytes(),
+            $tier->maxFileSizeLabel(),
+            $this->httpUploads,
+        );
 
         if ($uploadErrors !== []) {
             return ConversionOutcome::failure('Validation failed.', 422, $uploadErrors);
@@ -106,18 +113,36 @@ final class ConversionPipeline
             return ConversionOutcome::failure(NoTextLayerException::MESSAGE, 422);
         }
 
-        if (!$this->rateLimiter->isAllowed($clientIp)) {
-            $this->logger->app('ratelimit.block', ['ip' => $loggedIp], 'warning');
+        // Charged in order, and anything already charged is given back if a
+        // later bucket denies, so a caller is never billed for a conversion
+        // that did not happen.
+        $charged = [];
+
+        foreach ($actor->quotaChecks() as $check) {
+            $limiter = $this->rateLimiters->make($check->maxRequests, $check->windowSeconds);
+
+            if ($limiter->isAllowed($check->key)) {
+                $charged[] = [$limiter, $check->key];
+                continue;
+            }
+
+            self::refundAll($charged);
+
+            $this->logger->app('ratelimit.block', [
+                'ip'   => $loggedIp,
+                'user' => $actor->userId,
+                'plan' => $actor->plan,
+            ], 'warning');
             $slot->release();
 
             return ConversionOutcome::failure(
                 sprintf(
-                    'Rate limit exceeded. Maximum %d requests per %d seconds.',
-                    $this->rateLimitMax,
-                    $this->rateLimitWindowSeconds
+                    'Rate limit exceeded. Maximum %d conversions per %d seconds.',
+                    $check->maxRequests,
+                    $check->windowSeconds
                 ),
                 429,
-                headers: ['Retry-After' => (string) $this->rateLimiter->retryAfter($clientIp)],
+                headers: ['Retry-After' => (string) $limiter->retryAfter($check->key)],
             );
         }
 
@@ -133,7 +158,7 @@ final class ConversionPipeline
 
             $result = $converter->convertToFile($originalPath, $this->files->markdownPath($hash));
 
-            $this->mappings->save($hash, $originalName, $upload->format, $upload->size, userId: $userId);
+            $this->mappings->save($hash, $originalName, $upload->format, $upload->size, userId: $actor->userId);
 
             $this->logger->app('convert.ok', [
                 'hash'     => $hash,
@@ -142,7 +167,8 @@ final class ConversionPipeline
                 'pages'    => $result->pages,
                 'queue_ms' => $slot->waitedMs(),
                 'ip'       => $loggedIp,
-                'user'     => $userId,
+                'user'     => $actor->userId,
+                'plan'     => $actor->plan,
             ]);
 
             $this->logger->audit([
@@ -168,7 +194,7 @@ final class ConversionPipeline
             // walking the whole document, so it stays charged; refunding it
             // would make the most expensive path free.
             if (!$e instanceof NoTextLayerException) {
-                $this->rateLimiter->refund($clientIp);
+                self::refundAll($charged);
             }
 
             $this->logger->app('convert.fail', [
@@ -181,7 +207,7 @@ final class ConversionPipeline
 
             return ConversionOutcome::failure($e->getMessage(), $e->httpStatus());
         } catch (\Throwable $e) {
-            $this->rateLimiter->refund($clientIp);
+            self::refundAll($charged);
 
             // The message may name internal paths, so it goes to the log.
             $this->logger->app('convert.fail', [
@@ -201,6 +227,14 @@ final class ConversionPipeline
             // Explicit, not left to Slot::__destruct(): that fires at shutdown,
             // after the caller's deferred garbage collection.
             $slot->release();
+        }
+    }
+
+    /** @param list<array{0:RateLimiter,1:string}> $charged */
+    private static function refundAll(array $charged): void
+    {
+        foreach ($charged as [$limiter, $key]) {
+            $limiter->refund($key);
         }
     }
 
