@@ -36,12 +36,17 @@ final class Process
         return ['nice', '-n', (string) $nice, 'ionice', '-c', '2', '-n', '7'];
     }
 
-    /** @param list<string> $command */
-    public function run(array $command): ProcessResult
+    /**
+     * @param list<string> $command
+     * @param int|null $timeoutSeconds tighter deadline for a call known to be cheap
+     */
+    public function run(array $command, ?int $timeoutSeconds = null): ProcessResult
     {
         if ($command === []) {
             throw new \InvalidArgumentException('Command must not be empty.');
         }
+
+        $timeout = $timeoutSeconds ?? $this->timeoutSeconds;
 
         $full = [...$this->priorityPrefix, ...$command];
 
@@ -106,7 +111,7 @@ final class Process
                 break;
             }
 
-            if ((microtime(true) - $started) >= $this->timeoutSeconds) {
+            if ((microtime(true) - $started) >= $timeout) {
                 $timedOut = true;
                 $exitCode = $this->terminate($process, $pipes, $stdout, $stderr);
                 // terminate() gives up after SIGKILL is also ignored (e.g. a
