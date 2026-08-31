@@ -7,6 +7,10 @@ services:
       - "8080:80"
     environment:
       APP_URL: "http://localhost:8080"
+      # Accounts on locally and in CI, with the sign-in link written to
+      # logs/mail.jsonl instead of sent: `bin/data2md logs --channel=mail`.
+      ACCOUNTS_ENABLED: "true"
+      MAIL_TRANSPORT: "log"
     volumes:
       - data2md-data:/var/lib/data2md
     mem_limit: 2g

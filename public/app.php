@@ -8,6 +8,7 @@ define('BASE_PATH', dirname(__DIR__));
 $config = require BASE_PATH . '/src/bootstrap.php';
 
 require BASE_PATH . '/src/I18n/bootstrap.php';
+require BASE_PATH . '/src/Auth/bootstrap.php';
 
 use Data2Md\I18n\I18n;
 
@@ -38,7 +39,8 @@ $navLinks = [
     ['href' => '/',    'label' => t('nav.about'), 'hideSm' => true],
     ['href' => '/api', 'label' => t('nav.api')],
 ];
-$navCta = ['href' => '/#signin', 'label' => t('nav.signin'), 'icon' => 'signin'];
+// No CTA: this page is the converter, and the sign-in or dashboard entry comes
+// from the header.
 require BASE_PATH . '/src/View/header.php';
 ?>
 

@@ -31,9 +31,42 @@ final class SmokeTest extends TestCase
     /** @return array{status:int,body:string,headers:string} */
     private function get(string $path): array
     {
-        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 30]]);
+        // follow_location off so an asserted status is the one this route
+        // returned, not the one at the end of a redirect chain.
+        $context = stream_context_create(['http' => [
+            'ignore_errors'   => true,
+            'follow_location' => 0,
+            'timeout'         => 30,
+        ]]);
         $body    = (string) @file_get_contents($this->baseUrl . $path, false, $context);
         $status  = 0;
+
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m) === 1) {
+                $status = (int) $m[1];
+            }
+        }
+
+        return ['status' => $status, 'body' => $body, 'headers' => implode("\n", $http_response_header ?? [])];
+    }
+
+    /**
+     * @param array<string,string> $fields
+     * @return array{status:int,body:string,headers:string}
+     */
+    private function post(string $path, array $fields): array
+    {
+        $context = stream_context_create(['http' => [
+            'method'        => 'POST',
+            'header'        => 'Content-Type: application/x-www-form-urlencoded',
+            'content'       => http_build_query($fields),
+            'ignore_errors' => true,
+            'follow_location' => 0,
+            'timeout'       => 30,
+        ]]);
+
+        $body   = (string) @file_get_contents($this->baseUrl . $path, false, $context);
+        $status = 0;
 
         foreach ($http_response_header ?? [] as $header) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m) === 1) {
@@ -64,7 +97,60 @@ final class SmokeTest extends TestCase
 
     public static function pages(): array
     {
-        return [['/'], ['/app'], ['/api'], ['/terms'], ['/privacy']];
+        return [['/'], ['/app'], ['/api'], ['/terms'], ['/privacy'], ['/login']];
+    }
+
+    public function testSignInPageOffersTheForm(): void
+    {
+        $response = $this->get('/login');
+
+        self::assertSame(200, $response['status']);
+        self::assertStringContainsString('name="email"', $response['body']);
+    }
+
+    /** Nothing in front may cache a page that varies by session. */
+    public function testSignInPageIsNotCacheable(): void
+    {
+        $headers = strtolower($this->get('/login')['headers']);
+
+        self::assertStringContainsString('no-store', $headers);
+        self::assertStringContainsString('vary: cookie', $headers);
+    }
+
+    public function testRequestingALinkReportsTheSameThingRegardless(): void
+    {
+        $known   = $this->post('/login', ['email' => 'smoke-' . bin2hex(random_bytes(4)) . '@example.com']);
+        $unknown = $this->post('/login', ['email' => 'nobody-' . bin2hex(random_bytes(4)) . '@example.com']);
+
+        self::assertSame(200, $known['status']);
+        self::assertSame($unknown['status'], $known['status']);
+        self::assertStringContainsString('inbox', strtolower($known['body']));
+        self::assertStringContainsString('inbox', strtolower($unknown['body']));
+    }
+
+    public function testRejectedAddressIsReportedOnTheForm(): void
+    {
+        $response = $this->post('/login', ['email' => 'not-an-address']);
+
+        self::assertSame(200, $response['status']);
+        self::assertStringContainsString('name="email"', $response['body'], 'the form comes back');
+    }
+
+    /**
+     * Mail scanners, link previewers and corporate proxies all fetch a link
+     * with GET, so a GET must never spend the token.
+     */
+    public function testFetchingAnUnknownLinkDoesNotError(): void
+    {
+        $response = $this->get('/login?token=' . str_repeat('a', 64));
+
+        self::assertSame(200, $response['status']);
+        self::assertStringContainsString('no longer works', $response['body']);
+    }
+
+    public function testSignOutIsPostOnly(): void
+    {
+        self::assertSame(303, $this->get('/logout')['status']);
     }
 
     public function testLegalPagesCarryTheContactAddress(): void

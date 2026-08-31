@@ -8,6 +8,7 @@ define('BASE_PATH', dirname(__DIR__));
 $config = require BASE_PATH . '/src/bootstrap.php';
 
 require BASE_PATH . '/src/I18n/bootstrap.php';
+require BASE_PATH . '/src/Auth/bootstrap.php';
 
 use Data2Md\I18n\I18n;
 
@@ -253,6 +254,7 @@ driven by enterprise contracts in EMEA.
     </section>
 
     <!-- ── Sign-in section ───────────────────────────────── -->
+    <?php if ($session !== null): ?>
     <section class="l-section l-signin" id="signin">
         <div class="l-container">
             <span class="l-eyebrow"><?= t('landing.signin.eyebrow') ?></span>
@@ -266,20 +268,10 @@ driven by enterprise contracts in EMEA.
                 <h3><?= t('landing.signin.card.title') ?></h3>
                 <p><?= t('landing.signin.card.lead') ?></p>
 
-                <button type="button" class="l-btn l-btn--google l-google-btn" disabled aria-disabled="true" title="<?= htmlspecialchars(t('landing.signin.tooltip'), ENT_QUOTES) ?>">
-                    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
-                        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
-                        <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
-                        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
-                    </svg>
-                    <?= t('landing.signin.btn') ?>
-                </button>
-
-                <div class="l-soon">
-                    <span class="l-soon-dot" aria-hidden="true"></span>
-                    <?= t('landing.signin.soon') ?>
-                </div>
+                <a href="<?= $session?->isAuthenticated() ? '/dashboard' : '/login' ?>" class="l-btn l-btn--primary l-google-btn" style="display:flex">
+                    <?= $session?->isAuthenticated() ? t('nav.dashboard') : t('landing.signin.btn') ?>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </a>
 
                 <div class="l-signin-or"><?= t('landing.signin.or') ?></div>
 
@@ -290,6 +282,7 @@ driven by enterprise contracts in EMEA.
             </div>
         </div>
     </section>
+    <?php endif; ?>
 
 </main>
 

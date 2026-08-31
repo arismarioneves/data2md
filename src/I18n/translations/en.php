@@ -72,16 +72,43 @@ return [
     'landing.perf.bench.sub'   => 'measured conversion times',
 
     // ── Landing — sign in ──────────────────────────────────────
-    'landing.signin.eyebrow' => '// coming soon',
+    'landing.signin.eyebrow' => '// accounts',
     'landing.signin.title'   => 'Save your <em>conversions</em>.',
-    'landing.signin.lead'    => 'Sign in to keep a private library of your converted documents, share download links and access them from anywhere.',
+    'landing.signin.lead'    => 'Sign in to keep a library of your converted documents, share download links and reach them from anywhere.',
     'landing.signin.card.title' => 'Create your library',
-    'landing.signin.card.lead'  => 'One click with Google. We\'ll never share your data — you decide when to delete each file.',
-    'landing.signin.btn'     => 'Continue with Google',
-    'landing.signin.tooltip' => 'Google sign-in is coming soon',
-    'landing.signin.soon'    => 'Authentication arriving soon',
+    'landing.signin.card.lead'  => 'Enter your e-mail and we send a single-use link. No password to remember or lose.',
+    'landing.signin.btn'     => 'Continue with e-mail',
     'landing.signin.or'      => 'or',
     'landing.signin.alt'     => 'Continue without an account',
+
+    // ── Sign in ────────────────────────────────────────────────
+    'auth.login.title'      => '%s · Sign in',
+    'auth.login.meta.desc'  => 'Sign in to data2md with a single-use link sent to your e-mail. No password to remember.',
+    'auth.login.eyebrow'    => '// sign in',
+    'auth.login.heading'    => 'Sign in with a <em>link</em>.',
+    'auth.login.lead'       => 'Enter your e-mail and we send a single-use link. There is no password, and signing in for the first time creates your account.',
+    'auth.login.email'      => 'E-mail address',
+    'auth.login.submit'     => 'Send the link',
+    'auth.login.bad_email'  => 'That does not look like an e-mail address.',
+    'auth.login.throttled'  => 'Too many requests for a link. Try again in a few minutes.',
+    'auth.login.sent.head'  => 'Check your inbox',
+    'auth.login.sent.body'  => 'If that address can receive mail, a sign-in link is on its way. It works once and expires in %d minutes.',
+    'auth.login.sent.again' => 'Use a different address',
+
+    'auth.confirm.head'     => 'Confirm sign-in',
+    'auth.confirm.body'     => 'This link signs you in as <strong>%s</strong>.',
+    'auth.confirm.btn'      => 'Sign in as %s',
+    'auth.confirm.other'    => 'You are already signed in as <strong>%s</strong>. Sign out first to use this link.',
+
+    'auth.dead.head'        => 'This link no longer works',
+    'auth.dead.body'        => 'A sign-in link works once and expires after %d minutes.',
+    'auth.dead.btn'         => 'Request a new link',
+
+    'auth.mail.subject'     => 'Sign in to %s',
+    'auth.mail.body'        => "Open this link to sign in to %s:\n\n%s\n\nIt works once and expires in %d minutes. If you did not ask for it, ignore this message.",
+
+    'nav.dashboard'         => 'Dashboard',
+    'nav.signout'           => 'Sign out',
 
     // ── Converter (/app) ───────────────────────────────────────
     'app.title'           => '%s · Convert',

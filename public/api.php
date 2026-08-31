@@ -53,7 +53,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // ── GET → API documentation page ────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    renderDocs();
+    // Only the docs page needs a session; a POST reads Authorization, never a
+    // cookie, so it must not resolve one.
+    require BASE_PATH . '/src/Auth/bootstrap.php';
+
+    renderDocs($session);
     exit;
 }
 
@@ -147,7 +151,7 @@ $outcome->isSuccess()
     : ApiResponse::error((string) $outcome->message, $outcome->status, $outcome->errors);
 
 // ── Docs renderer ────────────────────────────────────────────────────────────
-function renderDocs(): void
+function renderDocs(?\Data2Md\Auth\Session $session): void
 {
     header('Content-Type: text/html; charset=utf-8');
     header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:");

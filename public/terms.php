@@ -7,6 +7,7 @@ define('BASE_PATH', dirname(__DIR__));
 /** @var \Data2Md\Config\Config $config */
 $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
+require BASE_PATH . '/src/Auth/bootstrap.php';
 
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');

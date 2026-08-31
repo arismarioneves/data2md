@@ -72,16 +72,43 @@ return [
     'landing.perf.bench.sub'   => 'tempos medidos de conversão',
 
     // ── Landing — sign in ──────────────────────────────────────
-    'landing.signin.eyebrow' => '// em breve',
+    'landing.signin.eyebrow' => '// contas',
     'landing.signin.title'   => 'Salve suas <em>conversões</em>.',
-    'landing.signin.lead'    => 'Entre pra manter uma biblioteca privada dos seus documentos convertidos, compartilhar links de download e acessar de qualquer lugar.',
+    'landing.signin.lead'    => 'Entre pra manter uma biblioteca dos seus documentos convertidos, compartilhar links de download e acessar de qualquer lugar.',
     'landing.signin.card.title' => 'Crie sua biblioteca',
-    'landing.signin.card.lead'  => 'Um clique com Google. Nunca compartilhamos seus dados — você decide quando apagar cada arquivo.',
-    'landing.signin.btn'     => 'Continuar com Google',
-    'landing.signin.tooltip' => 'Login com Google chega em breve',
-    'landing.signin.soon'    => 'Autenticação chegando em breve',
+    'landing.signin.card.lead'  => 'Informe seu e-mail e enviamos um link de uso único. Sem senha pra lembrar ou perder.',
+    'landing.signin.btn'     => 'Continuar com e-mail',
     'landing.signin.or'      => 'ou',
     'landing.signin.alt'     => 'Continuar sem cadastro',
+
+    // ── Entrar ─────────────────────────────────────────────────
+    'auth.login.title'      => '%s · Entrar',
+    'auth.login.meta.desc'  => 'Entre no data2md com um link de uso único enviado por e-mail. Sem senha pra lembrar.',
+    'auth.login.eyebrow'    => '// entrar',
+    'auth.login.heading'    => 'Entre com um <em>link</em>.',
+    'auth.login.lead'       => 'Informe seu e-mail e enviamos um link de uso único. Não existe senha, e entrar pela primeira vez cria sua conta.',
+    'auth.login.email'      => 'Endereço de e-mail',
+    'auth.login.submit'     => 'Enviar o link',
+    'auth.login.bad_email'  => 'Isso não parece um endereço de e-mail.',
+    'auth.login.throttled'  => 'Muitos pedidos de link. Tente de novo em alguns minutos.',
+    'auth.login.sent.head'  => 'Confira sua caixa de entrada',
+    'auth.login.sent.body'  => 'Se esse endereço puder receber e-mail, um link de acesso está a caminho. Ele funciona uma vez e expira em %d minutos.',
+    'auth.login.sent.again' => 'Usar outro endereço',
+
+    'auth.confirm.head'     => 'Confirmar acesso',
+    'auth.confirm.body'     => 'Este link entra como <strong>%s</strong>.',
+    'auth.confirm.btn'      => 'Entrar como %s',
+    'auth.confirm.other'    => 'Você já está conectado como <strong>%s</strong>. Saia primeiro para usar este link.',
+
+    'auth.dead.head'        => 'Este link não funciona mais',
+    'auth.dead.body'        => 'Um link de acesso funciona uma vez e expira depois de %d minutos.',
+    'auth.dead.btn'         => 'Pedir um link novo',
+
+    'auth.mail.subject'     => 'Entrar no %s',
+    'auth.mail.body'        => "Abra este link para entrar no %s:\n\n%s\n\nEle funciona uma vez e expira em %d minutos. Se você não pediu, ignore esta mensagem.",
+
+    'nav.dashboard'         => 'Painel',
+    'nav.signout'           => 'Sair',
 
     // ── Conversor (/app) ───────────────────────────────────────
     'app.title'           => '%s · Converter',
