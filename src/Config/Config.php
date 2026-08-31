@@ -80,6 +80,11 @@ final class Config
         'STRIPE_SECRET_KEY'          => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
         'STRIPE_WEBHOOK_SECRET'      => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
         'STRIPE_PRICE_ID'            => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
+        // Pinned as a literal rather than read from the SDK, so upgrading the
+        // SDK cannot quietly change the payload shapes this app parses. A test
+        // asserts the two agree, which turns such an upgrade into a failure
+        // someone has to read a changelog for.
+        'STRIPE_API_VERSION'         => ['type' => 'string', 'max' => 64, 'default' => '2026-08-26.dahlia'],
         // Display mirrors of the Stripe price. Billing always uses the price
         // object; these only render the pricing page.
         'PREMIUM_PRICE_USD'          => ['type' => 'int', 'min' => 0, 'max' => 100000, 'default' => '19'],
@@ -355,6 +360,14 @@ final class Config
             self::SCHEMA,
             static fn (array $rule): bool => array_key_exists('default', $rule)
         ));
+    }
+
+    /** The in-code default for an optional key, or null when the key is required. */
+    public static function defaultFor(string $key): ?string
+    {
+        $rule = self::SCHEMA[$key] ?? null;
+
+        return $rule === null ? null : ($rule['default'] ?? null);
     }
 
     private function raw(string $key): mixed
