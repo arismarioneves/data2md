@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Data2Md\Config;
 
 /**
- * Every key is required; there are no defaults in code. Production values are
- * declared as ENV in the Dockerfile. A missing or invalid key aborts boot,
- * reporting every problem at once.
+ * A missing or invalid key aborts boot, reporting every problem at once.
+ *
+ * The keys that describe the deployment itself are required, and production
+ * values for them are declared as ENV in the Dockerfile. Keys that describe
+ * optional behaviour carry a 'default', so an operator sets only what they mean
+ * to change; an empty string is read as absent for those, because control
+ * panels routinely leave a declared variable blank.
  */
 final class Config
 {
@@ -31,6 +35,55 @@ final class Config
         'AUDIT_LOG_RETENTION_DAYS'   => ['type' => 'int', 'min' => 1, 'max' => 3650],
         'GC_PROBABILITY'             => ['type' => 'float', 'min' => 0.0, 'max' => 1.0],
         'CONTACT_EMAIL'              => ['type' => 'email'],
+
+        // ── Accounts and billing, off until switched on ──────────────────────
+        'ACCOUNTS_ENABLED'           => ['type' => 'bool', 'default' => 'false'],
+        'BILLING_ENABLED'            => ['type' => 'bool', 'default' => 'false'],
+
+        // ── Per-tier conversion limits ───────────────────────────────────────
+        // MAX_FILE_SIZE_MB stays the ceiling Apache and PHP enforce at boot;
+        // these only tighten it per caller.
+        'TIER_ANON_MAX_CONVERSIONS'     => ['type' => 'int', 'min' => 1, 'max' => 10000, 'default' => '1'],
+        'TIER_ANON_WINDOW_SECONDS'      => ['type' => 'int', 'min' => 1, 'max' => 86400, 'default' => '3600'],
+        'TIER_ANON_MAX_FILE_SIZE_MB'    => ['type' => 'int', 'min' => 1, 'max' => 2048,  'default' => '10'],
+        'TIER_FREE_MAX_CONVERSIONS'     => ['type' => 'int', 'min' => 1, 'max' => 10000, 'default' => '1'],
+        'TIER_FREE_WINDOW_SECONDS'      => ['type' => 'int', 'min' => 1, 'max' => 86400, 'default' => '600'],
+        'TIER_FREE_MAX_FILE_SIZE_MB'    => ['type' => 'int', 'min' => 1, 'max' => 2048,  'default' => '20'],
+        // Floor applied per address on top of the per-account limit: accounts
+        // are free and self-serve, so without it one machine can farm them. 0
+        // disables it.
+        'TIER_FREE_IP_WINDOW_SECONDS'   => ['type' => 'int', 'min' => 0, 'max' => 86400, 'default' => '120'],
+        'TIER_PREMIUM_MAX_CONVERSIONS'  => ['type' => 'int', 'min' => 1, 'max' => 10000, 'default' => '1'],
+        'TIER_PREMIUM_WINDOW_SECONDS'   => ['type' => 'int', 'min' => 1, 'max' => 86400, 'default' => '30'],
+        'TIER_PREMIUM_MAX_FILE_SIZE_MB' => ['type' => 'int', 'min' => 1, 'max' => 2048,  'default' => '200'],
+
+        // ── Sessions and sign-in links ───────────────────────────────────────
+        'SESSION_LIFETIME_DAYS'      => ['type' => 'int', 'min' => 1, 'max' => 3650,  'default' => '30'],
+        'SESSION_IDLE_DAYS'          => ['type' => 'int', 'min' => 1, 'max' => 3650,  'default' => '14'],
+        'LOGIN_TOKEN_TTL_SECONDS'    => ['type' => 'int', 'min' => 60, 'max' => 86400, 'default' => '900'],
+        'LOGIN_MAX_PER_EMAIL'        => ['type' => 'int', 'min' => 1, 'max' => 1000,  'default' => '3'],
+        'LOGIN_MAX_PER_IP'           => ['type' => 'int', 'min' => 1, 'max' => 1000,  'default' => '10'],
+        'LOGIN_WINDOW_SECONDS'       => ['type' => 'int', 'min' => 60, 'max' => 86400, 'default' => '900'],
+
+        // ── Outbound mail ────────────────────────────────────────────────────
+        'MAIL_TRANSPORT'             => ['type' => 'enum', 'values' => ['smtp', 'log'], 'default' => 'smtp'],
+        'SMTP_HOST'                  => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
+        'SMTP_PORT'                  => ['type' => 'int', 'min' => 1, 'max' => 65535, 'default' => '587'],
+        'SMTP_USER'                  => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
+        'SMTP_PASSWORD'              => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
+        'SMTP_ENCRYPTION'            => ['type' => 'enum', 'values' => ['tls', 'ssl', 'none'], 'default' => 'tls'],
+        'SMTP_TIMEOUT_SECONDS'       => ['type' => 'int', 'min' => 1, 'max' => 120, 'default' => '10'],
+        // Empty falls back to CONTACT_EMAIL.
+        'MAIL_FROM'                  => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
+
+        // ── Stripe ───────────────────────────────────────────────────────────
+        'STRIPE_SECRET_KEY'          => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
+        'STRIPE_WEBHOOK_SECRET'      => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
+        'STRIPE_PRICE_ID'            => ['type' => 'string', 'max' => 255, 'allow_empty' => true, 'default' => ''],
+        // Display mirrors of the Stripe price. Billing always uses the price
+        // object; these only render the pricing page.
+        'PREMIUM_PRICE_USD'          => ['type' => 'int', 'min' => 0, 'max' => 100000, 'default' => '19'],
+        'PREMIUM_PRICE_BRL'          => ['type' => 'int', 'min' => 0, 'max' => 100000, 'default' => '95'],
     ];
 
     /** @param array<string,mixed> $values */
@@ -57,12 +110,19 @@ final class Config
         $problems = [];
 
         foreach (self::SCHEMA as $key => $rule) {
-            if (!array_key_exists($key, $raw)) {
+            $hasDefault = array_key_exists('default', $rule);
+            $input      = array_key_exists($key, $raw) ? trim((string) $raw[$key]) : null;
+
+            // A blank value is read as absent so that a key left empty in a
+            // control panel falls back to its default rather than failing boot.
+            if (($input === null || $input === '') && $hasDefault) {
+                $input = (string) $rule['default'];
+            }
+
+            if ($input === null) {
                 $problems[] = "$key: missing (required — no default in code)";
                 continue;
             }
-
-            $input = trim((string) $raw[$key]);
 
             if ($input === '' && ($rule['allow_empty'] ?? false) !== true) {
                 $problems[] = "$key: must not be empty";
@@ -76,11 +136,80 @@ final class Config
             }
         }
 
+        if ($problems === []) {
+            $problems = self::crossFieldProblems($values);
+        }
+
         if ($problems !== []) {
             throw new ConfigError($problems);
         }
 
         return new self($values);
+    }
+
+    /**
+     * Rules no single key can express. Only reached once every key is
+     * individually valid, so the values can be read without re-checking.
+     *
+     * @param array<string,mixed> $v
+     * @return list<string>
+     */
+    private static function crossFieldProblems(array $v): array
+    {
+        $problems = [];
+
+        if ($v['ACCOUNTS_ENABLED'] && $v['MAIL_TRANSPORT'] === 'smtp' && $v['SMTP_HOST'] === '') {
+            $problems[] = 'SMTP_HOST: required when ACCOUNTS_ENABLED=true and MAIL_TRANSPORT=smtp '
+                . '(a sign-in link is the only way in)';
+        }
+
+        if ($v['BILLING_ENABLED'] && !$v['ACCOUNTS_ENABLED']) {
+            $problems[] = 'BILLING_ENABLED: requires ACCOUNTS_ENABLED=true (a subscription belongs to an account)';
+        }
+
+        if ($v['BILLING_ENABLED']) {
+            foreach (['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID'] as $key) {
+                if ($v[$key] === '') {
+                    $problems[] = "$key: required when BILLING_ENABLED=true";
+                }
+            }
+        }
+
+        // A key in the wrong mode fails silently: every webhook answers 400 and
+        // nothing else looks wrong.
+        $secret = (string) $v['STRIPE_SECRET_KEY'];
+
+        if ($v['APP_ENV'] === 'production' && str_starts_with($secret, 'sk_test_')) {
+            $problems[] = 'STRIPE_SECRET_KEY: test-mode key with APP_ENV=production';
+        }
+
+        if ($v['APP_ENV'] === 'development' && str_starts_with($secret, 'sk_live_')) {
+            $problems[] = 'STRIPE_SECRET_KEY: live key with APP_ENV=development';
+        }
+
+        if ($v['SESSION_IDLE_DAYS'] > $v['SESSION_LIFETIME_DAYS']) {
+            $problems[] = sprintf(
+                'SESSION_IDLE_DAYS: %d exceeds SESSION_LIFETIME_DAYS %d, so it can never expire a session',
+                $v['SESSION_IDLE_DAYS'],
+                $v['SESSION_LIFETIME_DAYS']
+            );
+        }
+
+        // Apache's LimitRequestBody and PHP's upload_max_filesize come from
+        // MAX_FILE_SIZE_MB at boot, so a tier above it is a promise the request
+        // never reaches PHP to keep.
+        foreach (['TIER_ANON_MAX_FILE_SIZE_MB', 'TIER_FREE_MAX_FILE_SIZE_MB', 'TIER_PREMIUM_MAX_FILE_SIZE_MB'] as $key) {
+            if ($v[$key] > $v['MAX_FILE_SIZE_MB']) {
+                $problems[] = sprintf(
+                    '%s: %d MB exceeds MAX_FILE_SIZE_MB %d',
+                    $key,
+                    $v[$key],
+                    $v['MAX_FILE_SIZE_MB']
+                );
+            }
+        }
+
+        return $problems;
     }
 
     /** @param array<string,mixed> $rule */
@@ -100,6 +229,15 @@ final class Config
                     );
                 }
                 return $input;
+
+            case 'bool':
+                return match (strtolower($input)) {
+                    'true', '1'  => true,
+                    'false', '0' => false,
+                    default      => throw new \InvalidArgumentException(
+                        "expected true or false, got \"$input\""
+                    ),
+                };
 
             case 'int':
                 if (preg_match('/^-?\d+$/', $input) !== 1) {
@@ -201,6 +339,24 @@ final class Config
         return array_keys(self::SCHEMA);
     }
 
+    /** Keys with no default: boot fails without them. @return list<string> */
+    public static function requiredKeys(): array
+    {
+        return array_keys(array_filter(
+            self::SCHEMA,
+            static fn (array $rule): bool => !array_key_exists('default', $rule)
+        ));
+    }
+
+    /** @return list<string> */
+    public static function optionalKeys(): array
+    {
+        return array_keys(array_filter(
+            self::SCHEMA,
+            static fn (array $rule): bool => array_key_exists('default', $rule)
+        ));
+    }
+
     private function raw(string $key): mixed
     {
         if (!array_key_exists($key, $this->values)) {
@@ -222,6 +378,11 @@ final class Config
     public function float(string $key): float
     {
         return (float) $this->raw($key);
+    }
+
+    public function bool(string $key): bool
+    {
+        return (bool) $this->raw($key);
     }
 
     /** @return list<string> */

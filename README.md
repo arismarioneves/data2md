@@ -46,7 +46,7 @@ For a real deployment (GHCR image, EasyPanel, rollback, operator commands), see 
 
 ## Configuration
 
-There is no `config.php` — all 19 tuneable values are environment variables, validated at container boot; a missing or invalid one aborts startup and names the problem in the log. `APP_URL` has no default and must always be set; every other variable has a production default declared in the `Dockerfile` and only needs overriding to tune behaviour.
+There is no `config.php` — configuration is environment variables only, validated at container boot; a missing or invalid one aborts startup and names the problem in the log. `APP_URL` has no default and must always be set. The rest split in two: keys the `Dockerfile` declares as production `ENV`, and optional keys that default in code and only need setting to change behaviour. `bin/data2md config:check` reports the count of each.
 
 See [`.env.example`](.env.example) for every variable with its default, and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full reference — variable table, sizing arithmetic, and architecture.
 
@@ -143,7 +143,7 @@ data2md/
 │   ├── terms.php / privacy.php  # Legal pages
 │   └── assets/
 ├── src/
-│   ├── Config/                  # Env schema, validation — no defaults in code
+│   ├── Config/                  # Env schema, validation, cross-key rules
 │   ├── Converter/               # PdfConverter (pdftotext), ConverterInterface
 │   ├── Storage/                 # FileStorage, MappingStorage (SQLite), Gc
 │   ├── Security/                # Validator, RateLimiter

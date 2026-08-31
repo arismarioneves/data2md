@@ -87,7 +87,11 @@ function makeGc(\Data2Md\Config\Config $config, string $dataDir): Gc
 switch ($command) {
     case 'config:check':
         // Reaching this line means bootstrap validated everything.
-        fwrite(STDOUT, "configuration OK (" . count(\Data2Md\Config\Config::keys()) . " keys)\n");
+        fwrite(STDOUT, sprintf(
+            "configuration OK (%d required, %d optional with defaults)\n",
+            count(\Data2Md\Config\Config::requiredKeys()),
+            count(\Data2Md\Config\Config::optionalKeys())
+        ));
         exit(0);
 
     case 'migrate':

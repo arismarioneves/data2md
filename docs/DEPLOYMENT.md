@@ -44,12 +44,40 @@ Inside the container:
 
 ## 2. Configuration variables
 
-All 19 keys are required by `Config` — there is no code-level default for any
-of them. The Dockerfile declares production `ENV` defaults for 18 of the 19;
+`Config` validates two groups, and `bin/data2md config:check` prints the count
+of each.
+
+**19 required keys** describe the deployment itself and have no code-level
+default. The Dockerfile declares production `ENV` values for 18 of them;
 `APP_URL` has none, on purpose, because there is no correct generic value and
 deriving it from the request's `Host` header is exactly the behaviour this
-project removed. In practice, on a fresh EasyPanel deployment you only need to
-set two variables yourself:
+project removed.
+
+**31 optional keys** describe behaviour that is off or conventional by default —
+accounts, billing, per-tier conversion limits, sessions, outbound mail, Stripe.
+Each carries a default in `Config::SCHEMA`, and a key left *blank* is read as
+absent rather than failing boot, because control panels routinely leave a
+declared variable empty. `.env.example` lists them all, commented out, with
+their defaults as the values. They are deliberately not duplicated into the
+Dockerfile: two copies of a default drift.
+
+Some rules span keys and are checked together, so `config:check` reports them
+the same way as a bad value:
+
+- `ACCOUNTS_ENABLED=true` needs a way to send the sign-in link — `SMTP_HOST`,
+  or `MAIL_TRANSPORT=log` for development and CI.
+- `BILLING_ENABLED=true` needs `ACCOUNTS_ENABLED=true` and all three `STRIPE_*`
+  values.
+- A `sk_test_` key with `APP_ENV=production`, or `sk_live_` in development, is
+  rejected: the mismatch otherwise fails silently, with every webhook answering
+  400 and nothing else looking wrong.
+- `SESSION_IDLE_DAYS` above `SESSION_LIFETIME_DAYS` can never expire anything.
+- A `TIER_*_MAX_FILE_SIZE_MB` above `MAX_FILE_SIZE_MB` promises a size the
+  request never reaches PHP to honour, since Apache's `LimitRequestBody` and
+  PHP's `upload_max_filesize` come from the ceiling at boot.
+
+In practice, on a fresh EasyPanel deployment you only need to set two variables
+yourself:
 
 - **`APP_URL`** — no default exists; the container refuses to boot without it.
 - **`CONTACT_EMAIL`** — has a default, but it's this project's placeholder

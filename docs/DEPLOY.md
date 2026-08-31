@@ -2,7 +2,7 @@
 
 A imagem é construída pelo GitHub Actions e publicada no GHCR. O EasyPanel apenas consome a imagem pronta.
 
-Este é o passo a passo prático. Para a tabela completa das 19 variáveis, a
+Este é o passo a passo prático. Para a tabela completa das variáveis, a
 aritmética de dimensionamento e a arquitetura, veja
 [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
