@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Data2Md\Tests\Unit\Billing;
 
 use Data2Md\Auth\UserStore;
+use Data2Md\Billing\BillingStore;
+use Data2Md\Billing\Entitlement;
+use Data2Md\Billing\EntitlementWriter;
 use Data2Md\Billing\SubscriptionReader;
 use Data2Md\Billing\SubscriptionSnapshot;
 use Data2Md\Billing\WebhookEventStore;
@@ -16,6 +19,8 @@ use Stripe\Exception\ApiConnectionException;
 
 final class WebhookHandlerTest extends TestCase
 {
+    private const PRICE = 'price_123';
+
     private string $dbPath;
     private string $logDir;
     private Database $db;
@@ -52,11 +57,19 @@ final class WebhookHandlerTest extends TestCase
         }
     }
 
-    private function handler(SubscriptionReader $reader): WebhookHandler
+    private function handler(SubscriptionReader $reader, string $expectedPrice = self::PRICE): WebhookHandler
     {
-        // No stderr mirror: the assertions read the file, and 16 mirrored
-        // lines per run is noise in the test output.
-        return new WebhookHandler($this->events, $reader, $this->users, new Logger($this->logDir, 10_485_760, false));
+        // No stderr mirror: the assertions read the file, and a mirrored line
+        // per event is noise in the test output.
+        $logger = new Logger($this->logDir, 10_485_760, false);
+
+        return new WebhookHandler(
+            $this->events,
+            $reader,
+            $this->users,
+            new EntitlementWriter(new BillingStore($this->db), $logger, $expectedPrice),
+            $logger,
+        );
     }
 
     /** A reader that answers with whatever Stripe would have said. */
@@ -92,7 +105,7 @@ final class WebhookHandlerTest extends TestCase
             'customer'             => 'cus_123',
             'cancel_at_period_end' => false,
             'items'                => ['data' => [[
-                'price'              => ['id' => 'price_123'],
+                'price'              => ['id' => self::PRICE],
                 'current_period_end' => 2_000_000_000,
             ]]],
             ...$overrides,
@@ -315,19 +328,49 @@ final class WebhookHandlerTest extends TestCase
         self::assertStringContainsString('"user":' . $userId, $this->logged());
     }
 
-    /** Record-only: nothing about the account changes yet. */
-    public function testEntitlementIsNotWrittenAtThisStage(): void
+    public function testAnActiveSubscriptionReachesTheAccount(): void
+    {
+        $userId = $this->users->ensure('a@example.com');
+        $this->users->attachStripeCustomer($userId, 'cus_123');
+
+        $outcome = $this->handler($this->reader($this->snapshot()))
+            ->handle($this->event('customer.subscription.updated', ['id' => 'sub_123']));
+
+        self::assertStringStartsWith('applied', $outcome->body);
+
+        $user = $this->users->findById($userId);
+
+        self::assertSame('active', $user['subscription_status']);
+        self::assertSame('sub_123', $user['subscription_id']);
+        self::assertSame(2_000_000_000, (int) $user['current_period_end']);
+        self::assertSame(Entitlement::PREMIUM, Entitlement::forUser($user));
+    }
+
+    public function testACancellationRemovesEntitlement(): void
     {
         $userId = $this->users->ensure('a@example.com');
         $this->users->attachStripeCustomer($userId, 'cus_123');
 
         $this->handler($this->reader($this->snapshot()))
+            ->handle($this->event('customer.subscription.updated', ['id' => 'sub_123'], 'evt_1'));
+
+        $this->handler($this->reader($this->snapshot(['status' => 'canceled'])))
+            ->handle($this->event('customer.subscription.deleted', ['id' => 'sub_123'], 'evt_2'));
+
+        self::assertSame(Entitlement::FREE, Entitlement::forUser($this->users->findById($userId)));
+    }
+
+    /** An account with no subscription of ours must not be granted one. */
+    public function testAPriceThisDeploymentDoesNotSellChangesNothing(): void
+    {
+        $userId = $this->users->ensure('a@example.com');
+        $this->users->attachStripeCustomer($userId, 'cus_123');
+
+        $outcome = $this->handler($this->reader($this->snapshot()), 'price_something_else')
             ->handle($this->event('customer.subscription.updated', ['id' => 'sub_123']));
 
-        $user = $this->users->findById($userId);
-
-        self::assertNull($user['subscription_status']);
-        self::assertNull($user['subscription_id']);
-        self::assertNull($user['current_period_end']);
+        self::assertStringStartsWith('recorded', $outcome->body);
+        self::assertSame(Entitlement::FREE, Entitlement::forUser($this->users->findById($userId)));
+        self::assertStringContainsString('billing.price_mismatch', $this->logged());
     }
 }

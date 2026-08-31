@@ -14,10 +14,9 @@ use Stripe\Exception\ApiErrorException;
  * Knows nothing about HTTP beyond the status to answer with, so the whole of it
  * is reachable from a test without a running Stripe.
  *
- * This is the record-only stage: it claims the event, reads the subscription
- * back from the API and says which account it belongs to, and writes no
- * entitlement. Delivery, signatures and matching get proven before anything
- * here can grant or remove access.
+ * Claims the event, reads the subscription back from the API, works out which
+ * account it belongs to, and hands it to EntitlementWriter, which decides
+ * whether that reading may change anything.
  */
 final class WebhookHandler
 {
@@ -41,6 +40,7 @@ final class WebhookHandler
         private readonly WebhookEventStore $events,
         private readonly SubscriptionReader $stripe,
         private readonly UserStore $users,
+        private readonly EntitlementWriter $entitlement,
         private readonly Logger $logger,
     ) {
     }
@@ -116,9 +116,9 @@ final class WebhookHandler
         }
 
         $snapshot = $this->stripe->subscription($subscriptionId);
-        $userId   = $this->resolveUserId($snapshot);
+        $user     = $this->resolveUser($snapshot);
 
-        if ($userId === null) {
+        if ($user === null) {
             // A subscription created outside this app's checkout, so there is no
             // account to attach it to. Loud, because it means someone paid and
             // got nothing.
@@ -133,21 +133,26 @@ final class WebhookHandler
             return WebhookOutcome::ok("no account matches $subscriptionId\n");
         }
 
+        $userId = (int) $user['id'];
+
         $this->logger->app('billing.webhook.resolved', [
             'event'        => $eventId,
             'type'         => $type,
             'subscription' => $snapshot->id,
             'status'       => $snapshot->status,
-            'entitles'     => $snapshot->isEntitling(),
-            'period_end'   => $snapshot->currentPeriodEnd,
-            'cancelling'   => $snapshot->cancelAtPeriodEnd,
-            'price'        => $snapshot->priceId,
             'user'         => $userId,
         ]);
 
+        $applied = $this->entitlement->apply($user, $snapshot);
+
         $this->events->markProcessed($eventId);
 
-        return WebhookOutcome::ok("recorded $eventId for user $userId\n");
+        return WebhookOutcome::ok(sprintf(
+            "%s %s for user %d\n",
+            $applied ? 'applied' : 'recorded',
+            $eventId,
+            $userId
+        ));
     }
 
     /**
@@ -202,19 +207,21 @@ final class WebhookHandler
      * typed, so matching on it lets one customer's payment land on another
      * customer's account. Metadata this app set, or the customer id it stored,
      * are the only two answers.
+     *
+     * @return array<string,mixed>|null
      */
-    private function resolveUserId(SubscriptionSnapshot $snapshot): ?int
+    private function resolveUser(SubscriptionSnapshot $snapshot): ?array
     {
-        if ($snapshot->userId !== null && $this->users->findById($snapshot->userId) !== null) {
-            return $snapshot->userId;
+        if ($snapshot->userId !== null) {
+            $user = $this->users->findById($snapshot->userId);
+
+            if ($user !== null) {
+                return $user;
+            }
         }
 
         if ($snapshot->customerId !== null) {
-            $user = $this->users->findByStripeCustomer($snapshot->customerId);
-
-            if ($user !== null) {
-                return (int) $user['id'];
-            }
+            return $this->users->findByStripeCustomer($snapshot->customerId);
         }
 
         return null;

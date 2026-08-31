@@ -8,6 +8,8 @@ define('BASE_PATH', dirname(__DIR__, 2));
 $config = require BASE_PATH . '/src/bootstrap.php';
 
 use Data2Md\Auth\UserStore;
+use Data2Md\Billing\BillingStore;
+use Data2Md\Billing\EntitlementWriter;
 use Data2Md\Billing\StripeGateway;
 use Data2Md\Billing\WebhookEventStore;
 use Data2Md\Billing\WebhookHandler;
@@ -82,6 +84,11 @@ $outcome = (new WebhookHandler(
     new WebhookEventStore($database),
     $gateway,
     new UserStore($database),
+    new EntitlementWriter(
+        new BillingStore($database),
+        $logger,
+        $config->string('STRIPE_PRICE_ID'),
+    ),
     $logger,
 ))->handle($event);
 
