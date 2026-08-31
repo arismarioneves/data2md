@@ -107,6 +107,47 @@ final class Database
             )',
             'CREATE INDEX IF NOT EXISTS idx_mappings_created_at ON mappings (created_at)',
         ],
+        2 => [
+            // COLLATE NOCASE is ASCII-only, so email is also normalised in PHP
+            // before it reaches here; the collation is what stops two rows
+            // differing only in case from both existing.
+            'CREATE TABLE users (
+                id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                email                   TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+                created_at              INTEGER NOT NULL,
+                last_login_at           INTEGER,
+                stripe_customer_id      TEXT,
+                subscription_id         TEXT,
+                subscription_status     TEXT,
+                subscription_price_id   TEXT,
+                current_period_end      INTEGER,
+                cancel_at_period_end    INTEGER NOT NULL DEFAULT 0,
+                subscription_updated_at INTEGER,
+                premium_until           INTEGER
+            )',
+            'CREATE INDEX idx_users_stripe_customer ON users (stripe_customer_id)',
+
+            'CREATE TABLE sessions (
+                token_hash   TEXT    PRIMARY KEY,
+                user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                csrf_token   TEXT    NOT NULL,
+                created_at   INTEGER NOT NULL,
+                last_seen_at INTEGER NOT NULL,
+                expires_at   INTEGER NOT NULL
+            )',
+            'CREATE INDEX idx_sessions_user ON sessions (user_id)',
+            'CREATE INDEX idx_sessions_expires ON sessions (expires_at)',
+
+            'CREATE TABLE login_tokens (
+                token_hash TEXT    PRIMARY KEY,
+                email      TEXT    NOT NULL COLLATE NOCASE,
+                created_at INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL,
+                used_at    INTEGER
+            )',
+            'CREATE INDEX idx_login_tokens_email ON login_tokens (email)',
+            'CREATE INDEX idx_login_tokens_expires ON login_tokens (expires_at)',
+        ],
     ];
 
     /** @return list<int> */
