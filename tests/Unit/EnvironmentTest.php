@@ -21,9 +21,10 @@ final class EnvironmentTest extends TestCase
         self::assertTrue(extension_loaded($extension), "missing extension: $extension");
     }
 
+    /** curl carries the Stripe SDK transport; openssl carries PHPMailer's SMTP TLS. */
     public static function requiredExtensions(): array
     {
-        return [['mbstring'], ['fileinfo'], ['json'], ['pdo_sqlite']];
+        return [['mbstring'], ['fileinfo'], ['json'], ['pdo_sqlite'], ['curl'], ['openssl']];
     }
 
     /**

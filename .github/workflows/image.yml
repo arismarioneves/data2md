@@ -34,6 +34,15 @@ jobs:
           docker compose run --rm test sh -c \
             "composer install --no-interaction && vendor/bin/phpunit"
 
+      # The image build already runs `composer validate --strict`, which fails on
+      # a lock that drifted from composer.json. This is the other half: known
+      # advisories in the pinned versions. It matters now that real runtime
+      # dependencies handle payments and SMTP credentials.
+      - name: Audit dependencies for known advisories
+        run: |
+          docker compose run --rm test sh -c \
+            "composer install --no-interaction && composer audit"
+
   smoke:
     name: Smoke test the app image
     needs: test

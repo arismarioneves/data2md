@@ -2,6 +2,7 @@
     "name": "data2md/data2md",
     "description": "Convert data files to Markdown format",
     "type": "project",
+    "license": "MIT",
     "require": {
         "php": ">=8.3"
     },

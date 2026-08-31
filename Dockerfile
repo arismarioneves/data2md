@@ -23,8 +23,10 @@ WORKDIR /var/www/html
 # ── Development and test ──────────────────────────────────────────────────────
 FROM base AS dev
 ENV APP_ENV=development
-COPY composer.json ./
-RUN composer install --no-interaction --no-scripts
+COPY composer.json composer.lock ./
+# --strict fails the build when composer.lock has drifted from composer.json.
+RUN composer validate --no-check-publish --no-check-all --strict \
+ && composer install --no-interaction --no-scripts --no-plugins
 
 # ── Production ────────────────────────────────────────────────────────────────
 FROM base AS app
@@ -37,8 +39,9 @@ COPY docker/apache/data2md.conf  /etc/apache2/sites-available/000-default.conf
 COPY docker/apache/mpm.conf      /etc/apache2/conf-available/data2md-mpm.conf
 RUN a2enconf data2md-mpm
 
-COPY composer.json ./
-RUN composer install --no-interaction --no-dev --no-scripts
+COPY composer.json composer.lock ./
+RUN composer validate --no-check-publish --no-check-all --strict \
+ && composer install --no-interaction --no-dev --no-scripts --no-plugins --prefer-dist --no-progress
 
 COPY src/    ./src/
 COPY public/ ./public/
