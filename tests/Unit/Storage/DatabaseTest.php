@@ -25,6 +25,34 @@ final class DatabaseTest extends TestCase
         }
     }
 
+    public function testDatabaseFileIsNotWorldReadable(): void
+    {
+        $db = new Database($this->dbPath);
+        $db->migrate();
+        $db->pdo()->exec('CREATE TABLE IF NOT EXISTS t (a INTEGER)');
+        $db->pdo()->exec('INSERT INTO t (a) VALUES (1)');
+
+        clearstatcache(true, $this->dbPath);
+
+        self::assertSame(0640, fileperms($this->dbPath) & 0777, 'main database file');
+
+        // The sidecars carry the same rows as the database.
+        foreach (['-wal', '-shm'] as $suffix) {
+            $sidecar = $this->dbPath . $suffix;
+
+            if (!file_exists($sidecar)) {
+                continue;
+            }
+
+            clearstatcache(true, $sidecar);
+            self::assertSame(
+                0,
+                fileperms($sidecar) & 0007,
+                "world bits set on $suffix sidecar"
+            );
+        }
+    }
+
     public function testMigrateIsIdempotent(): void
     {
         $db = new Database($this->dbPath);

@@ -29,6 +29,10 @@ final class Database
             \PDO::ATTR_EMULATE_PREPARES   => false,
         ]);
 
+        // Holds account e-mails, Stripe customer ids and token hashes. SQLite
+        // gives the -wal and -shm sidecars the same mode as the database.
+        @chmod($this->path, 0640);
+
         // busy_timeout must be set before any statement that can find the
         // database locked -- including the journal_mode pragma itself. On a
         // genuinely concurrent cold start (a rolling deploy where the old and
