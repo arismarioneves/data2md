@@ -8,8 +8,7 @@ define('BASE_PATH', dirname(__DIR__));
 $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 
-use Data2Md\Converter\ConversionException;
-use Data2Md\Converter\NoTextLayerException;
+use Data2Md\Convert\ConversionPipeline;
 use Data2Md\Converter\MarkdownSanitizer;
 use Data2Md\Converter\PdfConverter;
 use Data2Md\Http\ClientIp;
@@ -19,11 +18,11 @@ use Data2Md\Log\Logger;
 use Data2Md\Response\ApiResponse;
 use Data2Md\Runtime\ConversionSemaphore;
 use Data2Md\Runtime\Process;
-use Data2Md\Runtime\QueueTimeoutException;
 use Data2Md\Security\RateLimiter;
 use Data2Md\Security\Validator;
 use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
+use Data2Md\Storage\Gc;
 use Data2Md\Storage\MappingStorage;
 
 const PREVIEW_BYTES = 8000;
@@ -64,224 +63,56 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $database  = new Database($dataDir . '/db/mappings.sqlite');
 $mappings  = new MappingStorage($database);
 $files     = new FileStorage($dataDir . '/md', $dataDir . '/tmp');
-$validator = new Validator(MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL);
 
 $clientIp = (new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER);
-$loggedIp = Logger::truncateIp($clientIp);
 
-$rateLimiter = new RateLimiter(
-    $dataDir . '/ratelimit',
-    RATE_LIMIT_MAX,
-    RATE_LIMIT_WINDOW,
-);
-
-// ── Validate ─────────────────────────────────────────────────────────────────
-$file = $_FILES['file'] ?? null;
-
-if ($file === null) {
-    ApiResponse::error('No file provided. Send multipart/form-data with a "file" field.', 400);
-}
-
-// A repeated field ("file[]=@a" twice, "format[]=pdf") turns the expected
-// scalars into arrays; PHP's superglobals don't enforce the shape for us, and
-// Validator::validateUpload()/uploadErrorMessage() take those values typed,
-// so an array here would otherwise reach a TypeError before the try below.
-if (!is_array($file) || array_filter($file, 'is_array') !== []) {
-    ApiResponse::error('Send exactly one file in the "file" field.', 400);
-}
-
-$formatInput = $_POST['format'] ?? 'pdf';
-
-if (!is_string($formatInput)) {
-    ApiResponse::error('The "format" field must be a single string value.', 400);
-}
-
-$format = strtolower(trim($formatInput));
-
-if (!$validator->isAllowedFormat($format)) {
-    ApiResponse::error('Unsupported format. Allowed: ' . implode(', ', $validator->supportedFormats()), 400);
-}
-
-$uploadErrors = $validator->validateUpload($file, $format);
-
-if ($uploadErrors !== []) {
-    ApiResponse::error('Validation failed.', 422, $uploadErrors);
-}
-
-// Built before a slot exists so an unsupported format cannot leak one. The
-// format allowlist above already makes the default arm unreachable.
-$converter = match ($format) {
-    'pdf'   => new PdfConverter(
-        'pdftotext',
-        new Process(
-            $config->int('CONVERT_TIMEOUT_SECONDS'),
-            Process::priorityPrefix($config->int('CONVERT_NICE')),
-        ),
-        new MarkdownSanitizer(),
+$pipeline = new ConversionPipeline(
+    validator:              new Validator(MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL),
+    mappings:               $mappings,
+    files:                  $files,
+    semaphore:              new ConversionSemaphore(
         $dataDir . '/tmp',
+        $config->int('CONVERT_CONCURRENCY'),
+        $config->int('CONVERT_QUEUE_WAIT_SECONDS'),
     ),
-    default => throw new \LogicException("Unsupported format: $format"),
-};
-
-// ── Queue for a conversion slot ──────────────────────────────────────────────
-$semaphore = new ConversionSemaphore(
-    $dataDir . '/tmp',
-    $config->int('CONVERT_CONCURRENCY'),
-    $config->int('CONVERT_QUEUE_WAIT_SECONDS'),
+    rateLimiter:            new RateLimiter($dataDir . '/ratelimit', RATE_LIMIT_MAX, RATE_LIMIT_WINDOW),
+    logger:                 $logger,
+    converterFactory:       static fn (string $format): PdfConverter => match ($format) {
+        'pdf'   => new PdfConverter(
+            'pdftotext',
+            new Process(
+                $config->int('CONVERT_TIMEOUT_SECONDS'),
+                Process::priorityPrefix($config->int('CONVERT_NICE')),
+            ),
+            new MarkdownSanitizer(),
+            $dataDir . '/tmp',
+        ),
+        default => throw new \LogicException("Unsupported format: $format"),
+    },
+    previewBytes:           PREVIEW_BYTES,
+    rateLimitMax:           RATE_LIMIT_MAX,
+    rateLimitWindowSeconds: RATE_LIMIT_WINDOW,
 );
 
-try {
-    $slot = $semaphore->acquire();
-} catch (QueueTimeoutException $e) {
-    $logger->app('convert.rejected', ['ip' => $loggedIp, 'reason' => 'queue_full'], 'warning');
+$outcome = $pipeline->handle(
+    $_FILES,
+    $_POST,
+    $clientIp,
+    (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
+);
 
-    header('Retry-After: ' . $e->retryAfter());
-    ApiResponse::error('The server is busy converting other documents. Please retry shortly.', 503);
-}
-
-// ── Probe, then charge the quota ─────────────────────────────────────────────
-// Both gates run inside the slot and before any charge: a document with
-// nothing to extract and a caller over its limit each cost one probe, and
-// neither spends quota. The slot is released by hand because ApiResponse exits
-// and there is no enclosing finally yet.
-if (!$converter->probe((string) $file['tmp_name'])) {
-    $logger->app('convert.rejected', ['ip' => $loggedIp, 'reason' => 'no_text_layer'], 'warning');
-
-    $slot->release();
-    ApiResponse::error(NoTextLayerException::MESSAGE, 422);
-}
-
-if (!$rateLimiter->isAllowed($clientIp)) {
-    $logger->app('ratelimit.block', ['ip' => $loggedIp], 'warning');
-
-    header('Retry-After: ' . $rateLimiter->retryAfter($clientIp));
-    $slot->release();
-    ApiResponse::error(
-        'Rate limit exceeded. Maximum ' . RATE_LIMIT_MAX . ' requests per ' . RATE_LIMIT_WINDOW . ' seconds.',
-        429
-    );
-}
-
-// ── Convert ──────────────────────────────────────────────────────────────────
-$originalPath = null;
-$hash         = null;
-$startedAt    = microtime(true);
-
-// ApiResponse::success()/error() call exit(), and exit() from inside a try
-// or catch does not run an enclosing finally — so the response is deferred
-// to $respond and sent only after the try/catch/finally below has completed,
-// guaranteeing the cleanup in finally always runs first.
-$respond = null;
-
-try {
-    $originalName = $validator->sanitizeOriginalName((string) $file['name']);
-    $sizeBytes    = (int) $file['size'];
-
-    $hash         = $mappings->generateUniqueHash();
-    $originalPath = $files->acceptUpload((string) $file['tmp_name'], $hash);
-
-    $result = $converter->convertToFile($originalPath, $files->markdownPath($hash));
-
-    $mappings->save($hash, $originalName, $format, $sizeBytes);
-
-    $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
-
-    $logger->app('convert.ok', [
-        'hash'     => $hash,
-        'bytes'    => $sizeBytes,
-        'ms'       => $elapsedMs,
-        'pages'    => $result->pages,
-        'queue_ms' => $slot->waitedMs(),
-        'ip'       => $loggedIp,
-    ]);
-
-    $logger->audit([
-        'hash'          => $hash,
-        'original_name' => $originalName,
-        'bytes'         => $sizeBytes,
-        'ip'            => $clientIp,
-        'ua'            => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 256),
-    ]);
-
-    // The preview is read back from the file rather than held in memory, so
-    // the response cost is bounded no matter how large the document is.
-    $totalBytes = $files->markdownSize($hash);
-    $truncated  = $totalBytes > PREVIEW_BYTES;
-    $preview    = $files->readMarkdownPrefix($hash, PREVIEW_BYTES);
-
-    if ($truncated) {
-        $breakAt = strrpos($preview, "\n");
-
-        if ($breakAt !== false && $breakAt > 0) {
-            $preview = substr($preview, 0, $breakAt);
-        }
-    }
-
-    $respond = static fn () => ApiResponse::success([
-        'hash'              => $hash,
-        'original_name'     => $originalName,
-        'format'            => $format,
-        'lines'             => $result->lines,
-        'characters'        => $result->characters,
-        'pages'             => $result->pages,
-        'download_url'      => '/download?hash=' . urlencode($hash),
-        'preview'           => $preview,
-        'preview_truncated' => $truncated,
-    ], 201);
-
-} catch (ConversionException $e) {
-    // NoTextLayerException is the one failure only reachable after walking the
-    // whole document, so it stays charged; refunding it would make the most
-    // expensive path free. Everything else fails fast enough to give back.
-    if (!$e instanceof NoTextLayerException) {
-        $rateLimiter->refund($clientIp);
-    }
-
-    $logger->app('convert.fail', [
-        'hash'   => $hash,
-        'ip'     => $loggedIp,
-        'ms'     => (int) round((microtime(true) - $startedAt) * 1000),
-        'reason' => $e::class,
-        'detail' => $e->detail(),
-    ], 'error');
-
-    $respond = static fn () => ApiResponse::error($e->getMessage(), $e->httpStatus());
-
-} catch (\Throwable $e) {
-    $rateLimiter->refund($clientIp);
-
-    // The message may name internal paths, so it goes to the log, not the wire.
-    $logger->app('convert.fail', [
-        'hash'   => $hash,
-        'ip'     => $loggedIp,
-        'reason' => $e::class,
-        'detail' => $e->getMessage(),
-    ], 'error');
-
-    $respond = static fn () => ApiResponse::error('Conversion failed.', 500);
-
-} finally {
-    if ($originalPath !== null) {
-        // The uploaded file is not kept — this runs on success and on failure.
-        $files->deleteOriginal($originalPath);
-    }
-
-    $slot->release();
-}
-
-// Deferred to run after the response is on the wire, not before: Gc::run()
-// globs the whole markdown directory and scans the mappings table, so its
-// cost grows with the total number of conversions ever made, not with this
-// request. A register_shutdown_function callback still runs after
-// ApiResponse's exit() — finally blocks do not, see the note on $respond
-// above — and by then ApiResponse::send() has already flushed the response
-// with an explicit Content-Length, so the client does not wait on this.
-// A failure here (a busy database, disk pressure) is logged and swallowed:
-// there is no response left to fail by this point.
+// Registered before the response is sent, and only here: the pipeline must not
+// know about it, and two front controllers must not each register a sweep.
+// Gc::run() globs the whole markdown directory and scans the mappings table, so
+// its cost grows with every conversion ever made rather than with this request.
+// A register_shutdown_function callback still runs after ApiResponse's exit(),
+// and by then the response has been flushed with an explicit Content-Length, so
+// the client does not wait on this. A failure here is logged and swallowed:
+// there is no response left to fail.
 if ($config->float('GC_PROBABILITY') > 0.0) {
     register_shutdown_function(static function () use ($config, $files, $mappings, $logger, $dataDir): void {
         try {
-            (new \Data2Md\Storage\Gc(
+            (new Gc(
                 files:                     $files,
                 mappings:                  $mappings,
                 logger:                    $logger,
@@ -299,7 +130,13 @@ if ($config->float('GC_PROBABILITY') > 0.0) {
     });
 }
 
-$respond();
+foreach ($outcome->headers as $name => $value) {
+    header("$name: $value");
+}
+
+$outcome->isSuccess()
+    ? ApiResponse::success($outcome->payload, $outcome->status)
+    : ApiResponse::error((string) $outcome->message, $outcome->status, $outcome->errors);
 
 // ── Docs renderer ────────────────────────────────────────────────────────────
 function renderDocs(): void

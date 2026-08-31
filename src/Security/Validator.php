@@ -20,7 +20,11 @@ final class Validator
     ) {
     }
 
-    public function validateUpload(array $file, string $format = 'pdf'): array
+    /**
+     * @param bool $isHttpUpload false only in tests, where there is no real
+     *                           multipart upload for is_uploaded_file to verify
+     */
+    public function validateUpload(array $file, string $format = 'pdf', bool $isHttpUpload = true): array
     {
         $errors = [];
 
@@ -40,7 +44,12 @@ final class Validator
             $errors[] = 'File exceeds the maximum allowed size of ' . $this->maxFileSizeLabel . '.';
         }
 
-        if (!is_uploaded_file($file['tmp_name'])) {
+        if ($isHttpUpload && !is_uploaded_file($file['tmp_name'])) {
+            $errors[] = 'Invalid upload source.';
+            return $errors;
+        }
+
+        if (!$isHttpUpload && !is_file($file['tmp_name'])) {
             $errors[] = 'Invalid upload source.';
             return $errors;
         }
