@@ -5,12 +5,19 @@ services:
       target: app
     ports:
       - "8080:80"
+    # Local overrides, including the Stripe test keys. Absent in CI, where the
+    # fallbacks below and the image defaults are the whole configuration.
+    env_file:
+      - path: .env
+        required: false
     environment:
-      APP_URL: "http://localhost:8080"
+      # Interpolated so a value in .env wins: `environment` otherwise takes
+      # precedence over `env_file` and would silently pin these three.
+      APP_URL: "${APP_URL:-http://localhost:8080}"
       # Accounts on locally and in CI, with the sign-in link written to
       # logs/mail.jsonl instead of sent: `bin/data2md logs --channel=mail`.
-      ACCOUNTS_ENABLED: "true"
-      MAIL_TRANSPORT: "log"
+      ACCOUNTS_ENABLED: "${ACCOUNTS_ENABLED:-true}"
+      MAIL_TRANSPORT: "${MAIL_TRANSPORT:-log}"
     volumes:
       - data2md-data:/var/lib/data2md
     mem_limit: 2g
