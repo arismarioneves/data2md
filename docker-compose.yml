@@ -18,6 +18,9 @@ services:
       # logs/mail.jsonl instead of sent: `bin/data2md logs --channel=mail`.
       ACCOUNTS_ENABLED: "${ACCOUNTS_ENABLED:-true}"
       MAIL_TRANSPORT: "${MAIL_TRANSPORT:-log}"
+      # A fixed fallback so CI gets a deterministic 400 when it posts an
+      # unsigned body. A real `stripe listen` secret in .env wins over it.
+      STRIPE_WEBHOOK_SECRET: "${STRIPE_WEBHOOK_SECRET:-whsec_smoketest}"
     volumes:
       - data2md-data:/var/lib/data2md
     mem_limit: 2g

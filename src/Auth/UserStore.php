@@ -45,6 +45,26 @@ final class UserStore
         return $this->one('SELECT * FROM users WHERE id = :id', ['id' => $id]);
     }
 
+    /**
+     * The account a Stripe customer belongs to.
+     *
+     * The fallback when a subscription carries no metadata from this app, and
+     * the only other identifier that is ours rather than the payer's: an e-mail
+     * on a Checkout Session is whatever they typed into it.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findByStripeCustomer(string $customerId): ?array
+    {
+        if ($customerId === '') {
+            return null;
+        }
+
+        return $this->one(
+            'SELECT * FROM users WHERE stripe_customer_id = :customer',
+            ['customer' => $customerId]
+        );
+    }
     /** Returns the account id, creating the account if the address is new. */
     public function ensure(string $email): int
     {
@@ -65,6 +85,19 @@ final class UserStore
         }
 
         return (int) $row['id'];
+    }
+
+    /**
+     * Remembers the Stripe customer this account is, so a later checkout reuses
+     * it. Without that, subscribe → cancel → subscribe again creates a second
+     * customer and the billing portal only ever shows one of them.
+     */
+    public function attachStripeCustomer(int $id, string $customerId): void
+    {
+        $statement = $this->db->pdo()->prepare(
+            'UPDATE users SET stripe_customer_id = :customer WHERE id = :id'
+        );
+        $statement->execute(['customer' => $customerId, 'id' => $id]);
     }
 
     public function touchLastLogin(int $id, ?int $at = null): void

@@ -18,7 +18,7 @@ use Stripe\Webhook;
  * account default, so a version change in the Stripe dashboard cannot alter the
  * payloads this app parses.
  */
-final class StripeGateway
+final class StripeGateway implements SubscriptionReader
 {
     /**
      * The SDK defaults are 30s to connect and 80s to read, and mod_php has 24

@@ -536,4 +536,77 @@ final class SmokeTest extends TestCase
         self::assertStringContainsString('x-ratelimit-remaining:', $headers);
         self::assertStringContainsString('x-ratelimit-reset:', $headers);
     }
+    /** @return array{status:int,body:string,headers:string} */
+    private function postJson(string $path, string $body, array $headers = []): array
+    {
+        $context = stream_context_create(['http' => [
+            'method'          => 'POST',
+            'header'          => implode("\r\n", ['Content-Type: application/json', ...$headers]),
+            'content'         => $body,
+            'ignore_errors'   => true,
+            'follow_location' => 0,
+            'timeout'         => 30,
+        ]]);
+
+        $responseBody = (string) @file_get_contents($this->baseUrl . $path, false, $context);
+        $status       = 0;
+
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m) === 1) {
+                $status = (int) $m[1];
+            }
+        }
+
+        return [
+            'status'  => $status,
+            'body'    => $responseBody,
+            'headers' => implode("\n", $http_response_header ?? []),
+        ];
+    }
+
+    public function testWebhookIsPostOnly(): void
+    {
+        self::assertSame(405, $this->get('/billing/webhook')['status']);
+    }
+
+    /**
+     * The signature is the only authentication this endpoint has, so an unsigned
+     * body must never be processed. A 2xx here would mean anyone on the internet
+     * can grant themselves a subscription.
+     */
+    public function testWebhookRefusesAnUnsignedBody(): void
+    {
+        $response = $this->postJson('/billing/webhook', '{"id":"evt_forged","type":"customer.subscription.updated"}');
+
+        self::assertSame(400, $response['status'], $response['body']);
+        self::assertStringContainsString('Signature', $response['body']);
+    }
+
+    public function testWebhookRefusesAWrongSignature(): void
+    {
+        $response = $this->postJson(
+            '/billing/webhook',
+            '{"id":"evt_forged","type":"customer.subscription.updated"}',
+            ['Stripe-Signature: t=1,v1=' . str_repeat('0', 64)]
+        );
+
+        self::assertSame(400, $response['status'], $response['body']);
+    }
+
+    /** No middleware may sit in front of it: Stripe would share one bucket. */
+    public function testWebhookIsNotRateLimited(): void
+    {
+        for ($i = 0; $i < 6; $i++) {
+            $response = $this->postJson('/billing/webhook', '{}');
+
+            self::assertNotSame(429, $response['status'], "attempt $i was throttled");
+        }
+    }
+
+    public function testWebhookIsNotCacheable(): void
+    {
+        $headers = strtolower($this->postJson('/billing/webhook', '{}')['headers']);
+
+        self::assertStringContainsString('no-store', $headers);
+    }
 }
