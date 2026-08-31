@@ -9,6 +9,8 @@ $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 require BASE_PATH . '/src/Auth/bootstrap.php';
 
+use Data2Md\Billing\Entitlement;
+
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -20,11 +22,28 @@ $metaDesc  = t('legal.privacy.meta');
 $legalHeading = t('legal.privacy.heading');
 $legalUpdated = t('legal.updated');
 
+$sections = ['controller', 'upload', 'markdown', 'filename', 'account'];
+
+// Naming a processor that handles nothing on this deployment would be a claim
+// about data that is never sent.
+if (BILLING_ENABLED) {
+    $sections[] = 'payment';
+}
+
+$sections = [...$sections, 'token', 'ip', 'reach', 'cookies', 'deletion'];
+
 $legalSections = [];
-for ($i = 1; $i <= 8; $i++) {
+
+foreach ($sections as $name) {
     $legalSections[] = [
-        'h' => t("legal.privacy.s$i.h"),
-        'b' => t("legal.privacy.s$i.b", $tiers->for('anon')->maxFileSizeLabel(), $tiers->for('free')->maxFileSizeLabel(), $tiers->for('premium')->maxFileSizeLabel(), CONTACT_EMAIL),
+        'h' => t("legal.privacy.$name.h"),
+        'b' => t(
+            "legal.privacy.$name.b",
+            $tiers->for(Entitlement::ANON)->maxFileSizeLabel(),
+            $tiers->for(Entitlement::FREE)->maxFileSizeLabel(),
+            $tiers->for(Entitlement::PREMIUM)->maxFileSizeLabel(),
+            CONTACT_EMAIL
+        ),
     ];
 }
 

@@ -341,55 +341,76 @@ return [
     // ── Páginas legais ─────────────────────────────────────────
     'nav.terms'          => 'Termos',
     'nav.privacy'        => 'Privacidade',
-    'legal.updated'      => 'Atualizado em 18 de agosto de 2026.',
+    'legal.updated'      => 'Atualizado em 31 de agosto de 2026.',
 
     'legal.terms.title'   => '%s — Termos de uso',
-    'legal.terms.meta'    => 'Condições de uso do serviço de conversão de documentos em Markdown.',
+    'legal.terms.meta'    => 'Condições para usar o serviço de conversão de documentos em Markdown.',
     'legal.terms.heading' => 'Termos de uso',
 
-    'legal.terms.s1.h' => 'O serviço',
-    'legal.terms.s1.b' => 'O data2md converte documentos enviados em texto Markdown. Converter sem cadastro é gratuito. Uma conta aumenta os limites, e uma assinatura aumenta mais e libera a API HTTP.',
+    'legal.terms.service.h' => 'O serviço',
+    'legal.terms.service.b' => 'O data2md converte documentos em texto Markdown. O conversor deste site é gratuito. Uma conta aumenta o limite de tamanho de arquivo; a assinatura paga aumenta mais e é o que abre a API HTTP.',
 
-    'legal.terms.s2.h' => 'Sua responsabilidade',
-    'legal.terms.s2.b' => 'Você é responsável pelo que envia. Ao usar o serviço, você declara ter o direito de processar aquele conteúdo. Não envie material ilegal nem conteúdo sobre o qual não tenha autorização.',
+    'legal.terms.accounts.h' => 'Contas',
+    'legal.terms.accounts.b' => 'A conta é opcional. Entrar funciona por um link de uso único enviado ao seu e-mail, então não há senha para escolher nem perder. A conta lista as conversões feitas enquanto você estava logado, para baixar, compartilhar ou excluir. Como é o link que prova que a conta é sua, manter o acesso a essa caixa de e-mail é responsabilidade sua. Para encerrar uma conta, escreva para <a href="mailto:%4$s">%4$s</a>.',
 
-    'legal.terms.s3.h' => 'Limites de uso',
-    'legal.terms.s3.b' => 'O tamanho do arquivo e a frequência de conversão dependem de você estar conectado e de assinar. Sem conta o limite é %s por arquivo; com conta gratuita, %s; com assinatura, %s. Também existe limite de frequência, contado por endereço no uso anônimo e por conta nos demais casos. Esses limites existem para manter o serviço disponível a todos e podem mudar sem aviso.',
+    'legal.terms.conduct.h' => 'Sua responsabilidade',
+    'legal.terms.conduct.b' => 'Você é responsável pelo que envia. Ao usar o serviço, você confirma que tem o direito de processar aquele conteúdo. Não envie material ilícito nem conteúdo que você não está autorizado a manipular.',
 
-    'legal.terms.s4.h' => 'Disponibilidade e resultado',
-    'legal.terms.s4.b' => 'O serviço é oferecido como está, sem garantia de disponibilidade contínua nem de fidelidade da conversão. Documentos sem camada de texto — imagens digitalizadas, por exemplo — não podem ser convertidos. Confira o resultado antes de usá-lo para qualquer finalidade que dependa de exatidão.',
+    'legal.terms.limits.h' => 'Limites de uso',
+    'legal.terms.limits.b' => 'O tamanho do arquivo e a frequência de conversão dependem de você estar logado e de assinar. Sem conta, o limite é %1$s por arquivo; com conta gratuita, %2$s; com assinatura, %3$s. Também há limite de frequência, contado por endereço no uso anônimo e por conta nos demais casos. Esses limites mantêm o serviço disponível para todos e podem mudar sem aviso.',
 
-    'legal.terms.s5.h' => 'Remoção de conteúdo',
-    'legal.terms.s5.b' => 'Podemos remover qualquer conversão a qualquer momento, inclusive por motivo operacional, sem aviso prévio.',
+    'legal.terms.subscription.h' => 'Assinatura e pagamento',
+    'legal.terms.subscription.b' => 'A assinatura é mensal e renova automaticamente até ser cancelada. O pagamento é processado pela Stripe, numa página hospedada por eles: os dados do cartão nunca são enviados para este site nem guardados por ele. A cobrança sai na moeda do país onde o cartão foi emitido, e os dois valores aparecem na página de planos antes de você começar.',
 
-    'legal.terms.s6.h' => 'Mudanças nestes termos',
-    'legal.terms.s6.b' => 'Estes termos podem ser alterados. A versão vigente é sempre a publicada nesta página. Dúvidas: <a href="mailto:%3$s">%3$s</a>.',
+    'legal.terms.cancel.h' => 'Cancelamento',
+    'legal.terms.cancel.b' => 'Você pode cancelar quando quiser, na página de cobrança indicada no seu painel. Cancelar interrompe as renovações futuras; os recursos da assinatura continuam disponíveis até o fim do período já pago, e depois a conta volta ao plano gratuito. Nada do que você converteu é apagado pelo cancelamento. Para qualquer questão sobre uma cobrança específica, escreva para <a href="mailto:%4$s">%4$s</a>.',
+
+    'legal.terms.availability.h' => 'Disponibilidade e resultados',
+    'legal.terms.availability.b' => 'O serviço é fornecido como está, sem garantia de disponibilidade contínua nem de fidelidade da conversão. Documentos sem camada de texto — imagens escaneadas, por exemplo — não podem ser convertidos. Confira o resultado antes de depender dele em algo que exija exatidão.',
+
+    'legal.terms.api.h' => 'A API',
+    'legal.terms.api.b' => 'A API HTTP faz parte da assinatura e é usada com um token criado no seu painel. Trate o token como uma senha: o que for feito com ele conta como feito pela sua conta. Você pode substituí-lo ou revogá-lo quando quiser, e o token anterior para de funcionar na hora.',
+
+    'legal.terms.removal.h' => 'Remoção de conteúdo e de contas',
+    'legal.terms.removal.b' => 'Podemos remover qualquer conversão a qualquer momento, inclusive por motivos operacionais, sem aviso prévio. Também podemos suspender uma conta usada de forma que ameace a disponibilidade do serviço para os demais.',
+
+    'legal.terms.changes.h' => 'Alterações nestes termos',
+    'legal.terms.changes.b' => 'Estes termos podem mudar. A versão em vigor é sempre a publicada nesta página. Dúvidas: <a href="mailto:%4$s">%4$s</a>.',
 
     'legal.privacy.title'   => '%s — Privacidade',
-    'legal.privacy.meta'    => 'O que o serviço guarda, por quanto tempo e como pedir exclusão.',
+    'legal.privacy.meta'    => 'O que o serviço guarda, por quanto tempo, e como pedir a exclusão.',
     'legal.privacy.heading' => 'Privacidade',
 
-    'legal.privacy.s1.h' => 'Quem é o responsável',
-    'legal.privacy.s1.b' => 'O data2md é responsável pelo tratamento dos dados descritos nesta página. Contato: <a href="mailto:%3$s">%3$s</a>.',
+    'legal.privacy.controller.h' => 'Quem é o responsável',
+    'legal.privacy.controller.b' => 'O data2md é responsável pelo tratamento dos dados descritos nesta página. Contato: <a href="mailto:%4$s">%4$s</a>.',
 
-    'legal.privacy.s2.h' => 'O arquivo que você envia',
-    'legal.privacy.s2.b' => '<strong>É apagado do servidor logo após a conversão</strong>, inclusive quando a conversão falha. Ele é usado apenas para extrair o texto e não é guardado.',
+    'legal.privacy.upload.h' => 'O arquivo que você envia',
+    'legal.privacy.upload.b' => '<strong>Ele é apagado do servidor logo após a conversão</strong>, inclusive quando a conversão falha. É usado apenas para extrair o texto e não é retido.',
 
-    'legal.privacy.s3.h' => 'O Markdown gerado',
-    'legal.privacy.s3.b' => 'Fica guardado e acessível pelo link de download <strong>até ser apagado</strong>. Não expira sozinho.',
+    'legal.privacy.markdown.h' => 'O Markdown gerado',
+    'legal.privacy.markdown.b' => 'Fica guardado e acessível pelo link de download <strong>até ser excluído</strong>. Ele não expira por conta própria.',
 
-    'legal.privacy.s4.h' => 'O nome do arquivo',
-    'legal.privacy.s4.b' => 'É guardado junto da conversão, porque é ele que dá nome ao arquivo baixado. Se o nome do seu arquivo contiver dados pessoais, esses dados ficam guardados enquanto a conversão existir.',
+    'legal.privacy.filename.h' => 'O nome do arquivo',
+    'legal.privacy.filename.b' => 'É guardado junto da conversão, porque é o que dá nome ao arquivo que você baixa. Se o nome do seu arquivo contém dados pessoais, esses dados ficam guardados enquanto a conversão existir.',
 
-    'legal.privacy.s5.h' => 'Endereço IP',
-    'legal.privacy.s5.b' => 'É registrado para segurança e para aplicar o limite de uso. No registro operacional o endereço é guardado de forma reduzida, sem a parte final. No registro de acesso, o endereço completo é mantido por até 30 dias e depois apagado.',
+    'legal.privacy.account.h' => 'Dados da conta',
+    'legal.privacy.account.b' => 'Se você criar uma conta, seu endereço de e-mail é guardado, junto com os registros que mantêm você logado e o registro de cada conversão feita enquanto logado. O endereço é usado para enviar os links de acesso e, quando for o caso, mensagens sobre sua assinatura. Não é usado para marketing nem compartilhado.',
 
-    'legal.privacy.s6.h' => 'Quem consegue acessar sua conversão',
-    'legal.privacy.s6.b' => 'Qualquer pessoa com o link de download. O link contém um identificador aleatório e não é listado em lugar nenhum, mas <strong>não compartilhe links de documentos sensíveis</strong>.',
+    'legal.privacy.payment.h' => 'Dados de pagamento',
+    'legal.privacy.payment.b' => 'Os pagamentos são processados pela Stripe, que atua como nossa operadora de pagamento. A Stripe recebe o necessário para efetuar a cobrança; nós recebemos de volta um identificador do seu registro de cliente e o estado da assinatura — situação, qual preço, e quando termina o período atual. Números de cartão nunca são enviados para este site nem guardados por ele. A Stripe trata o que recebe sob os próprios termos, publicados em <a href="https://stripe.com/privacy" rel="noopener noreferrer" target="_blank">stripe.com/privacy</a>.',
 
-    'legal.privacy.s7.h' => 'Cookies',
-    'legal.privacy.s7.b' => 'Usamos dois cookies: um para lembrar o idioma que você escolheu e outro para manter você conectado, que só existe enquanto há sessão de conta. Não há rastreamento, análise de comportamento nem publicidade.',
+    'legal.privacy.token.h' => 'Token de API',
+    'legal.privacy.token.b' => 'O token de API é guardado apenas como hash criptográfico, então o token em si não pode ser lido de volta dos nossos registros por ninguém, inclusive por nós. O que fica ao lado dele é suficiente para reconhecer de qual token se trata e insuficiente para usá-lo. Também registramos quando foi usado por último, para você saber se ainda está em uso.',
 
-    'legal.privacy.s8.h' => 'Como pedir exclusão',
-    'legal.privacy.s8.b' => 'Escreva para <a href="mailto:%3$s">%3$s</a> informando o identificador que aparece no link de download. A conversão e o registro correspondente são apagados.',
+    'legal.privacy.ip.h' => 'Endereço IP',
+    'legal.privacy.ip.b' => 'É registrado por segurança e para aplicar o limite de uso. No registro operacional o endereço é guardado de forma reduzida, sem a parte final. No registro de acesso o endereço completo fica por até 30 dias e depois é apagado.',
+
+    'legal.privacy.reach.h' => 'Quem consegue acessar sua conversão',
+    'legal.privacy.reach.b' => 'Qualquer pessoa que tenha o link de download. O link contém um identificador aleatório e não é listado em lugar nenhum, mas <strong>não compartilhe links de documentos sensíveis</strong>.',
+
+    'legal.privacy.cookies.h' => 'Cookies',
+    'legal.privacy.cookies.b' => 'Usamos dois cookies: um para lembrar o idioma escolhido e outro para manter você logado, que existe somente enquanto há uma sessão de conta. Não há rastreamento, nem analytics comportamental, nem publicidade.',
+
+    'legal.privacy.deletion.h' => 'Excluir seus dados',
+    'legal.privacy.deletion.b' => 'Você pode excluir qualquer conversão pelo seu painel, o que remove o Markdown e o registro dele, e o link de download para de funcionar para todos que o tiverem. Para uma conversão feita sem conta, escreva para <a href="mailto:%4$s">%4$s</a> com o identificador que aparece no link de download. Para encerrar uma conta, escreva para o mesmo endereço: a conta e os registros de acesso são removidos, e <strong>as conversões dela são desvinculadas, não apagadas</strong> — então exclua o que quiser eliminar antes de encerrar a conta.',
 ];

@@ -669,4 +669,39 @@ final class SmokeTest extends TestCase
         self::assertNotSame(200, $response['status']);
         self::assertStringNotContainsString('checkout.stripe.com', $response['headers']);
     }
+    /**
+     * The pages went out of date once already, claiming the service required no
+     * account long after accounts existed. These assert the parts that change
+     * with the product.
+     */
+    public function testLegalPagesDescribeWhatTheServiceActuallyDoes(): void
+    {
+        $terms   = strtolower($this->get('/terms')['body']);
+        $privacy = strtolower($this->get('/privacy')['body']);
+
+        self::assertStringContainsString('account', $terms, 'the terms must describe accounts');
+        self::assertStringContainsString('account', $privacy, 'privacy must say what an account stores');
+        self::assertStringContainsString('token', $terms, 'the terms must cover the API token');
+
+        if ($this->get('/pricing')['status'] === 200) {
+            self::assertStringContainsString('stripe', $privacy, 'the payment processor must be named');
+            self::assertStringContainsString('subscription', $terms);
+        } else {
+            self::assertStringNotContainsString('stripe', $privacy, 'naming a processor that handles nothing');
+        }
+    }
+
+    /** Public pages: how the service is built is nobody's business but ours. */
+    public function testLegalPagesDoNotDescribeInternals(): void
+    {
+        $forbidden = ['sqlite', 'apache', '/var/lib', 'prefork', 'whsec_', 'sk_test', 'jsonl', 'busy_timeout', 'php'];
+
+        foreach (['/terms', '/privacy'] as $path) {
+            $body = strtolower($this->get($path)['body']);
+
+            foreach ($forbidden as $term) {
+                self::assertStringNotContainsString($term, $body, "$path mentions '$term'");
+            }
+        }
+    }
 }

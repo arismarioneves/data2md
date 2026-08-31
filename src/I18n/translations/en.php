@@ -341,55 +341,76 @@ return [
     // ── Legal pages ────────────────────────────────────────────
     'nav.terms'          => 'Terms',
     'nav.privacy'        => 'Privacy',
-    'legal.updated'      => 'Last updated 18 August 2026.',
+    'legal.updated'      => 'Last updated 31 August 2026.',
 
     'legal.terms.title'   => '%s — Terms of use',
     'legal.terms.meta'    => 'Conditions for using the document-to-Markdown conversion service.',
     'legal.terms.heading' => 'Terms of use',
 
-    'legal.terms.s1.h' => 'The service',
-    'legal.terms.s1.b' => 'data2md converts uploaded documents into Markdown text. Converting without an account is free. An account raises the limits, and a paid subscription raises them further and unlocks the HTTP API.',
+    'legal.terms.service.h' => 'The service',
+    'legal.terms.service.b' => 'data2md converts documents into Markdown text. The converter on this site is free to use. An account raises the file size limit; a paid subscription raises it further and is what opens the HTTP API.',
 
-    'legal.terms.s2.h' => 'Your responsibility',
-    'legal.terms.s2.b' => 'You are responsible for what you upload. By using the service you confirm you have the right to process that content. Do not upload unlawful material or content you are not authorised to handle.',
+    'legal.terms.accounts.h' => 'Accounts',
+    'legal.terms.accounts.b' => 'An account is optional. Signing in works through a single-use link sent to your e-mail address, so there is no password to choose or lose. An account lists the conversions you made while signed in, so you can download, share or delete them. Because the link is what proves the account is yours, keeping access to that mailbox is your responsibility. To close an account, write to <a href="mailto:%4$s">%4$s</a>.',
 
-    'legal.terms.s3.h' => 'Usage limits',
-    'legal.terms.s3.b' => 'File size and how often you may convert both depend on whether you are signed in and whether you subscribe. Without an account the limit is %s per file; with a free account, %s; with a subscription, %s. A rate limit also applies, counted per address for anonymous use and per account otherwise. These limits keep the service available to everyone and may change without notice.',
+    'legal.terms.conduct.h' => 'Your responsibility',
+    'legal.terms.conduct.b' => 'You are responsible for what you upload. By using the service you confirm you have the right to process that content. Do not upload unlawful material or content you are not authorised to handle.',
 
-    'legal.terms.s4.h' => 'Availability and results',
-    'legal.terms.s4.b' => 'The service is provided as is, with no guarantee of continuous availability or of conversion fidelity. Documents with no text layer — scanned images, for instance — cannot be converted. Check the result before relying on it for anything that depends on accuracy.',
+    'legal.terms.limits.h' => 'Usage limits',
+    'legal.terms.limits.b' => 'File size and how often you may convert both depend on whether you are signed in and whether you subscribe. Without an account the limit is %1$s per file; with a free account, %2$s; with a subscription, %3$s. A limit on how often you may convert also applies, counted per address for anonymous use and per account otherwise. These limits keep the service available to everyone and may change without notice.',
 
-    'legal.terms.s5.h' => 'Content removal',
-    'legal.terms.s5.b' => 'We may remove any conversion at any time, including for operational reasons, without prior notice.',
+    'legal.terms.subscription.h' => 'Subscription and payment',
+    'legal.terms.subscription.b' => 'A subscription is monthly and renews automatically until cancelled. Payment is handled by Stripe, on a page they host: card details are never sent to or stored by this site. The charge is made in the currency of the country your card was issued in, and both amounts are shown on the plans page before you start.',
 
-    'legal.terms.s6.h' => 'Changes to these terms',
-    'legal.terms.s6.b' => 'These terms may change. The version in force is always the one published on this page. Questions: <a href="mailto:%3$s">%3$s</a>.',
+    'legal.terms.cancel.h' => 'Cancelling',
+    'legal.terms.cancel.b' => 'You can cancel at any time from the billing page linked in your dashboard. Cancelling stops future renewals; subscription features stay available to the end of the period already paid for, and the account then returns to the free plan. Nothing you converted is deleted by cancelling. For anything about a specific charge, write to <a href="mailto:%4$s">%4$s</a>.',
+
+    'legal.terms.availability.h' => 'Availability and results',
+    'legal.terms.availability.b' => 'The service is provided as is, with no guarantee of continuous availability or of conversion fidelity. Documents with no text layer — scanned images, for instance — cannot be converted. Check the result before relying on it for anything that depends on accuracy.',
+
+    'legal.terms.api.h' => 'The API',
+    'legal.terms.api.b' => 'The HTTP API is part of the subscription and is used with a token created in your dashboard. Treat the token like a password: anything done with it counts as done by your account. You can replace or revoke it at any time, and the previous token stops working immediately.',
+
+    'legal.terms.removal.h' => 'Content and account removal',
+    'legal.terms.removal.b' => 'We may remove any conversion at any time, including for operational reasons, without prior notice. We may also suspend an account being used in a way that threatens the availability of the service for others.',
+
+    'legal.terms.changes.h' => 'Changes to these terms',
+    'legal.terms.changes.b' => 'These terms may change. The version in force is always the one published on this page. Questions: <a href="mailto:%4$s">%4$s</a>.',
 
     'legal.privacy.title'   => '%s — Privacy',
-    'legal.privacy.meta'    => 'What the service keeps, for how long, and how to request deletion.',
+    'legal.privacy.meta'    => 'What the service keeps, for how long, and how to have it deleted.',
     'legal.privacy.heading' => 'Privacy',
 
-    'legal.privacy.s1.h' => 'Who is responsible',
-    'legal.privacy.s1.b' => 'data2md is responsible for handling the data described on this page. Contact: <a href="mailto:%3$s">%3$s</a>.',
+    'legal.privacy.controller.h' => 'Who is responsible',
+    'legal.privacy.controller.b' => 'data2md is responsible for handling the data described on this page. Contact: <a href="mailto:%4$s">%4$s</a>.',
 
-    'legal.privacy.s2.h' => 'The file you upload',
-    'legal.privacy.s2.b' => '<strong>It is deleted from the server right after conversion</strong>, including when the conversion fails. It is used only to extract the text and is not retained.',
+    'legal.privacy.upload.h' => 'The file you upload',
+    'legal.privacy.upload.b' => '<strong>It is deleted from the server right after conversion</strong>, including when the conversion fails. It is used only to extract the text and is not retained.',
 
-    'legal.privacy.s3.h' => 'The Markdown produced',
-    'legal.privacy.s3.b' => 'It is kept and reachable through the download link <strong>until it is deleted</strong>. It does not expire on its own.',
+    'legal.privacy.markdown.h' => 'The Markdown produced',
+    'legal.privacy.markdown.b' => 'It is kept and reachable through the download link <strong>until it is deleted</strong>. It does not expire on its own.',
 
-    'legal.privacy.s4.h' => 'The file name',
-    'legal.privacy.s4.b' => 'It is stored alongside the conversion, because it is what names the file you download. If your file name contains personal data, that data is kept for as long as the conversion exists.',
+    'legal.privacy.filename.h' => 'The file name',
+    'legal.privacy.filename.b' => 'It is stored alongside the conversion, because it is what names the file you download. If your file name contains personal data, that data is kept for as long as the conversion exists.',
 
-    'legal.privacy.s5.h' => 'IP address',
-    'legal.privacy.s5.b' => 'It is recorded for security and to enforce the usage limit. In the operational record the address is stored in reduced form, without its final part. In the access record the full address is kept for up to 30 days and then deleted.',
+    'legal.privacy.account.h' => 'Account data',
+    'legal.privacy.account.b' => 'If you create an account, your e-mail address is stored, together with the records that keep you signed in and a record of each conversion you make while signed in. The address is used to send sign-in links and, where relevant, messages about your subscription. It is not used for marketing and is not shared.',
 
-    'legal.privacy.s6.h' => 'Who can reach your conversion',
-    'legal.privacy.s6.b' => 'Anyone holding the download link. The link contains a random identifier and is not listed anywhere, but <strong>do not share links to sensitive documents</strong>.',
+    'legal.privacy.payment.h' => 'Payment data',
+    'legal.privacy.payment.b' => 'Payments are processed by Stripe, acting as our payment processor. Stripe receives what it needs to take the payment; we receive back an identifier for your customer record and the state of your subscription — its status, which price it is on, and when the current period ends. Card numbers are never sent to or stored by this site. Stripe handles what it receives under its own terms, published at <a href="https://stripe.com/privacy" rel="noopener noreferrer" target="_blank">stripe.com/privacy</a>.',
 
-    'legal.privacy.s7.h' => 'Cookies',
-    'legal.privacy.s7.b' => 'We use two cookies: one to remember the language you picked, and one to keep you signed in, which exists only while you have an account session. There is no tracking, no behavioural analytics and no advertising.',
+    'legal.privacy.token.h' => 'API token',
+    'legal.privacy.token.b' => 'An API token is stored only as a cryptographic hash, so the token itself cannot be read back from our records by anyone, including us. What is kept beside it is enough to recognise which token you are looking at and not enough to use it. We also record when it was last used, so you can tell whether it is still in service.',
 
-    'legal.privacy.s8.h' => 'Requesting deletion',
-    'legal.privacy.s8.b' => 'Write to <a href="mailto:%3$s">%3$s</a> with the identifier shown in the download link. The conversion and its record are deleted.',
+    'legal.privacy.ip.h' => 'IP address',
+    'legal.privacy.ip.b' => 'It is recorded for security and to enforce the usage limit. In the operational record the address is stored in reduced form, without its final part. In the access record the full address is kept for up to 30 days and then deleted.',
+
+    'legal.privacy.reach.h' => 'Who can reach your conversion',
+    'legal.privacy.reach.b' => 'Anyone holding the download link. The link contains a random identifier and is not listed anywhere, but <strong>do not share links to sensitive documents</strong>.',
+
+    'legal.privacy.cookies.h' => 'Cookies',
+    'legal.privacy.cookies.b' => 'We use two cookies: one to remember the language you picked, and one to keep you signed in, which exists only while you have an account session. There is no tracking, no behavioural analytics and no advertising.',
+
+    'legal.privacy.deletion.h' => 'Deleting your data',
+    'legal.privacy.deletion.b' => 'You can delete any conversion yourself from your dashboard, which removes the Markdown and its record, and the download link then stops working for everyone who has it. For a conversion made without an account, write to <a href="mailto:%4$s">%4$s</a> with the identifier shown in the download link. To close an account, write to the same address: the account and its sign-in records are removed, and <strong>its conversions are detached from it rather than deleted</strong> — so delete anything you want gone before closing the account.',
 ];
