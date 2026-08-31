@@ -15,6 +15,7 @@ use Data2Md\Auth\LoginTokenStore;
 use Data2Md\Auth\SessionStore;
 use Data2Md\Auth\UserStore;
 use Data2Md\Billing\Entitlement;
+use Data2Md\Billing\WebhookEventStore;
 use Data2Md\Log\Logger;
 use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
@@ -81,6 +82,7 @@ function makeGc(\Data2Md\Config\Config $config, string $dataDir): Gc
             $config->int('SESSION_IDLE_DAYS'),
         ),
         loginTokens:               new LoginTokenStore($db, $config->int('LOGIN_TOKEN_TTL_SECONDS')),
+        webhookEvents:             new WebhookEventStore($db),
     );
 }
 

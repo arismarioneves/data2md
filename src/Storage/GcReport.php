@@ -14,6 +14,7 @@ final class GcReport
         public readonly int $staleTempFiles = 0,
         public readonly int $expiredSessions = 0,
         public readonly int $expiredLoginTokens = 0,
+        public readonly int $oldWebhookEvents = 0,
         public readonly bool $skipped = false,
     ) {
     }
@@ -26,7 +27,8 @@ final class GcReport
             + $this->rotatedLogs
             + $this->staleTempFiles
             + $this->expiredSessions
-            + $this->expiredLoginTokens;
+            + $this->expiredLoginTokens
+            + $this->oldWebhookEvents;
     }
 
     /** @return array<string,int> */
@@ -40,6 +42,7 @@ final class GcReport
             'stale_temp_files'     => $this->staleTempFiles,
             'expired_sessions'     => $this->expiredSessions,
             'expired_login_tokens' => $this->expiredLoginTokens,
+            'old_webhook_events'   => $this->oldWebhookEvents,
         ];
     }
 }

@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Data2Md\Storage;
 
 use Data2Md\Auth\LoginTokenStore;
+use Data2Md\Billing\WebhookEventStore;
 use Data2Md\Auth\SessionStore;
 use Data2Md\Log\Logger;
 
 /**
  * run() removes orphaned markdown, orphaned mappings, expired rate-limit
  * counters, rotated logs past retention, stale temp files, and expired
- * sessions and sign-in links. It never
+ * sessions, sign-in links and Stripe event records past retention. It never
  * removes a markdown file that still has a mapping record, regardless of
  * age, and it never removes a markdown file recent enough to still belong
  * to a conversion in progress. When a concurrent collection already holds
@@ -41,6 +42,7 @@ final class Gc
         private readonly string $lockDir,
         private readonly ?SessionStore $sessions = null,
         private readonly ?LoginTokenStore $loginTokens = null,
+        private readonly ?WebhookEventStore $webhookEvents = null,
     ) {
     }
 
@@ -98,6 +100,7 @@ final class Gc
                         $config->int('SESSION_IDLE_DAYS'),
                     ),
                     loginTokens:               new LoginTokenStore($database, $config->int('LOGIN_TOKEN_TTL_SECONDS')),
+                    webhookEvents:             new WebhookEventStore($database),
                 ))->maybeRun($probability);
             } catch (\Throwable $e) {
                 $logger->app('gc.fail', ['reason' => $e::class, 'detail' => $e->getMessage()], 'error');
@@ -143,6 +146,10 @@ final class Gc
                 staleTempFiles:     $this->collectStaleTempFiles($now),
                 expiredSessions:    $this->sessions?->purgeExpired($now) ?? 0,
                 expiredLoginTokens: $this->loginTokens?->purgeExpired($now) ?? 0,
+                oldWebhookEvents:   $this->webhookEvents?->purgeOlderThan(
+                    WebhookEventStore::RETENTION_DAYS,
+                    $now
+                ) ?? 0,
             );
 
             if ($report->total() > 0) {

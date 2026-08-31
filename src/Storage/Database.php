@@ -173,6 +173,20 @@ final class Database
                 last_used_at INTEGER
             )',
         ],
+        5 => [
+            // One row per Stripe event, claimed before it is handled, so a
+            // redelivery or two workers racing cannot apply it twice. Kept for a
+            // month: long past Stripe's own retry window, and reprocessing an
+            // event older than that is harmless anyway, because the handler
+            // re-reads current state from the API instead of trusting a payload.
+            'CREATE TABLE webhook_events (
+                event_id     TEXT    PRIMARY KEY,
+                type         TEXT,
+                received_at  INTEGER NOT NULL,
+                processed_at INTEGER
+            )',
+            'CREATE INDEX idx_webhook_events_received ON webhook_events (received_at)',
+        ],
     ];
 
     /** @return list<int> */
