@@ -137,7 +137,7 @@ final class ConversionPipeline
 
             return ConversionOutcome::failure(
                 sprintf(
-                    'Rate limit exceeded. Maximum %d conversions per %d seconds.',
+                    'Rate limit exceeded. Maximum %d conversion(s) per %d seconds.',
                     $check->maxRequests,
                     $check->windowSeconds
                 ),
