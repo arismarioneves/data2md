@@ -11,10 +11,18 @@
         "phpunit/phpunit": "^10.5"
     },
     "autoload": {
-        "psr-4": { "Data2Md\\": "src/" }
+        "psr-4": {
+            "Data2Md\\": "src/"
+        },
+        "files": [
+            "src/helpers.php",
+            "src/View/helpers.php"
+        ]
     },
     "autoload-dev": {
-        "psr-4": { "Data2Md\\Tests\\": "tests/" }
+        "psr-4": {
+            "Data2Md\\Tests\\": "tests/"
+        }
     },
     "config": {
         "optimize-autoloader": true,

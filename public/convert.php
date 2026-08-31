@@ -8,6 +8,7 @@ define('BASE_PATH', dirname(__DIR__));
 $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/Auth/bootstrap.php';
 
+use Data2Md\Auth\Actor;
 use Data2Md\Http\ClientIp;
 use Data2Md\Http\SameOrigin;
 use Data2Md\Log\Logger;
@@ -32,12 +33,16 @@ require BASE_PATH . '/src/Convert/bootstrap.php';
 
 $clientIp = (new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER);
 
+$user  = $session?->user();
+$actor = $user === null
+    ? Actor::anonymous($clientIp, $tiers)
+    : Actor::forUser($user, $clientIp, $tiers);
+
 $outcome = $pipeline->handle(
     $_FILES,
     $_POST,
-    $clientIp,
+    $actor,
     (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
-    $session?->userId(),
 );
 
 Gc::registerShutdownSweep($config, $logger, $database, $files, $mappings);

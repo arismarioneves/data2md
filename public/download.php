@@ -43,7 +43,7 @@ if (!$rateLimiter->isAllowed('download:' . $clientIp)) {
     exit;
 }
 
-$validator = new Validator(MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL);
+$validator = new Validator();
 $hash      = (string) ($_GET['hash'] ?? '');
 
 if (!$validator->isValidHash($hash)) {

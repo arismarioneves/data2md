@@ -89,7 +89,7 @@ final class Gc
                     rateLimitDir:              $dataDir . '/ratelimit',
                     logRetentionDays:          $config->int('LOG_RETENTION_DAYS'),
                     auditLogRetentionDays:     $config->int('AUDIT_LOG_RETENTION_DAYS'),
-                    rateLimitMaxWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
+                    rateLimitMaxWindowSeconds: \Data2Md\rate_limit_max_window_seconds($config),
                     convertTimeoutSeconds:     $config->int('CONVERT_TIMEOUT_SECONDS'),
                     lockDir:                   $dataDir . '/tmp',
                     sessions:                  new SessionStore(

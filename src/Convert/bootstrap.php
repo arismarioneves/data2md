@@ -12,12 +12,13 @@ declare(strict_types=1);
  * @var \Data2Md\Log\Logger $logger
  */
 
+use Data2Md\Auth\TierResolver;
 use Data2Md\Convert\ConversionPipeline;
 use Data2Md\Converter\MarkdownSanitizer;
 use Data2Md\Converter\PdfConverter;
 use Data2Md\Runtime\ConversionSemaphore;
 use Data2Md\Runtime\Process;
-use Data2Md\Security\RateLimiter;
+use Data2Md\Security\RateLimiterFactory;
 use Data2Md\Security\Validator;
 use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
@@ -30,19 +31,20 @@ $convertDataDir = $config->string('APP_DATA_DIR');
 $database = new Database($convertDataDir . '/db/mappings.sqlite');
 $mappings = new MappingStorage($database);
 $files    = new FileStorage($convertDataDir . '/md', $convertDataDir . '/tmp');
+$tiers    = $tiers ?? TierResolver::fromConfig($config);
 
 $pipeline = new ConversionPipeline(
-    validator:              new Validator(MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL),
-    mappings:               $mappings,
-    files:                  $files,
-    semaphore:              new ConversionSemaphore(
+    validator:        new Validator(),
+    mappings:         $mappings,
+    files:            $files,
+    semaphore:        new ConversionSemaphore(
         $convertDataDir . '/tmp',
         $config->int('CONVERT_CONCURRENCY'),
         $config->int('CONVERT_QUEUE_WAIT_SECONDS'),
     ),
-    rateLimiter:            new RateLimiter($convertDataDir . '/ratelimit', RATE_LIMIT_MAX, RATE_LIMIT_WINDOW),
-    logger:                 $logger,
-    converterFactory:       static fn (string $format): PdfConverter => match ($format) {
+    rateLimiters:     new RateLimiterFactory($convertDataDir . '/ratelimit'),
+    logger:           $logger,
+    converterFactory: static fn (string $format): PdfConverter => match ($format) {
         'pdf'   => new PdfConverter(
             'pdftotext',
             new Process(
@@ -54,7 +56,5 @@ $pipeline = new ConversionPipeline(
         ),
         default => throw new \LogicException("Unsupported format: $format"),
     },
-    previewBytes:           PREVIEW_BYTES,
-    rateLimitMax:           RATE_LIMIT_MAX,
-    rateLimitWindowSeconds: RATE_LIMIT_WINDOW,
+    previewBytes:     PREVIEW_BYTES,
 );

@@ -8,6 +8,7 @@ define('BASE_PATH', dirname(__DIR__));
 $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 
+use Data2Md\Auth\Actor;
 use Data2Md\Http\ClientIp;
 use Data2Md\Http\Cors;
 use Data2Md\I18n\I18n;
@@ -45,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // cookie, so it must not resolve one.
     require BASE_PATH . '/src/Auth/bootstrap.php';
 
-    renderDocs($session);
+    renderDocs($session, $apiTier);
     exit;
 }
 
@@ -60,11 +61,11 @@ $clientIp = (new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER);
 
 // No session is resolved here: this endpoint reads Authorization, never a
 // cookie. Honouring one would re-create CSRF on the only route that sends CORS
-// headers.
+// headers. Until token auth lands the caller is anonymous.
 $outcome = $pipeline->handle(
     $_FILES,
     $_POST,
-    $clientIp,
+    Actor::anonymous($clientIp, $tiers),
     (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
 );
 
@@ -79,7 +80,7 @@ $outcome->isSuccess()
     : ApiResponse::error((string) $outcome->message, $outcome->status, $outcome->errors);
 
 // ── Docs renderer ────────────────────────────────────────────────────────────
-function renderDocs(?\Data2Md\Auth\Session $session): void
+function renderDocs(?\Data2Md\Auth\Session $session, \Data2Md\Auth\Tier $apiTier): void
 {
     header('Content-Type: text/html; charset=utf-8');
     header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:");
@@ -129,7 +130,7 @@ require BASE_PATH . '/src/View/header.php';
                 <header class="docs-hero">
                     <span class="docs-eyebrow"><?= t('api.eyebrow') ?></span>
                     <h1 class="docs-title"><?= t('api.heading') ?></h1>
-                    <p class="docs-sub"><?= t('api.lead', htmlspecialchars(APP_NAME), MAX_FILE_SIZE_LABEL) ?></p>
+                    <p class="docs-sub"><?= t('api.lead', htmlspecialchars(APP_NAME), $apiTier->maxFileSizeLabel()) ?></p>
                 </header>
 
                 <section class="docs-section">
@@ -147,7 +148,7 @@ require BASE_PATH . '/src/View/header.php';
                         <table class="docs-table">
                             <thead><tr><th><?= t('api.field.col.field') ?></th><th><?= t('api.field.col.type') ?></th><th><?= t('api.field.col.required') ?></th><th><?= t('api.field.col.desc') ?></th></tr></thead>
                             <tbody>
-                                <tr><td><code>file</code></td><td>file</td><td><?= t('api.field.required.yes') ?></td><td><?= t('api.field.file.desc', MAX_FILE_SIZE_LABEL) ?></td></tr>
+                                <tr><td><code>file</code></td><td>file</td><td><?= t('api.field.required.yes') ?></td><td><?= t('api.field.file.desc', $apiTier->maxFileSizeLabel()) ?></td></tr>
                                 <tr><td><code>format</code></td><td>string</td><td><?= t('api.field.required.no') ?></td><td><?= t('api.field.format.desc') ?></td></tr>
                             </tbody>
                         </table>
@@ -188,7 +189,7 @@ require BASE_PATH . '/src/View/header.php';
 
                 <section class="docs-section">
                     <h2><?= t('api.section.rate') ?></h2>
-                    <p><?= t('api.rate.body', RATE_LIMIT_MAX, RATE_LIMIT_WINDOW) ?></p>
+                    <p><?= t('api.rate.body', $apiTier->maxConversions, $apiTier->windowSeconds) ?></p>
                 </section>
 
                 <section class="docs-section">
