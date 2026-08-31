@@ -11,9 +11,17 @@ class ApiResponse
         self::send(['success' => true, ...$data], $status);
     }
 
-    public static function error(string $message, int $status = 400, array $errors = []): never
+    /**
+     * @param string|null $code stable identifier for a caller to branch on,
+     *                          where the human message is not something to
+     *                          match against
+     */
+    public static function error(string $message, int $status = 400, array $errors = [], ?string $code = null): never
     {
         $payload = ['success' => false, 'message' => $message];
+        if ($code !== null) {
+            $payload['code'] = $code;
+        }
         if ($errors !== []) {
             $payload['errors'] = $errors;
         }

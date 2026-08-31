@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Builds the conversion pipeline and the storage it shares with the caller's
  * garbage-collection sweep.
  *
- * Defines $database, $files, $mappings and $pipeline.
+ * Defines $database, $files, $mappings, $rateLimiters and $pipeline.
  *
  * @var \Data2Md\Config\Config $config
  * @var \Data2Md\Log\Logger $logger
@@ -33,6 +33,9 @@ $mappings = new MappingStorage($database);
 $files    = new FileStorage($convertDataDir . '/md', $convertDataDir . '/tmp');
 $tiers    = $tiers ?? TierResolver::fromConfig($config);
 
+// Shared with the caller: /api reports the same buckets it charges.
+$rateLimiters = new RateLimiterFactory($convertDataDir . '/ratelimit');
+
 $pipeline = new ConversionPipeline(
     validator:        new Validator(),
     mappings:         $mappings,
@@ -42,7 +45,7 @@ $pipeline = new ConversionPipeline(
         $config->int('CONVERT_CONCURRENCY'),
         $config->int('CONVERT_QUEUE_WAIT_SECONDS'),
     ),
-    rateLimiters:     new RateLimiterFactory($convertDataDir . '/ratelimit'),
+    rateLimiters:     $rateLimiters,
     logger:           $logger,
     converterFactory: static fn (string $format): PdfConverter => match ($format) {
         'pdf'   => new PdfConverter(

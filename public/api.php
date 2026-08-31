@@ -9,11 +9,17 @@ $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 
 use Data2Md\Auth\Actor;
+use Data2Md\Auth\ApiTokenStore;
+use Data2Md\Auth\TierResolver;
+use Data2Md\Http\BearerToken;
 use Data2Md\Http\ClientIp;
 use Data2Md\Http\Cors;
 use Data2Md\I18n\I18n;
 use Data2Md\Log\Logger;
 use Data2Md\Response\ApiResponse;
+use Data2Md\Security\RateLimiterFactory;
+use Data2Md\Security\RateLimitState;
+use Data2Md\Storage\Database;
 use Data2Md\Storage\Gc;
 
 $dataDir = $config->string('APP_DATA_DIR');
@@ -38,36 +44,153 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// ── GET → API documentation page ────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    // Only the docs page needs a session; a POST reads Authorization, never a
-    // cookie, so it must not resolve one.
+// The vhost rewrites /api/me to this file, so the route comes from the path
+// rather than from a second file on disk: one front controller, one place the
+// credential is read.
+$route  = trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH), '/');
+$method = (string) $_SERVER['REQUEST_METHOD'];
+
+// ── GET /api → documentation page ───────────────────────────────────────────
+if ($route === 'api' && ($method === 'GET' || $method === 'HEAD')) {
+    // Only the docs page resolves a session. Everything below reads
+    // Authorization and never a cookie, which is what keeps CSRF away from the
+    // one route that answers cross-origin.
     require BASE_PATH . '/src/Auth/bootstrap.php';
 
     renderDocs($session, $apiTier);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+// ── Everything below is JSON, and authenticated ─────────────────────────────
+$clientIp = (new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER);
+$loggedIp = Logger::truncateIp($clientIp);
+
+if (!$config->bool('ACCOUNTS_ENABLED')) {
+    // Not "fall back to anonymous": a flag about sign-in must never be what
+    // decides who may call the API. Without accounts no token can exist, so say
+    // that, rather than quietly reopening the endpoint.
+    ApiResponse::error(
+        'The API is unavailable: this deployment has accounts switched off.',
+        503,
+        code: 'api_unavailable'
+    );
+}
+
+$tiers        = TierResolver::fromConfig($config);
+$rateLimiters = new RateLimiterFactory($dataDir . '/ratelimit');
+$tokens       = new ApiTokenStore(new Database($dataDir . '/db/mappings.sqlite'));
+$presented    = BearerToken::fromRequest($_SERVER);
+
+if ($presented === null) {
+    header('WWW-Authenticate: Bearer realm="api"');
+    $logger->app('api.auth.reject', ['ip' => $loggedIp, 'reason' => 'no_token'], 'warning');
+
+    ApiResponse::error(
+        'Authentication required. Send an Authorization: Bearer <token> header.',
+        401,
+        code: 'token_required'
+    );
+}
+
+$user = $tokens->authenticate($presented);
+
+if ($user === null) {
+    header('WWW-Authenticate: Bearer realm="api"');
+    $logger->app('api.auth.reject', ['ip' => $loggedIp, 'reason' => 'unknown_token'], 'warning');
+
+    ApiResponse::error(
+        'That token does not exist. Generate a new one from your dashboard.',
+        401,
+        code: 'token_invalid'
+    );
+}
+
+$actor = Actor::forApi($user, $clientIp, $tiers);
+$quota = $actor->primaryQuota();
+
+// ── GET /api/me → plan, limits and window ───────────────────────────────────
+if ($route === 'api/me') {
+    if ($method !== 'GET' && $method !== 'HEAD') {
+        ApiResponse::error('Method not allowed. Use GET.', 405);
+    }
+
+    // Open to every plan on purpose: this is how a caller finds out why a
+    // conversion was refused. It charges nothing, so a free token may ask.
+    $state = $rateLimiters->make($quota->maxRequests, $quota->windowSeconds)->snapshot($quota->key);
+    $token = $tokens->describeFor((int) $actor->userId);
+
+    sendRateLimitHeaders($state);
+    header('Cache-Control: private, no-store');
+
+    ApiResponse::success([
+        'email'      => (string) $user['email'],
+        'plan'       => $actor->plan,
+        'api_access' => $actor->tier->allowsApi(),
+        'limits'     => [
+            'max_conversions'     => $actor->tier->maxConversions,
+            'window_seconds'      => $actor->tier->windowSeconds,
+            'max_file_size_bytes' => $actor->tier->maxFileSizeBytes(),
+        ],
+        'rate_limit' => [
+            'limit'     => $state->limit,
+            'remaining' => $state->remaining(),
+            'reset'     => $state->resetAt,
+        ],
+        'subscription' => [
+            'status'               => $user['subscription_status'],
+            'current_period_end'   => isset($user['current_period_end'])
+                ? (int) $user['current_period_end']
+                : null,
+            'cancel_at_period_end' => (bool) ($user['cancel_at_period_end'] ?? 0),
+        ],
+        'token' => [
+            'prefix'       => (string) $token['prefix'],
+            'last4'        => (string) $token['last4'],
+            'created_at'   => (int) $token['created_at'],
+            'rotated_at'   => isset($token['rotated_at']) ? (int) $token['rotated_at'] : null,
+            'last_used_at' => isset($token['last_used_at']) ? (int) $token['last_used_at'] : null,
+        ],
+    ]);
+}
+
+if ($route !== 'api') {
+    ApiResponse::error('Not found.', 404);
+}
+
+if ($method !== 'POST') {
     ApiResponse::error('Method not allowed. Use POST.', 405);
+}
+
+if (!$actor->tier->allowsApi()) {
+    $logger->app('api.auth.reject', [
+        'ip'     => $loggedIp,
+        'user'   => $actor->userId,
+        'plan'   => $actor->plan,
+        'reason' => 'plan',
+    ], 'warning');
+
+    ApiResponse::error(
+        'The API is part of the subscription. This token is valid, but the account has no active one.',
+        403,
+        code: 'plan_required'
+    );
 }
 
 // ── Convert ──────────────────────────────────────────────────────────────────
 require BASE_PATH . '/src/Convert/bootstrap.php';
 
-$clientIp = (new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER);
-
-// No session is resolved here: this endpoint reads Authorization, never a
-// cookie. Honouring one would re-create CSRF on the only route that sends CORS
-// headers. Until token auth lands the caller is anonymous.
 $outcome = $pipeline->handle(
     $_FILES,
     $_POST,
-    Actor::anonymous($clientIp, $tiers),
+    $actor,
     (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
 );
 
 Gc::registerShutdownSweep($config, $logger, $database, $files, $mappings);
+
+// Read after the pipeline, so the numbers describe the caller's window as this
+// request leaves it.
+sendRateLimitHeaders($rateLimiters->make($quota->maxRequests, $quota->windowSeconds)->snapshot($quota->key));
 
 foreach ($outcome->headers as $name => $value) {
     header("$name: $value");
@@ -76,6 +199,13 @@ foreach ($outcome->headers as $name => $value) {
 $outcome->isSuccess()
     ? ApiResponse::success($outcome->payload, $outcome->status)
     : ApiResponse::error((string) $outcome->message, $outcome->status, $outcome->errors);
+
+function sendRateLimitHeaders(RateLimitState $state): void
+{
+    header('X-RateLimit-Limit: ' . $state->limit);
+    header('X-RateLimit-Remaining: ' . $state->remaining());
+    header('X-RateLimit-Reset: ' . $state->resetAt);
+}
 
 // ── Docs renderer ────────────────────────────────────────────────────────────
 function renderDocs(?\Data2Md\Auth\Session $session, \Data2Md\Auth\Tier $apiTier): void
@@ -94,7 +224,8 @@ function renderDocs(?\Data2Md\Auth\Session $session, \Data2Md\Auth\Tier $apiTier
         $host   = preg_replace('/[^A-Za-z0-9.\-:]/', '', $_SERVER['HTTP_HOST'] ?? '');
         $base   = ($secure ? 'https' : 'http') . '://' . substr($host ?: 'localhost', 0, 255);
     }
-    $base = htmlspecialchars($base, ENT_QUOTES);
+    $base   = htmlspecialchars($base, ENT_QUOTES);
+    $sample = ApiTokenStore::PREFIX . '4f1c8ab2d3e07695' . str_repeat('0', 28) . 'beef';
     ?>
 <!DOCTYPE html>
 <html lang="<?= I18n::current() ?>">
@@ -130,6 +261,16 @@ require BASE_PATH . '/src/View/header.php';
                     <h1 class="docs-title"><?= t('api.heading') ?></h1>
                     <p class="docs-sub"><?= t('api.lead', htmlspecialchars(APP_NAME), $apiTier->maxFileSizeLabel()) ?></p>
                 </header>
+
+                <section class="docs-section">
+                    <h2><?= t('api.section.auth') ?></h2>
+                    <p><?= t('api.auth.body') ?></p>
+                    <div class="code-block-wrap">
+                        <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
+<pre class="code-block">Authorization: Bearer <?= $sample ?></pre>
+                    </div>
+                    <p><?= t('api.auth.rotate') ?></p>
+                </section>
 
                 <section class="docs-section">
                     <h2><?= t('api.section.endpoint') ?></h2>
@@ -179,15 +320,57 @@ require BASE_PATH . '/src/View/header.php';
                         <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block">{
   <span class="ck">"success"</span>: <span class="cn">false</span>,
-  <span class="ck">"message"</span>: <span class="cs">"Validation failed."</span>,
-  <span class="ck">"errors"</span>: [<span class="cs">"File content does not match allowed types for this format."</span>]
+  <span class="ck">"message"</span>: <span class="cs">"The API is part of the subscription."</span>,
+  <span class="ck">"code"</span>: <span class="cs">"plan_required"</span>
 }</pre>
+                    </div>
+                    <p><?= t('api.error.note') ?></p>
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead><tr><th><?= t('api.errors.col.status') ?></th><th><?= t('api.errors.col.code') ?></th><th><?= t('api.errors.col.meaning') ?></th></tr></thead>
+                            <tbody>
+                                <tr><td>401</td><td><code>token_required</code></td><td><?= t('api.error.token_required') ?></td></tr>
+                                <tr><td>401</td><td><code>token_invalid</code></td><td><?= t('api.error.token_invalid') ?></td></tr>
+                                <tr><td>403</td><td><code>plan_required</code></td><td><?= t('api.error.plan_required') ?></td></tr>
+                                <tr><td>422</td><td>&mdash;</td><td><?= t('api.error.unprocessable') ?></td></tr>
+                                <tr><td>429</td><td>&mdash;</td><td><?= t('api.error.throttled') ?></td></tr>
+                                <tr><td>503</td><td>&mdash;</td><td><?= t('api.error.unavailable') ?></td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </section>
 
                 <section class="docs-section">
                     <h2><?= t('api.section.rate') ?></h2>
                     <p><?= t('api.rate.body', $apiTier->maxConversions, $apiTier->windowSeconds) ?></p>
+                    <p><?= t('api.rate.headers') ?></p>
+                </section>
+
+                <section class="docs-section">
+                    <h2><?= t('api.section.me') ?></h2>
+                    <div class="endpoint-pill">
+                        <span class="method">GET</span>
+                        <code class="endpoint-url"><?= $base ?>/api/me</code>
+                    </div>
+                    <p><?= t('api.me.body') ?></p>
+                    <div class="code-block-wrap">
+                        <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
+<pre class="code-block">{
+  <span class="ck">"success"</span>: <span class="cn">true</span>,
+  <span class="ck">"email"</span>: <span class="cs">"you@example.com"</span>,
+  <span class="ck">"plan"</span>: <span class="cs">"premium"</span>,
+  <span class="ck">"api_access"</span>: <span class="cn">true</span>,
+  <span class="ck">"limits"</span>: {
+    <span class="ck">"max_conversions"</span>: <span class="cn"><?= $apiTier->maxConversions ?></span>,
+    <span class="ck">"window_seconds"</span>: <span class="cn"><?= $apiTier->windowSeconds ?></span>,
+    <span class="ck">"max_file_size_bytes"</span>: <span class="cn"><?= $apiTier->maxFileSizeBytes() ?></span>
+  },
+  <span class="ck">"rate_limit"</span>: { <span class="ck">"limit"</span>: <span class="cn"><?= $apiTier->maxConversions ?></span>, <span class="ck">"remaining"</span>: <span class="cn">0</span>, <span class="ck">"reset"</span>: <span class="cn">1767225600</span> },
+  <span class="ck">"subscription"</span>: { <span class="ck">"status"</span>: <span class="cs">"active"</span>, <span class="ck">"current_period_end"</span>: <span class="cn">1767225600</span>, <span class="ck">"cancel_at_period_end"</span>: <span class="cn">false</span> },
+  <span class="ck">"token"</span>: { <span class="ck">"prefix"</span>: <span class="cs">"d2md_4f1c"</span>, <span class="ck">"last4"</span>: <span class="cs">"beef"</span>, <span class="ck">"created_at"</span>: <span class="cn">1764547200</span>, <span class="ck">"rotated_at"</span>: <span class="cn">null</span>, <span class="ck">"last_used_at"</span>: <span class="cn">1767139200</span> }
+}</pre>
+                    </div>
+                    <p><?= t('api.me.note') ?></p>
                 </section>
 
                 <section class="docs-section">
@@ -197,8 +380,12 @@ require BASE_PATH . '/src/View/header.php';
                     <div class="code-block-wrap">
                         <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block">curl -X POST <?= $base ?>/api \
+  -H <span class="cs">"Authorization: Bearer $D2MD_TOKEN"</span> \
   -F <span class="cs">"file=@document.pdf"</span> \
-  -F <span class="cs">"format=pdf"</span></pre>
+  -F <span class="cs">"format=pdf"</span>
+
+curl <?= $base ?>/api/me \
+  -H <span class="cs">"Authorization: Bearer $D2MD_TOKEN"</span></pre>
                     </div>
 
                     <h3>PHP</h3>
@@ -209,6 +396,7 @@ $ch = curl_init(<span class="cs">'<?= $base ?>/api'</span>);
 curl_setopt_array($ch, [
     CURLOPT_POST           =&gt; <span class="cn">true</span>,
     CURLOPT_RETURNTRANSFER =&gt; <span class="cn">true</span>,
+    CURLOPT_HTTPHEADER     =&gt; [<span class="cs">'Authorization: Bearer '</span> . getenv(<span class="cs">'D2MD_TOKEN'</span>)],
     CURLOPT_POSTFIELDS     =&gt; [
         <span class="cs">'file'</span>   =&gt; <span class="ck">new</span> CURLFile(<span class="cs">'document.pdf'</span>, <span class="cs">'application/pdf'</span>, <span class="cs">'document.pdf'</span>),
         <span class="cs">'format'</span> =&gt; <span class="cs">'pdf'</span>,
@@ -224,10 +412,12 @@ $markdown = file_get_contents(<span class="cs">'<?= $base ?>'</span> . $data[<sp
                     <h3>Python</h3>
                     <div class="code-block-wrap">
                         <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
-<pre class="code-block"><span class="ck">import</span> requests
+<pre class="code-block"><span class="ck">import</span> os, requests
+
+headers = {<span class="cs">'Authorization'</span>: <span class="cs">'Bearer '</span> + os.environ[<span class="cs">'D2MD_TOKEN'</span>]}
 
 <span class="ck">with</span> <span class="ck">open</span>(<span class="cs">'document.pdf'</span>, <span class="cs">'rb'</span>) <span class="ck">as</span> f:
-    r = requests.post(<span class="cs">'<?= $base ?>/api'</span>, files={<span class="cs">'file'</span>: f}, data={<span class="cs">'format'</span>: <span class="cs">'pdf'</span>})
+    r = requests.post(<span class="cs">'<?= $base ?>/api'</span>, headers=headers, files={<span class="cs">'file'</span>: f}, data={<span class="cs">'format'</span>: <span class="cs">'pdf'</span>})
 
 data = r.json()
 markdown = requests.get(<span class="cs">'<?= $base ?>'</span> + data[<span class="cs">'download_url'</span>]).text

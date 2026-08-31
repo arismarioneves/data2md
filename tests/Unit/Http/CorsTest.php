@@ -71,4 +71,29 @@ final class CorsTest extends TestCase
         self::assertStringContainsString('POST', $headers['Access-Control-Allow-Methods']);
         self::assertArrayHasKey('Access-Control-Max-Age', $headers);
     }
+    /** Without this the API cannot be called from a browser at all. */
+    public function testPreflightAllowsTheAuthorizationHeader(): void
+    {
+        $headers = (new Cors(['https://app.example.com']))
+            ->headersFor('https://app.example.com', preflight: true);
+
+        self::assertStringContainsString('Authorization', $headers['Access-Control-Allow-Headers']);
+        self::assertStringContainsString('Content-Type', $headers['Access-Control-Allow-Headers']);
+    }
+
+    /** Cross-origin script cannot read a response header that is not exposed. */
+    public function testRateLimitHeadersAreExposed(): void
+    {
+        $headers = (new Cors(['https://app.example.com']))->headersFor('https://app.example.com');
+
+        self::assertStringContainsString('X-RateLimit-Remaining', $headers['Access-Control-Expose-Headers']);
+        self::assertStringContainsString('Retry-After', $headers['Access-Control-Expose-Headers']);
+    }
+
+    public function testDisallowedOriginIsExposedNothing(): void
+    {
+        $headers = (new Cors(['https://app.example.com']))->headersFor('https://evil.example.com');
+
+        self::assertArrayNotHasKey('Access-Control-Expose-Headers', $headers);
+    }
 }

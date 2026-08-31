@@ -196,10 +196,14 @@ return [
 
     // ── API docs (/api) ────────────────────────────────────────
     'api.title'      => '%s · Referência da API',
-    'api.meta.desc'  => 'Endpoint REST para converter PDF em Markdown: um POST, resposta em JSON e os limites de uso documentados por completo.',
+    'api.meta.desc'  => 'Endpoint REST para converter PDF em Markdown: um POST autenticado, resposta em JSON e os limites de uso documentados por completo.',
     'api.eyebrow'    => '// rest api',
     'api.heading'    => 'Referência da <em>API</em>',
-    'api.lead'       => 'Integre o %s no seu fluxo com um único HTTP POST. Máximo de %s por requisição.',
+    'api.lead'       => 'Integre o %s no seu fluxo com um único HTTP POST. Incluída na assinatura; até %s por requisição.',
+
+    'api.section.auth' => 'Autenticação',
+    'api.auth.body'    => 'Toda requisição leva um token no cabeçalho <code>Authorization</code>. O token pertence a uma conta com assinatura ativa e é criado no seu <a href="/dashboard">painel</a>.',
+    'api.auth.rotate'  => 'O token aparece uma única vez e é guardado apenas como hash, então trate-o como uma senha. Gerar um novo substitui o anterior na hora.',
 
     'api.section.endpoint' => 'Endpoint',
     'api.endpoint.ct'      => 'Content-Type: <code>multipart/form-data</code>',
@@ -219,9 +223,24 @@ return [
     'api.success.note'      => '<code>preview</code> traz até ~8 KB de Markdown cortado num final de linha. <code>preview_truncated</code> indica se o arquivo é maior; busque o documento completo via <code>download_url</code>.',
     'api.section.error'     => 'Resposta de erro',
     'api.tag.error'         => '4xx · 5xx',
+    'api.error.note'        => 'Todo erro traz <code>success: false</code> e uma <code>message</code> legível. Onde houver <code>code</code>, decida pelo code e não pelo texto da mensagem.',
+    'api.errors.col.status'  => 'Status',
+    'api.errors.col.code'    => 'Code',
+    'api.errors.col.meaning' => 'Significado',
+    'api.error.token_required' => 'Sem cabeçalho <code>Authorization</code>, ou com um que não é bearer token.',
+    'api.error.token_invalid'  => 'O token não existe — foi substituído, revogado, ou a conta dele foi excluída.',
+    'api.error.plan_required'  => 'Token válido numa conta sem assinatura ativa.',
+    'api.error.unprocessable'  => 'O arquivo foi recusado: tipo errado, acima do limite de tamanho, ou sem camada de texto para extrair.',
+    'api.error.throttled'      => 'O limite de uso foi consumido. <code>Retry-After</code> diz quantos segundos esperar.',
+    'api.error.unavailable'    => 'Todas as vagas de conversão estão ocupadas, ou esta instalação está com contas desligadas.',
 
     'api.section.rate'      => 'Limites de uso',
-    'api.rate.body'         => '%d requisição(ões) a cada %d segundos, contadas por conta. Exceder retorna <code>429 Too Many Requests</code> com um cabeçalho <code>Retry-After</code> dizendo quando tentar de novo.',
+    'api.rate.body'         => '%d requisição(ões) a cada %d segundos, contadas por conta e separadas do que a mesma conta converte no site. Exceder retorna <code>429 Too Many Requests</code>.',
+    'api.rate.headers'      => 'As respostas de conversão e de <code>/api/me</code> trazem <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code> e <code>X-RateLimit-Reset</code>, um timestamp Unix. Um <code>429</code> acrescenta <code>Retry-After</code> em segundos.',
+
+    'api.section.me' => 'Conferir a conta',
+    'api.me.body'    => 'Devolve o plano por trás do token, os limites que se aplicam a ele e quanto resta da janela atual.',
+    'api.me.note'    => 'Funciona em qualquer plano e não entra no limite de uso, então um <code>403</code> numa conversão sempre pode ser explicado: leia <code>api_access</code> e <code>plan</code>.',
 
     'api.section.examples'  => 'Exemplos',
     'api.copy'              => 'Copiar',

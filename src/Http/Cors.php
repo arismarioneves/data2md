@@ -40,9 +40,15 @@ final class Cors
             'Vary'                        => 'Origin',
         ];
 
+        // The rate-limit headers are unreadable to cross-origin script without
+        // Expose-Headers, which makes the published quota invisible to exactly
+        // the callers who asked for CORS.
+        $headers['Access-Control-Expose-Headers'] =
+            'X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After';
+
         if ($preflight) {
-            $headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS';
-            $headers['Access-Control-Allow-Headers'] = 'Content-Type';
+            $headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
+            $headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
             $headers['Access-Control-Max-Age']       = '86400';
         }
 

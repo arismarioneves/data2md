@@ -74,28 +74,42 @@ final class RateLimiter
     /** Seconds until the oldest hit leaves the window, at least one. */
     public function retryAfter(string $identifier): int
     {
+        $now = time();
+
+        return $this->snapshot($identifier, $now)->retryAfter($now);
+    }
+
+    /**
+     * Reads a bucket without charging it, for the X-RateLimit headers.
+     *
+     * Shared lock: a report must not serialise against other requests, and it
+     * has nothing to write.
+     */
+    public function snapshot(string $identifier, ?int $now = null): RateLimitState
+    {
+        $now  = $now ?? time();
         $path = $this->pathFor($identifier);
+        $idle = new RateLimitState($this->maxRequests, 0, $now + $this->windowSeconds);
 
         if (!is_file($path)) {
-            return $this->windowSeconds;
+            return $idle;
         }
 
         $handle = fopen($path, 'rb');
         if ($handle === false) {
-            return $this->windowSeconds;
+            return $idle;
         }
 
         try {
             $this->lock($handle, LOCK_SH, $identifier);
 
-            $now  = time();
             $hits = $this->withinWindow($this->readHits($handle), $now);
 
             if ($hits === []) {
-                return $this->windowSeconds;
+                return $idle;
             }
 
-            return max(1, $this->windowSeconds - ($now - min($hits)));
+            return new RateLimitState($this->maxRequests, count($hits), min($hits) + $this->windowSeconds);
         } finally {
             flock($handle, LOCK_UN);
             fclose($handle);

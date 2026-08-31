@@ -28,12 +28,16 @@ final class SmokeTest extends TestCase
         $this->baseUrl = rtrim($url, '/');
     }
 
-    /** @return array{status:int,body:string,headers:string} */
-    private function get(string $path): array
+    /**
+     * @param list<string> $headers
+     * @return array{status:int,body:string,headers:string}
+     */
+    private function get(string $path, array $headers = []): array
     {
         // follow_location off so an asserted status is the one this route
         // returned, not the one at the end of a redirect chain.
         $context = stream_context_create(['http' => [
+            'header'          => implode("\r\n", $headers),
             'ignore_errors'   => true,
             'follow_location' => 0,
             'timeout'         => 30,
@@ -362,5 +366,163 @@ final class SmokeTest extends TestCase
         $payload = json_decode($response['body'], true);
         self::assertIsArray($payload, 'response must be JSON, not an empty body from an uncaught TypeError');
         self::assertFalse($payload['success'] ?? true);
+    }
+    /**
+     * @param list<string> $headers
+     * @return array{status:int,body:string,headers:string}
+     */
+    private function postToApi(array $headers = [], string $fixture = 'sample.pdf'): array
+    {
+        $path = dirname(__DIR__) . '/fixtures/' . $fixture;
+        self::assertFileExists($path, 'run php tests/fixtures/make-pdf.php first');
+
+        $boundary = '----d2md' . bin2hex(random_bytes(8));
+        $body     = "--$boundary\r\n"
+            . "Content-Disposition: form-data; name=\"file\"; filename=\"$fixture\"\r\n"
+            . "Content-Type: application/pdf\r\n\r\n"
+            . file_get_contents($path) . "\r\n"
+            . "--$boundary\r\n"
+            . "Content-Disposition: form-data; name=\"format\"\r\n\r\npdf\r\n"
+            . "--$boundary--\r\n";
+
+        $context = stream_context_create(['http' => [
+            'method'          => 'POST',
+            'header'          => implode("\r\n", [
+                "Content-Type: multipart/form-data; boundary=$boundary",
+                ...$headers,
+            ]),
+            'content'         => $body,
+            'ignore_errors'   => true,
+            'follow_location' => 0,
+            'timeout'         => 60,
+        ]]);
+
+        $responseBody = (string) @file_get_contents($this->baseUrl . '/api', false, $context);
+        $status       = 0;
+
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m) === 1) {
+                $status = (int) $m[1];
+            }
+        }
+
+        return [
+            'status'  => $status,
+            'body'    => $responseBody,
+            'headers' => implode("\n", $http_response_header ?? []),
+        ];
+    }
+
+    /** The change that breaks existing integrations, so it gets its own test. */
+    public function testApiRefusesAConversionWithoutAToken(): void
+    {
+        $response = $this->postToApi();
+
+        self::assertSame(401, $response['status']);
+
+        $payload = json_decode($response['body'], true);
+
+        self::assertFalse($payload['success'] ?? true);
+        self::assertSame('token_required', $payload['code'] ?? null);
+        self::assertStringContainsString('www-authenticate: bearer', strtolower($response['headers']));
+    }
+
+    public function testApiRefusesAnUnknownToken(): void
+    {
+        $response = $this->postToApi(['Authorization: Bearer d2md_' . str_repeat('0', 48)]);
+
+        self::assertSame(401, $response['status']);
+        self::assertSame('token_invalid', json_decode($response['body'], true)['code'] ?? null);
+    }
+
+    /** A credential in another scheme must not be read as a bearer token. */
+    public function testApiIgnoresANonBearerCredential(): void
+    {
+        $response = $this->postToApi(['Authorization: Basic ' . base64_encode('demo:demo')]);
+
+        self::assertSame(401, $response['status']);
+        self::assertSame('token_required', json_decode($response['body'], true)['code'] ?? null);
+    }
+
+    public function testApiAccountEndpointNeedsAToken(): void
+    {
+        $response = $this->get('/api/me');
+
+        self::assertSame(401, $response['status']);
+        self::assertSame('token_required', json_decode($response['body'], true)['code'] ?? null);
+    }
+
+    /** /api/me is a route on api.php; without the vhost rule it is a 404. */
+    public function testApiAccountEndpointIsRouted(): void
+    {
+        self::assertNotSame(404, $this->get('/api/me')['status']);
+    }
+
+    public function testApiDocsExplainAuthentication(): void
+    {
+        $body = $this->get('/api')['body'];
+
+        self::assertStringContainsString('Authorization: Bearer', $body);
+        self::assertStringContainsString('plan_required', $body);
+        self::assertStringContainsString('/api/me', $body);
+    }
+
+    /**
+     * Needs a token this test cannot mint over HTTP: creating one requires a
+     * session, and a session requires the sign-in link, which lands in the app
+     * container's own logs. CI passes one in from `bin/data2md token:create`.
+     */
+    private function apiToken(string $variable): string
+    {
+        $token = getenv($variable);
+
+        if ($token === false || $token === '') {
+            self::markTestSkipped("$variable not set");
+        }
+
+        return $token;
+    }
+
+    public function testApiAccountEndpointDescribesAFreeToken(): void
+    {
+        $response = $this->get('/api/me', ['Authorization: Bearer ' . $this->apiToken('D2MD_API_TOKEN_FREE')]);
+
+        self::assertSame(200, $response['status'], $response['body']);
+
+        $payload = json_decode($response['body'], true);
+
+        self::assertTrue($payload['success']);
+        self::assertSame('free', $payload['plan']);
+        self::assertFalse($payload['api_access'], 'a free plan must not claim API access');
+        self::assertArrayNotHasKey('stripe_customer_id', $payload, 'internal billing ids stay internal');
+        self::assertStringStartsWith('d2md_', $payload['token']['prefix']);
+        self::assertStringContainsString('no-store', strtolower($response['headers']));
+    }
+
+    /** The point of the phase: a valid token is not enough, a subscription is. */
+    public function testApiRefusesAFreeTokenByPlan(): void
+    {
+        $response = $this->postToApi(['Authorization: Bearer ' . $this->apiToken('D2MD_API_TOKEN_FREE')]);
+
+        self::assertSame(403, $response['status'], $response['body']);
+        self::assertSame('plan_required', json_decode($response['body'], true)['code'] ?? null);
+    }
+
+    public function testApiConvertsForASubscriberToken(): void
+    {
+        $response = $this->postToApi(['Authorization: Bearer ' . $this->apiToken('D2MD_API_TOKEN_PREMIUM')]);
+
+        self::assertSame(201, $response['status'], $response['body']);
+
+        $payload = json_decode($response['body'], true);
+
+        self::assertTrue($payload['success'] ?? false);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{15}$/', $payload['hash']);
+
+        // Whoever pays for the API cannot programme against an invisible quota.
+        $headers = strtolower($response['headers']);
+        self::assertStringContainsString('x-ratelimit-limit:', $headers);
+        self::assertStringContainsString('x-ratelimit-remaining:', $headers);
+        self::assertStringContainsString('x-ratelimit-reset:', $headers);
     }
 }

@@ -16,12 +16,16 @@ use Data2Md\Billing\Entitlement;
  */
 final class Actor
 {
+    private const CHANNEL_BROWSER = 'convert';
+    private const CHANNEL_API     = 'api';
+
     private function __construct(
         public readonly ?int $userId,
         public readonly string $plan,
         public readonly Tier $tier,
         public readonly string $ip,
         private readonly int $freeIpWindowSeconds,
+        private readonly string $channel = self::CHANNEL_BROWSER,
     ) {
     }
 
@@ -42,6 +46,22 @@ final class Actor
             $ip,
             $plan === Entitlement::FREE ? $tiers->freeIpWindowSeconds() : 0,
         );
+    }
+
+    /**
+     * A token holder, counted separately from the same account's browsing so
+     * that using the site does not spend the integration's allowance.
+     *
+     * No per-address floor: the API is subscriber-only, and a subscription is
+     * the attribution the floor exists to substitute for.
+     *
+     * @param array<string,mixed> $user
+     */
+    public static function forApi(array $user, string $ip, TierResolver $tiers, ?int $now = null): self
+    {
+        $plan = Entitlement::forUser($user, $now);
+
+        return new self((int) $user['id'], $plan, $tiers->for($plan), $ip, 0, self::CHANNEL_API);
     }
 
     public function isAuthenticated(): bool
@@ -65,7 +85,7 @@ final class Actor
         }
 
         $checks = [new QuotaCheck(
-            'convert:user:' . $this->userId,
+            $this->channel . ':user:' . $this->userId,
             $this->tier->maxConversions,
             $this->tier->windowSeconds,
         )];
@@ -80,6 +100,15 @@ final class Actor
         }
 
         return $checks;
+    }
+
+    /**
+     * The bucket a caller is measured against for reporting, which is the
+     * account's own. The per-address floor is a guard, not a published quota.
+     */
+    public function primaryQuota(): QuotaCheck
+    {
+        return $this->quotaChecks()[0];
     }
 
     /** Longest window in play, for sizing garbage collection. */

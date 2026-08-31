@@ -111,4 +111,52 @@ final class ActorTest extends TestCase
         self::assertSame(20 * 1024 * 1024, $tier->maxFileSizeBytes());
         self::assertSame('20 MB', $tier->maxFileSizeLabel());
     }
+    /**
+     * A subscriber's integration and the same subscriber's browsing must not
+     * spend one allowance: converting on the website would otherwise throttle
+     * the thing they bought.
+     */
+    public function testApiCallerIsCountedApartFromTheSameAccountBrowsing(): void
+    {
+        $user = ['id' => 7, 'subscription_status' => 'active'];
+
+        $api     = Actor::forApi($user, self::IP, $this->tiers());
+        $browser = Actor::forUser($user, self::IP, $this->tiers());
+
+        self::assertSame('api:user:7', $api->quotaChecks()[0]->key);
+        self::assertSame('convert:user:7', $browser->quotaChecks()[0]->key);
+        self::assertNotSame($api->quotaChecks()[0]->key, $browser->quotaChecks()[0]->key);
+    }
+
+    public function testApiCallerCarriesTheSubscriberTier(): void
+    {
+        $actor = Actor::forApi(['id' => 7, 'subscription_status' => 'active'], self::IP, $this->tiers());
+
+        self::assertSame(Entitlement::PREMIUM, $actor->plan);
+        self::assertTrue($actor->tier->allowsApi());
+        self::assertSame(30, $actor->quotaChecks()[0]->windowSeconds);
+    }
+
+    /**
+     * The floor stands in for attribution on a free self-serve account. A token
+     * on a paid one is attributed, and the API is subscriber-only anyway, so an
+     * address floor there would only punish an office behind one address.
+     */
+    public function testApiCallerHasNoAddressFloor(): void
+    {
+        $free    = Actor::forApi(['id' => 7, 'subscription_status' => null], self::IP, $this->tiers());
+        $premium = Actor::forApi(['id' => 8, 'subscription_status' => 'active'], self::IP, $this->tiers());
+
+        self::assertCount(1, $free->quotaChecks());
+        self::assertCount(1, $premium->quotaChecks());
+    }
+
+    /** The reported bucket is the account's, never the address guard. */
+    public function testPrimaryQuotaIsTheAccountBucket(): void
+    {
+        $free = Actor::forUser(['id' => 7, 'subscription_status' => null], self::IP, $this->tiers());
+
+        self::assertSame('convert:user:7', $free->primaryQuota()->key);
+        self::assertSame('convert:anon:' . self::IP, Actor::anonymous(self::IP, $this->tiers())->primaryQuota()->key);
+    }
 }
