@@ -14,7 +14,9 @@ $back = (string) ($_GET['back'] ?? $_POST['back'] ?? '/');
 $back = I18n::sanitizeBack($back);
 
 if (in_array($to, I18n::SUPPORTED, true)) {
-    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    // Traefik terminates TLS in front of this container, so $_SERVER['HTTPS']
+    // is never set here.
+    $secure = str_starts_with(APP_URL, 'https://');
     setcookie(I18n::COOKIE, $to, [
         'expires'  => time() + 60 * 60 * 24 * 365,
         'path'     => '/',
