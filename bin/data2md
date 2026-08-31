@@ -380,7 +380,7 @@ switch ($command) {
           gc                    housekeeping: orphans, rate limits, rotated logs
           delete <hash>         permanently remove one conversion
           prune --older-than=N  permanently remove conversions older than N days
-          user:premium <email> --days=N   grant premium directly; 0 revokes
+          user:premium <email>  grant premium directly: --days=N, 0 revokes
           token:create <email>  issue or replace an account's API token
           token:revoke <email>  remove an account's API token
           logs [--channel=app|audit|mail] [--tail=N]
