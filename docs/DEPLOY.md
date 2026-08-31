@@ -145,10 +145,22 @@ Resposta esperada:
 
 O campo `version` identifica o commit em execução — é a forma de confirmar qual código está no ar.
 
-Conversão de ponta a ponta:
+Conversão de ponta a ponta. O `/api` exige token de assinante, então o teste do
+navegador usa `/convert`:
 
 ```bash
+curl -sS -X POST https://seu-dominio.com.br/convert \
+    -F "file=@documento.pdf" -F "format=pdf"
+```
+
+Para o caminho da API, crie um token e conceda a assinatura:
+
+```bash
+data2md token:create voce@exemplo.com
+data2md user:premium voce@exemplo.com --days=1
+
 curl -sS -X POST https://seu-dominio.com.br/api \
+    -H "Authorization: Bearer d2md_..." \
     -F "file=@documento.pdf" -F "format=pdf"
 ```
 

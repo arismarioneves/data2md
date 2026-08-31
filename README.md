@@ -63,7 +63,13 @@ Open the root URL in a browser, select or drop a PDF file, and click **Convert t
 ### API
 
 **Endpoint:** `POST /api`  
-**Content-Type:** `multipart/form-data`
+**Content-Type:** `multipart/form-data`  
+**Authentication:** `Authorization: Bearer d2md_…` — the API is part of the subscription
+
+Tokens are created in the dashboard, or with `bin/data2md token:create <email>`. Without one the
+endpoint answers `401`; with one on an account that has no subscription, `403` and
+`"code": "plan_required"`. The browser uses `POST /convert`, which reads the session cookie
+instead.
 
 | Field | Required | Description |
 |---|---|---|
@@ -93,17 +99,23 @@ Open the root URL in a browser, select or drop a PDF file, and click **Convert t
 
 ```bash
 curl -X POST https://yourdomain.com/api \
+  -H "Authorization: Bearer $D2MD_TOKEN" \
   -F "file=@document.pdf" \
   -F "format=pdf"
 ```
 
+`GET /api/me` reports the plan behind a token, its limits and what is left of the current
+window. It works on any plan and is not rate limited, so a `403` is always explainable.
+
 **Python example:**
 
 ```python
-import requests
+import os, requests
+
+headers = {'Authorization': 'Bearer ' + os.environ['D2MD_TOKEN']}
 
 with open('document.pdf', 'rb') as f:
-    r = requests.post('https://yourdomain.com/api',
+    r = requests.post('https://yourdomain.com/api', headers=headers,
                       files={'file': f}, data={'format': 'pdf'})
 
 data = r.json()
