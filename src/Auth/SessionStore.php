@@ -19,8 +19,6 @@ use Data2Md\Storage\Database;
  */
 final class SessionStore
 {
-    public const COOKIE = 'd2md_sess';
-
     /** last_seen_at is only written past this age, to keep reads read-only. */
     private const TOUCH_AFTER_SECONDS = 3600;
 
