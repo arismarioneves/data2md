@@ -76,6 +76,19 @@ final class UserStore
     }
 
     /**
+     * Grants premium outright, ahead of any subscription, or clears the grant
+     * with null. Entitlement reads it first, so this is what a courtesy account
+     * is made of.
+     */
+    public function setPremiumUntil(int $id, ?int $until): void
+    {
+        $statement = $this->db->pdo()->prepare(
+            'UPDATE users SET premium_until = :until WHERE id = :id'
+        );
+        $statement->execute(['until' => $until, 'id' => $id]);
+    }
+
+    /**
      * Sessions and API tokens cascade. Conversions detach rather than vanish:
      * their markdown stays reachable by hash, as it is for anonymous ones.
      */

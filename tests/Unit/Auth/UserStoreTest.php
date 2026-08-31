@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Data2Md\Tests\Unit\Auth;
 
 use Data2Md\Auth\UserStore;
+use Data2Md\Billing\Entitlement;
 use Data2Md\Storage\Database;
 use PHPUnit\Framework\TestCase;
 
@@ -113,5 +114,35 @@ final class UserStoreTest extends TestCase
     {
         self::assertNull($this->users->findByEmail('nobody@example.com'));
         self::assertNull($this->users->findById(999));
+    }
+    public function testPremiumGrantIsStoredAndCleared(): void
+    {
+        $id = $this->users->ensure('courtesy@example.com');
+
+        self::assertNull($this->users->findById($id)['premium_until']);
+
+        $this->users->setPremiumUntil($id, 2_000_000_000);
+        self::assertSame(2_000_000_000, (int) $this->users->findById($id)['premium_until']);
+
+        $this->users->setPremiumUntil($id, null);
+        self::assertNull($this->users->findById($id)['premium_until']);
+    }
+
+    /** The grant is what Entitlement reads first, so it has to reach that check. */
+    public function testPremiumGrantMakesTheAccountPremium(): void
+    {
+        $id = $this->users->ensure('courtesy@example.com');
+
+        $this->users->setPremiumUntil($id, 1_500);
+
+        self::assertSame(
+            Entitlement::PREMIUM,
+            Entitlement::forUser($this->users->findById($id), 1_400)
+        );
+        self::assertSame(
+            Entitlement::FREE,
+            Entitlement::forUser($this->users->findById($id), 1_600),
+            'the grant expires on its own'
+        );
     }
 }

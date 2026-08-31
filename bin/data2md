@@ -262,6 +262,38 @@ switch ($command) {
         }
         exit(0);
 
+    case 'user:premium':
+        $email = $argv[2] ?? '';
+        $days  = (int) option($argv, 'days', '-1');
+
+        if ($email === '' || $days < 0) {
+            fwrite(STDERR, "usage: data2md user:premium <email> --days=<n>   (0 revokes)\n");
+            exit(1);
+        }
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $users = new UserStore($db);
+        $user  = $users->findByEmail($email);
+
+        if ($user === null) {
+            fwrite(STDERR, "no such account: $email\n");
+            exit(1);
+        }
+
+        // premium_until is the manual grant Entitlement honours ahead of any
+        // subscription, which is what makes a courtesy account possible without
+        // inventing a Stripe subscription for it.
+        $until = $days === 0 ? null : time() + ($days * 86400);
+
+        $users->setPremiumUntil((int) $user['id'], $until);
+
+        fwrite(STDOUT, $until === null
+            ? "revoked the premium grant for $email\n"
+            : "$email is premium until " . gmdate('Y-m-d H:i', $until) . " UTC\n");
+        exit(0);
+
     case 'token:create':
         $email = $argv[2] ?? '';
 
@@ -348,6 +380,7 @@ switch ($command) {
           gc                    housekeeping: orphans, rate limits, rotated logs
           delete <hash>         permanently remove one conversion
           prune --older-than=N  permanently remove conversions older than N days
+          user:premium <email> --days=N   grant premium directly; 0 revokes
           token:create <email>  issue or replace an account's API token
           token:revoke <email>  remove an account's API token
           logs [--channel=app|audit|mail] [--tail=N]
