@@ -157,6 +157,22 @@ final class Database
             'ALTER TABLE mappings ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL',
             'CREATE INDEX idx_mappings_user ON mappings (user_id, created_at)',
         ],
+        4 => [
+            // One row per account: UNIQUE on user_id is what makes rotation a
+            // replacement, so an old credential cannot outlive its replacement
+            // because someone forgot a second step. SQLite indexes both UNIQUE
+            // columns, and the per-request lookup is the one on token_hash.
+            'CREATE TABLE api_tokens (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id      INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                token_hash   TEXT    NOT NULL UNIQUE,
+                prefix       TEXT    NOT NULL,
+                last4        TEXT    NOT NULL,
+                created_at   INTEGER NOT NULL,
+                rotated_at   INTEGER,
+                last_used_at INTEGER
+            )',
+        ],
     ];
 
     /** @return list<int> */
