@@ -16,8 +16,6 @@ use Data2Md\Log\Logger;
 use Data2Md\Response\ApiResponse;
 use Data2Md\Storage\Gc;
 
-const PREVIEW_BYTES = 8000;
-
 $dataDir = $config->string('APP_DATA_DIR');
 $logger  = new Logger($dataDir . '/logs');
 $cors    = new Cors($config->list('CORS_ALLOWED_ORIGINS'));
