@@ -72,18 +72,25 @@ O último merece atenção especial: uma falha do coletor **não interrompe a
 requisição** e só deixa rastro nesse evento. Se ele aparecer de forma recorrente,
 o volume passa a crescer sem que nada mais acuse.
 
-### A diferença entre os dois canais
+### A diferença entre os canais
 
-| | `app.jsonl` | `audit.jsonl` |
-|---|---|---|
-| Endereço IP | truncado (`203.0.113.0`) | completo |
-| Nome do arquivo | não registra | registra |
-| User-agent | não registra | registra |
-| Espelha em stdout | sim | não |
+| | `app.jsonl` | `audit.jsonl` | `mail.jsonl` |
+|---|---|---|---|
+| Endereço IP | truncado (`203.0.113.0`) | completo | não registra |
+| Nome do arquivo | não registra | registra | não registra |
+| User-agent | não registra | registra | não registra |
+| Endereço de e-mail | não registra | não registra | registra |
+| Espelha em stdout | sim | não | não |
+| Permissão | `0640` | `0640` | `0600` |
 
-Ambos os arquivos são gravados em `0640`. O que separa os canais não é a
-permissão, é o conteúdo e o espelhamento: o operacional pode ir para o
-visualizador de logs sem expor nada, o de auditoria não sai do volume.
+O que separa `app` de `audit` não é a permissão, é o conteúdo e o espelhamento:
+o operacional pode ir para o visualizador de logs sem expor nada, o de auditoria
+não sai do volume.
+
+`mail.jsonl` só existe com `MAIL_TRANSPORT=log`, que substitui o envio pela
+gravação da mensagem — é assim que desenvolvimento e CI exercitam o login sem
+relay. **As entradas contêm um link de acesso válido**, por isso o arquivo é
+`0600` e nunca espelha. Em produção esse transporte não deve ser usado.
 
 Para diagnosticar um problema, `app.jsonl` basta e expõe menos. Para responder
 *quem converteu o quê e quando*, é o `audit.jsonl` — que por isso tem prazo de

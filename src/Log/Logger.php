@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace Data2Md\Log;
 
 /**
- * Two log channels:
+ * Three log channels:
  *
  *   app.jsonl   — operational, no PII. Mirrored to stderr, which the official
  *                 PHP image forwards to `docker logs` and the EasyPanel log
  *                 viewer.
  *   audit.jsonl — who converted what, when. Mode 0640, short retention.
+ *   mail.jsonl  — sign-in links, when MAIL_TRANSPORT=log. Mode 0600 and never
+ *                 mirrored: the entries are live credentials.
  */
 final class Logger
 {
     public const CHANNEL_APP   = 'app';
     public const CHANNEL_AUDIT = 'audit';
+    public const CHANNEL_MAIL  = 'mail';
+
+    /** @var list<string> */
+    public const CHANNELS = [self::CHANNEL_APP, self::CHANNEL_AUDIT, self::CHANNEL_MAIL];
 
     public function __construct(
         private readonly string $logDir,
@@ -42,6 +48,18 @@ final class Logger
     {
         $entry = ['ts' => self::now()] + $fields;
         $this->write(self::CHANNEL_AUDIT, $this->encode($entry), 0640);
+    }
+
+    /**
+     * Stands in for sending a message. The entries carry a working sign-in
+     * link, so this is 0600 and never reaches stderr.
+     *
+     * @param array<string,mixed> $fields
+     */
+    public function mail(array $fields): void
+    {
+        $entry = ['ts' => self::now()] + $fields;
+        $this->write(self::CHANNEL_MAIL, $this->encode($entry), 0600);
     }
 
     /**

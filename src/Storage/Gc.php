@@ -181,6 +181,9 @@ final class Gc
         $retention = [
             'app.jsonl.1'   => $this->logRetentionDays,
             'audit.jsonl.1' => $this->auditLogRetentionDays,
+            // Development-only channel holding live sign-in links, so it keeps
+            // the shorter of the two retentions rather than its own key.
+            'mail.jsonl.1'  => $this->auditLogRetentionDays,
         ];
 
         foreach ($retention as $name => $days) {

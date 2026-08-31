@@ -215,8 +215,8 @@ switch ($command) {
         $channel = option($argv, 'channel', 'app');
         $tail    = (int) option($argv, 'tail', '50');
 
-        if (!in_array($channel, ['app', 'audit'], true)) {
-            fwrite(STDERR, "unknown channel: $channel (use app or audit)\n");
+        if (!in_array($channel, Logger::CHANNELS, true)) {
+            fwrite(STDERR, "unknown channel: $channel (use " . implode(', ', Logger::CHANNELS) . ")\n");
             exit(1);
         }
 
@@ -280,7 +280,7 @@ switch ($command) {
           gc                    housekeeping: orphans, rate limits, rotated logs
           delete <hash>         permanently remove one conversion
           prune --older-than=N  permanently remove conversions older than N days
-          logs [--channel=app|audit] [--tail=N]
+          logs [--channel=app|audit|mail] [--tail=N]
           health                run the same checks as GET /health
 
         Converted markdown is permanent. Only delete and prune remove it.
