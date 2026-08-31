@@ -10,6 +10,10 @@ namespace Data2Md\Converter;
  */
 final class NoTextLayerException extends ConversionException
 {
+    /** Also reported by the probe, which reaches the same verdict earlier. */
+    public const MESSAGE =
+        'This PDF has no text layer — it looks like a scan or an image-only export, and needs OCR.';
+
     public function httpStatus(): int
     {
         return 422;

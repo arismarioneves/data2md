@@ -169,9 +169,7 @@ final class PdfConverter implements ConverterInterface
             }
 
             if ($pages === 0) {
-                throw new NoTextLayerException(
-                    'This PDF has no text layer — it looks like a scan or an image-only export, and needs OCR.'
-                );
+                throw new NoTextLayerException(NoTextLayerException::MESSAGE);
             }
 
             return new ConversionResult($stats->lines, $stats->characters, $pages);

@@ -105,29 +105,46 @@ final class SmokeTest extends TestCase
         }
     }
 
-    public function testConversionRoundTrip(): void
+    /** @return array<string,mixed>|null decoded JSON payload */
+    private function postFixture(string $fixture): ?array
     {
-        $fixture = dirname(__DIR__) . '/fixtures/sample.pdf';
-        self::assertFileExists($fixture, 'run php tests/fixtures/make-pdf.php first');
+        $path = dirname(__DIR__) . '/fixtures/' . $fixture;
+        self::assertFileExists($path, 'run php tests/fixtures/make-pdf.php first');
 
         $boundary = '----d2md' . bin2hex(random_bytes(8));
         $body     = "--$boundary\r\n"
-            . "Content-Disposition: form-data; name=\"file\"; filename=\"sample.pdf\"\r\n"
+            . "Content-Disposition: form-data; name=\"file\"; filename=\"$fixture\"\r\n"
             . "Content-Type: application/pdf\r\n\r\n"
-            . file_get_contents($fixture) . "\r\n"
+            . file_get_contents($path) . "\r\n"
             . "--$boundary\r\n"
             . "Content-Disposition: form-data; name=\"format\"\r\n\r\npdf\r\n"
             . "--$boundary--\r\n";
 
         $context = stream_context_create(['http' => [
-            'method'         => 'POST',
-            'header'         => "Content-Type: multipart/form-data; boundary=$boundary",
-            'content'        => $body,
-            'ignore_errors'  => true,
-            'timeout'        => 60,
+            'method'        => 'POST',
+            'header'        => "Content-Type: multipart/form-data; boundary=$boundary",
+            'content'       => $body,
+            'ignore_errors' => true,
+            'timeout'       => 60,
         ]]);
 
-        $payload = json_decode((string) file_get_contents($this->baseUrl . '/api', false, $context), true);
+        $raw = (string) file_get_contents($this->baseUrl . '/api', false, $context);
+
+        return json_decode($raw, true);
+    }
+
+    /** The probe reaches this verdict from the first pages, before charging quota. */
+    public function testDocumentWithNoTextLayerIsRejected(): void
+    {
+        $payload = $this->postFixture('image-only.pdf');
+
+        self::assertFalse($payload['success'] ?? true, json_encode($payload));
+        self::assertStringContainsString('no text layer', (string) ($payload['message'] ?? ''));
+    }
+
+    public function testConversionRoundTrip(): void
+    {
+        $payload = $this->postFixture('sample.pdf');
 
         self::assertTrue($payload['success'] ?? false, json_encode($payload));
         self::assertMatchesRegularExpression('/^[a-f0-9]{15}$/', $payload['hash']);

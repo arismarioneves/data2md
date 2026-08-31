@@ -9,6 +9,7 @@ $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 
 use Data2Md\Converter\ConversionException;
+use Data2Md\Converter\NoTextLayerException;
 use Data2Md\Converter\MarkdownSanitizer;
 use Data2Md\Converter\PdfConverter;
 use Data2Md\Http\ClientIp;
@@ -68,22 +69,11 @@ $validator = new Validator(MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL);
 $clientIp = (new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER);
 $loggedIp = Logger::truncateIp($clientIp);
 
-// ── Rate limit ───────────────────────────────────────────────────────────────
 $rateLimiter = new RateLimiter(
     $dataDir . '/ratelimit',
     RATE_LIMIT_MAX,
     RATE_LIMIT_WINDOW,
 );
-
-if (!$rateLimiter->isAllowed($clientIp)) {
-    $logger->app('ratelimit.block', ['ip' => $loggedIp], 'warning');
-
-    header('Retry-After: ' . $rateLimiter->retryAfter($clientIp));
-    ApiResponse::error(
-        'Rate limit exceeded. Maximum ' . RATE_LIMIT_MAX . ' requests per ' . RATE_LIMIT_WINDOW . ' seconds.',
-        429
-    );
-}
 
 // ── Validate ─────────────────────────────────────────────────────────────────
 $file = $_FILES['file'] ?? null;
@@ -118,6 +108,21 @@ if ($uploadErrors !== []) {
     ApiResponse::error('Validation failed.', 422, $uploadErrors);
 }
 
+// Built before a slot exists so an unsupported format cannot leak one. The
+// format allowlist above already makes the default arm unreachable.
+$converter = match ($format) {
+    'pdf'   => new PdfConverter(
+        'pdftotext',
+        new Process(
+            $config->int('CONVERT_TIMEOUT_SECONDS'),
+            Process::priorityPrefix($config->int('CONVERT_NICE')),
+        ),
+        new MarkdownSanitizer(),
+        $dataDir . '/tmp',
+    ),
+    default => throw new \LogicException("Unsupported format: $format"),
+};
+
 // ── Queue for a conversion slot ──────────────────────────────────────────────
 $semaphore = new ConversionSemaphore(
     $dataDir . '/tmp',
@@ -132,6 +137,29 @@ try {
 
     header('Retry-After: ' . $e->retryAfter());
     ApiResponse::error('The server is busy converting other documents. Please retry shortly.', 503);
+}
+
+// ── Probe, then charge the quota ─────────────────────────────────────────────
+// Both gates run inside the slot and before any charge: a document with
+// nothing to extract and a caller over its limit each cost one probe, and
+// neither spends quota. The slot is released by hand because ApiResponse exits
+// and there is no enclosing finally yet.
+if (!$converter->probe((string) $file['tmp_name'])) {
+    $logger->app('convert.rejected', ['ip' => $loggedIp, 'reason' => 'no_text_layer'], 'warning');
+
+    $slot->release();
+    ApiResponse::error(NoTextLayerException::MESSAGE, 422);
+}
+
+if (!$rateLimiter->isAllowed($clientIp)) {
+    $logger->app('ratelimit.block', ['ip' => $loggedIp], 'warning');
+
+    header('Retry-After: ' . $rateLimiter->retryAfter($clientIp));
+    $slot->release();
+    ApiResponse::error(
+        'Rate limit exceeded. Maximum ' . RATE_LIMIT_MAX . ' requests per ' . RATE_LIMIT_WINDOW . ' seconds.',
+        429
+    );
 }
 
 // ── Convert ──────────────────────────────────────────────────────────────────
@@ -151,19 +179,6 @@ try {
 
     $hash         = $mappings->generateUniqueHash();
     $originalPath = $files->acceptUpload((string) $file['tmp_name'], $hash);
-
-    $converter = match ($format) {
-        'pdf'   => new PdfConverter(
-            'pdftotext',
-            new Process(
-                $config->int('CONVERT_TIMEOUT_SECONDS'),
-                Process::priorityPrefix($config->int('CONVERT_NICE')),
-            ),
-            new MarkdownSanitizer(),
-            $dataDir . '/tmp',
-        ),
-        default => throw new \InvalidArgumentException("Unsupported format: $format"),
-    };
 
     $result = $converter->convertToFile($originalPath, $files->markdownPath($hash));
 
@@ -215,6 +230,13 @@ try {
     ], 201);
 
 } catch (ConversionException $e) {
+    // NoTextLayerException is the one failure only reachable after walking the
+    // whole document, so it stays charged; refunding it would make the most
+    // expensive path free. Everything else fails fast enough to give back.
+    if (!$e instanceof NoTextLayerException) {
+        $rateLimiter->refund($clientIp);
+    }
+
     $logger->app('convert.fail', [
         'hash'   => $hash,
         'ip'     => $loggedIp,
@@ -226,6 +248,8 @@ try {
     $respond = static fn () => ApiResponse::error($e->getMessage(), $e->httpStatus());
 
 } catch (\Throwable $e) {
+    $rateLimiter->refund($clientIp);
+
     // The message may name internal paths, so it goes to the log, not the wire.
     $logger->app('convert.fail', [
         'hash'   => $hash,
