@@ -27,7 +27,13 @@ final class Gc
         private readonly string $rateLimitDir,
         private readonly int $logRetentionDays,
         private readonly int $auditLogRetentionDays,
-        private readonly int $rateLimitWindowSeconds,
+        /**
+         * The longest window of any bucket in the directory, not any one of
+         * them. Bucket filenames are hashes, so collection cannot tell a
+         * 60-second bucket from a one-hour one; a shorter value here resets a
+         * limiter that is still counting.
+         */
+        private readonly int $rateLimitMaxWindowSeconds,
         private readonly int $convertTimeoutSeconds,
         private readonly string $lockDir,
     ) {
@@ -156,7 +162,7 @@ final class Gc
     private function collectRateLimits(int $now): int
     {
         // Twice the window: anything older cannot influence a decision.
-        $cut     = $now - ($this->rateLimitWindowSeconds * 2);
+        $cut     = $now - ($this->rateLimitMaxWindowSeconds * 2);
         $removed = 0;
 
         foreach (glob($this->rateLimitDir . '/*') ?: [] as $file) {

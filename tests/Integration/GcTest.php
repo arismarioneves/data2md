@@ -40,7 +40,7 @@ final class GcTest extends TestCase
             rateLimitDir:           $this->root . '/ratelimit',
             logRetentionDays:       90,
             auditLogRetentionDays:  30,
-            rateLimitWindowSeconds: 60,
+            rateLimitMaxWindowSeconds: 60,
             convertTimeoutSeconds:  900,
             lockDir:                $this->root . '/tmp',
         );
@@ -128,6 +128,46 @@ final class GcTest extends TestCase
         self::assertSame(1, $report->rateLimitFiles);
         self::assertFileExists($fresh);
         self::assertFileDoesNotExist($stale);
+    }
+
+    /** A bucket collected before its window elapses stops enforcing its limit. */
+    public function testRateLimitCutScalesWithTheConfiguredWindow(): void
+    {
+        $gc = $this->makeGcWithMaxWindow(3600);
+
+        // Cut is 2 x 3600 = 7200s ago.
+        $withinWindow = $this->root . '/ratelimit/within.json';
+        $pastWindow   = $this->root . '/ratelimit/past.json';
+
+        file_put_contents($withinWindow, '{}');
+        file_put_contents($pastWindow, '{}');
+        touch($withinWindow, time() - 5_000);
+        touch($pastWindow, time() - 10_000);
+
+        $report = $gc->run();
+
+        self::assertSame(1, $report->rateLimitFiles);
+        self::assertFileExists(
+            $withinWindow,
+            'a bucket still inside its window must survive collection, or the limit it enforces resets'
+        );
+        self::assertFileDoesNotExist($pastWindow);
+    }
+
+    private function makeGcWithMaxWindow(int $seconds): Gc
+    {
+        return new Gc(
+            files:                     $this->files,
+            mappings:                  $this->mappings,
+            logger:                    new Logger($this->root . '/logs', 10_485_760, false),
+            logDir:                    $this->root . '/logs',
+            rateLimitDir:              $this->root . '/ratelimit',
+            logRetentionDays:          90,
+            auditLogRetentionDays:     30,
+            rateLimitMaxWindowSeconds: $seconds,
+            convertTimeoutSeconds:     900,
+            lockDir:                   $this->root . '/tmp',
+        );
     }
 
     public function testRotatedLogsPastRetentionAreRemoved(): void

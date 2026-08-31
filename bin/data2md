@@ -57,16 +57,16 @@ function makeGc(\Data2Md\Config\Config $config, string $dataDir): Gc
     $db->migrate();
 
     return new Gc(
-        files:                  new FileStorage($dataDir . '/md', $dataDir . '/tmp'),
-        mappings:               new MappingStorage($db),
-        logger:                 new Logger($dataDir . '/logs'),
-        logDir:                 $dataDir . '/logs',
-        rateLimitDir:           $dataDir . '/ratelimit',
-        logRetentionDays:       $config->int('LOG_RETENTION_DAYS'),
-        auditLogRetentionDays:  $config->int('AUDIT_LOG_RETENTION_DAYS'),
-        rateLimitWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
-        convertTimeoutSeconds:  $config->int('CONVERT_TIMEOUT_SECONDS'),
-        lockDir:                $dataDir . '/tmp',
+        files:                     new FileStorage($dataDir . '/md', $dataDir . '/tmp'),
+        mappings:                  new MappingStorage($db),
+        logger:                    new Logger($dataDir . '/logs'),
+        logDir:                    $dataDir . '/logs',
+        rateLimitDir:              $dataDir . '/ratelimit',
+        logRetentionDays:          $config->int('LOG_RETENTION_DAYS'),
+        auditLogRetentionDays:     $config->int('AUDIT_LOG_RETENTION_DAYS'),
+        rateLimitMaxWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
+        convertTimeoutSeconds:     $config->int('CONVERT_TIMEOUT_SECONDS'),
+        lockDir:                   $dataDir . '/tmp',
     );
 }
 
