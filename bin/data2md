@@ -10,6 +10,8 @@ declare(strict_types=1);
  *   docker compose exec app bin/data2md logs --tail=50
  */
 
+use Data2Md\Auth\LoginTokenStore;
+use Data2Md\Auth\SessionStore;
 use Data2Md\Log\Logger;
 use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
@@ -81,6 +83,12 @@ function makeGc(\Data2Md\Config\Config $config, string $dataDir): Gc
         rateLimitMaxWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
         convertTimeoutSeconds:     $config->int('CONVERT_TIMEOUT_SECONDS'),
         lockDir:                   $dataDir . '/tmp',
+        sessions:                  new SessionStore(
+            $db,
+            $config->int('SESSION_LIFETIME_DAYS'),
+            $config->int('SESSION_IDLE_DAYS'),
+        ),
+        loginTokens:               new LoginTokenStore($db, $config->int('LOGIN_TOKEN_TTL_SECONDS')),
     );
 }
 
@@ -146,9 +154,9 @@ switch ($command) {
         }
 
         foreach ($report->toArray() as $key => $count) {
-            fwrite(STDOUT, sprintf("%-18s %d\n", $key, $count));
+            fwrite(STDOUT, sprintf("%-22s %d\n", $key, $count));
         }
-        fwrite(STDOUT, sprintf("%-18s %d\n", 'total', $report->total()));
+        fwrite(STDOUT, sprintf("%-22s %d\n", 'total', $report->total()));
         exit(0);
 
     case 'delete':

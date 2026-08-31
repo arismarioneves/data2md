@@ -8,6 +8,8 @@ define('BASE_PATH', dirname(__DIR__));
 $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 
+use Data2Md\Auth\LoginTokenStore;
+use Data2Md\Auth\SessionStore;
 use Data2Md\Convert\ConversionPipeline;
 use Data2Md\Converter\MarkdownSanitizer;
 use Data2Md\Converter\PdfConverter;
@@ -110,7 +112,7 @@ $outcome = $pipeline->handle(
 // the client does not wait on this. A failure here is logged and swallowed:
 // there is no response left to fail.
 if ($config->float('GC_PROBABILITY') > 0.0) {
-    register_shutdown_function(static function () use ($config, $files, $mappings, $logger, $dataDir): void {
+    register_shutdown_function(static function () use ($config, $files, $mappings, $database, $logger, $dataDir): void {
         try {
             (new Gc(
                 files:                     $files,
@@ -123,6 +125,12 @@ if ($config->float('GC_PROBABILITY') > 0.0) {
                 rateLimitMaxWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
                 convertTimeoutSeconds:     $config->int('CONVERT_TIMEOUT_SECONDS'),
                 lockDir:                   $dataDir . '/tmp',
+                sessions:                  new SessionStore(
+                    $database,
+                    $config->int('SESSION_LIFETIME_DAYS'),
+                    $config->int('SESSION_IDLE_DAYS'),
+                ),
+                loginTokens:               new LoginTokenStore($database, $config->int('LOGIN_TOKEN_TTL_SECONDS')),
             ))->maybeRun($config->float('GC_PROBABILITY'));
         } catch (\Throwable $e) {
             $logger->app('gc.fail', ['reason' => $e::class, 'detail' => $e->getMessage()], 'error');

@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Data2Md\Storage;
 
+use Data2Md\Auth\LoginTokenStore;
+use Data2Md\Auth\SessionStore;
 use Data2Md\Log\Logger;
 
 /**
  * run() removes orphaned markdown, orphaned mappings, expired rate-limit
- * counters, rotated logs past retention, and stale temp files. It never
+ * counters, rotated logs past retention, stale temp files, and expired
+ * sessions and sign-in links. It never
  * removes a markdown file that still has a mapping record, regardless of
  * age, and it never removes a markdown file recent enough to still belong
  * to a conversion in progress. When a concurrent collection already holds
@@ -36,6 +39,8 @@ final class Gc
         private readonly int $rateLimitMaxWindowSeconds,
         private readonly int $convertTimeoutSeconds,
         private readonly string $lockDir,
+        private readonly ?SessionStore $sessions = null,
+        private readonly ?LoginTokenStore $loginTokens = null,
     ) {
     }
 
@@ -70,11 +75,13 @@ final class Gc
             $now = time();
 
             $report = new GcReport(
-                orphanMarkdown:  $this->collectOrphanMarkdown($now),
-                orphanMappings:  $this->collectOrphanMappings(),
-                rateLimitFiles:  $this->collectRateLimits($now),
-                rotatedLogs:     $this->collectRotatedLogs($now),
-                staleTempFiles:  $this->collectStaleTempFiles($now),
+                orphanMarkdown:     $this->collectOrphanMarkdown($now),
+                orphanMappings:     $this->collectOrphanMappings(),
+                rateLimitFiles:     $this->collectRateLimits($now),
+                rotatedLogs:        $this->collectRotatedLogs($now),
+                staleTempFiles:     $this->collectStaleTempFiles($now),
+                expiredSessions:    $this->sessions?->purgeExpired($now) ?? 0,
+                expiredLoginTokens: $this->loginTokens?->purgeExpired($now) ?? 0,
             );
 
             if ($report->total() > 0) {
