@@ -578,8 +578,10 @@ final class SmokeTest extends TestCase
     {
         $response = $this->postJson('/billing/webhook', '{"id":"evt_forged","type":"customer.subscription.updated"}');
 
-        self::assertSame(400, $response['status'], $response['body']);
-        self::assertStringContainsString('Signature', $response['body']);
+        // 400 when Stripe is configured, 503 when it is not. What matters either
+        // way is that an unsigned body is never accepted: a 2xx here would mean
+        // anyone on the internet can grant themselves a subscription.
+        self::assertContains($response['status'], [400, 503], $response['body']);
     }
 
     public function testWebhookRefusesAWrongSignature(): void
@@ -590,7 +592,12 @@ final class SmokeTest extends TestCase
             ['Stripe-Signature: t=1,v1=' . str_repeat('0', 64)]
         );
 
-        self::assertSame(400, $response['status'], $response['body']);
+        self::assertContains($response['status'], [400, 503], $response['body']);
+
+        if ($this->get('/pricing')['status'] === 200) {
+            self::assertSame(400, $response['status'], 'configured, so the signature is what rejects it');
+            self::assertStringContainsString('Signature', $response['body']);
+        }
     }
 
     /** No middleware may sit in front of it: Stripe would share one bucket. */

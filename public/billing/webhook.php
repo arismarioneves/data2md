@@ -45,12 +45,18 @@ $dataDir = $config->string('APP_DATA_DIR');
 $logger  = new Logger($dataDir . '/logs');
 $gateway = StripeGateway::fromConfig($config);
 
-if (!$gateway->hasWebhookSecret()) {
-    // 503 rather than 400: nothing about this delivery is wrong, so Stripe
-    // should keep the event and try again once the deployment is fixed.
-    $logger->app('billing.webhook.unconfigured', [], 'error');
+// Both are needed: the secret to verify the delivery, the key to read the
+// subscription back. 503 rather than 400, because nothing about the delivery
+// is wrong -- Stripe should keep the event and try again once the deployment
+// is fixed, rather than give up on a paid subscription.
+if (!$gateway->hasWebhookSecret() || !$gateway->hasSecretKey()) {
+    $logger->app('billing.webhook.unconfigured', [
+        'webhook_secret' => $gateway->hasWebhookSecret(),
+        'secret_key'     => $gateway->hasSecretKey(),
+    ], 'error');
+
     http_response_code(503);
-    echo "Webhook secret is not configured.\n";
+    echo "Stripe is not configured on this deployment.\n";
     exit;
 }
 

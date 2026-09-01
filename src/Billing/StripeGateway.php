@@ -31,22 +31,45 @@ final class StripeGateway implements SubscriptionReader, CustomerSubscriptionRea
     private const READ_TIMEOUT_SECONDS    = 15;
     private const NETWORK_RETRIES         = 1;
 
-    private readonly StripeClient $client;
+    private ?StripeClient $client = null;
 
     public function __construct(
         private readonly string $secretKey,
-        string $apiVersion,
+        private readonly string $apiVersion,
         private readonly string $webhookSecret = '',
     ) {
-        $curl = CurlClient::instance();
-        $curl->setConnectTimeout(self::CONNECT_TIMEOUT_SECONDS);
-        $curl->setTimeout(self::READ_TIMEOUT_SECONDS);
+    }
 
-        $this->client = new StripeClient([
-            'api_key'             => $secretKey,
-            'stripe_version'      => $apiVersion,
-            'max_network_retries' => self::NETWORK_RETRIES,
-        ]);
+    /**
+     * Built on first use, not in the constructor.
+     *
+     * Verifying a webhook signature is an HMAC over the request body and needs
+     * no API key, but the SDK refuses to construct a client without one. Built
+     * eagerly, that turned every request to the webhook into a fatal error on a
+     * deployment with billing switched off -- and the webhook is the one route
+     * that runs whatever the flags say, so that a paid subscription is never
+     * silently unrecorded.
+     */
+    private function client(): StripeClient
+    {
+        if ($this->client === null) {
+            $curl = CurlClient::instance();
+            $curl->setConnectTimeout(self::CONNECT_TIMEOUT_SECONDS);
+            $curl->setTimeout(self::READ_TIMEOUT_SECONDS);
+
+            $this->client = new StripeClient([
+                'api_key'             => $this->secretKey,
+                'stripe_version'      => $this->apiVersion,
+                'max_network_retries' => self::NETWORK_RETRIES,
+            ]);
+        }
+
+        return $this->client;
+    }
+
+    public function hasSecretKey(): bool
+    {
+        return $this->secretKey !== '';
     }
 
     public static function fromConfig(Config $config): self
@@ -92,7 +115,7 @@ final class StripeGateway implements SubscriptionReader, CustomerSubscriptionRea
     public function subscription(string $id): SubscriptionSnapshot
     {
         return SubscriptionSnapshot::fromArray(
-            $this->client->subscriptions->retrieve($id, [])->toArray()
+            $this->client()->subscriptions->retrieve($id, [])->toArray()
         );
     }
 
@@ -110,7 +133,7 @@ final class StripeGateway implements SubscriptionReader, CustomerSubscriptionRea
      */
     public function price(string $id): array
     {
-        return $this->client->prices
+        return $this->client()->prices
             ->retrieve($id, ['expand' => ['currency_options']])
             ->toArray();
     }
@@ -123,7 +146,7 @@ final class StripeGateway implements SubscriptionReader, CustomerSubscriptionRea
 
     public function createProduct(string $name, string $description): string
     {
-        return (string) $this->client->products->create([
+        return (string) $this->client()->products->create([
             'name'        => $name,
             'description' => $description,
         ])->id;
@@ -141,7 +164,7 @@ final class StripeGateway implements SubscriptionReader, CustomerSubscriptionRea
      */
     public function createMonthlyPrice(string $productId, int $usdCents, int $brlCents): array
     {
-        return $this->client->prices->create([
+        return $this->client()->prices->create([
             'product'          => $productId,
             'currency'         => PriceValidator::EXPECTED_CURRENCY,
             'unit_amount'      => $usdCents,
@@ -165,7 +188,7 @@ final class StripeGateway implements SubscriptionReader, CustomerSubscriptionRea
      */
     public function createCustomer(string $email, int $userId): string
     {
-        return (string) $this->client->customers->create([
+        return (string) $this->client()->customers->create([
             'email'    => $email,
             'metadata' => ['user_id' => (string) $userId],
         ])->id;
@@ -181,7 +204,7 @@ final class StripeGateway implements SubscriptionReader, CustomerSubscriptionRea
      */
     public function latestSubscriptionFor(string $customerId): ?SubscriptionSnapshot
     {
-        $subscriptions = $this->client->subscriptions->all([
+        $subscriptions = $this->client()->subscriptions->all([
             'customer' => $customerId,
             'status'   => 'all',
             'limit'    => 1,
@@ -237,13 +260,13 @@ final class StripeGateway implements SubscriptionReader, CustomerSubscriptionRea
             $params['customer_email'] = $email;
         }
 
-        return (string) $this->client->checkout->sessions->create($params)->url;
+        return (string) $this->client()->checkout->sessions->create($params)->url;
     }
 
     /** @throws ApiErrorException */
     public function createPortalSession(string $customerId, string $returnUrl): string
     {
-        return (string) $this->client->billingPortal->sessions->create([
+        return (string) $this->client()->billingPortal->sessions->create([
             'customer'   => $customerId,
             'return_url' => $returnUrl,
         ])->url;
@@ -252,6 +275,6 @@ final class StripeGateway implements SubscriptionReader, CustomerSubscriptionRea
     /** @return array<string,mixed> */
     public function account(): array
     {
-        return $this->client->accounts->retrieve()->toArray();
+        return $this->client()->accounts->retrieve()->toArray();
     }
 }
