@@ -27,6 +27,7 @@ use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
 use Data2Md\Storage\Gc;
 use Data2Md\Storage\MappingStorage;
+use Data2Md\Storage\StorageIdentity;
 
 if (PHP_SAPI !== 'cli') {
     exit(1);
@@ -615,6 +616,61 @@ switch ($command) {
         fwrite(STDOUT, $revoked ? "revoked the token for $email\n" : "$email has no token\n");
         exit($revoked ? 0 : 1);
 
+    case 'storage:check':
+        $identity = (new StorageIdentity($dataDir))->markAndRead();
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+
+        $accounts    = 0;
+        $conversions = 0;
+        $schema      = $db->version();
+
+        if ($schema > 0) {
+            $accounts    = (new UserStore($db))->count();
+            $conversions = (new MappingStorage($db))->count();
+        }
+
+        $logger = new Logger($dataDir . '/logs');
+
+        if ($identity['fresh']) {
+            // Loud, and an error: on any deploy but the first, this means the
+            // volume is not persisting and everything the service had is gone.
+            $logger->app('storage.fresh', [
+                'dir'    => $dataDir,
+                'schema' => $schema,
+            ], 'error');
+
+            fwrite(STDERR, "[data2md] WARNING: this data directory is new.\n");
+            fwrite(STDERR, "  If this is not the first deploy, no persistent volume is mounted at\n");
+            fwrite(STDERR, "  $dataDir, and the accounts and conversions the service had are gone.\n");
+            fwrite(STDERR, "  Docker mounts an anonymous volume when the host configures none, so a\n");
+            fwrite(STDERR, "  redeploy silently starts empty. See docs/DEPLOY.md section 6.\n");
+        } else {
+            $logger->app('storage.ok', [
+                'since'       => gmdate('c', $identity['since']),
+                'accounts'    => $accounts,
+                'conversions' => $conversions,
+            ]);
+        }
+
+        fwrite(STDOUT, sprintf(
+            "storage %s  in use since %s  schema %d  accounts %d  conversions %d\n",
+            $identity['fresh'] ? 'NEW' : 'persistent',
+            gmdate('Y-m-d H:i', $identity['since']),
+            $schema,
+            $accounts,
+            $conversions
+        ));
+
+        // Run by hand this reads "persistent" even right after a wipe, because
+        // the boot already wrote the marker. The deploy log is the answer.
+        fwrite(STDOUT, "the verdict that matters is the one at boot: data2md logs | grep storage
+");
+
+        // Never fatal: a first deploy is legitimate, and refusing to boot would
+        // turn a warning into an outage.
+        exit(0);
+
     case 'health':
         $checks = require BASE_PATH . '/src/health-checks.php';
 
@@ -645,6 +701,7 @@ switch ($command) {
           token:create <email>  issue or replace an account's API token
           token:revoke <email>  remove an account's API token
           logs [--channel=app|audit|mail] [--tail=N]
+          storage:check         report whether the data directory persisted
           health                run the same checks as GET /health
 
         Converted markdown is permanent. Only delete and prune remove it.
