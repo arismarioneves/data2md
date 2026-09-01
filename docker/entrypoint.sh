@@ -61,6 +61,12 @@ done
 # ── 5. Schema ─────────────────────────────────────────────────────────────────
 runuser -u www-data -- php /var/www/html/bin/data2md migrate
 
+# ── 6. Did the data survive the deploy? ───────────────────────────────────────
+# Not fatal: a first deploy legitimately starts empty. But a redeploy that
+# starts empty means no volume is mounted, and without this line nothing says
+# so -- a fresh database passes every check there is.
+runuser -u www-data -- php /var/www/html/bin/data2md storage:check
+
 echo "[data2md] ready — data dir $DATA_DIR, ${CONVERT_CONCURRENCY} conversion slot(s)"
 
 exec apache2-foreground
