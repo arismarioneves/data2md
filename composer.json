@@ -2,17 +2,28 @@
     "name": "data2md/data2md",
     "description": "Convert data files to Markdown format",
     "type": "project",
+    "license": "MIT",
     "require": {
-        "php": ">=8.3"
+        "php": ">=8.3",
+        "phpmailer/phpmailer": "^6.9",
+        "stripe/stripe-php": "^21.3"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.5"
     },
     "autoload": {
-        "psr-4": { "Data2Md\\": "src/" }
+        "psr-4": {
+            "Data2Md\\": "src/"
+        },
+        "files": [
+            "src/helpers.php",
+            "src/View/helpers.php"
+        ]
     },
     "autoload-dev": {
-        "psr-4": { "Data2Md\\Tests\\": "tests/" }
+        "psr-4": {
+            "Data2Md\\Tests\\": "tests/"
+        }
     },
     "config": {
         "optimize-autoloader": true,

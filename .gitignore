@@ -1,5 +1,9 @@
+/.env
+/.env.local
+/.env.producao
+/data.local.md
+
 /vendor/
-composer.lock
 
 /docs/superpowers/
 /docs/**/*.png
@@ -10,3 +14,4 @@ composer.lock
 /.claude/
 /.playwright-mcp/
 /.phpunit.cache/
+/.superpowers/

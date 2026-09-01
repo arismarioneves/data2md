@@ -1,0 +1,123 @@
+/* Sign-in — one card on paper. Extends landing.css tokens. */
+
+:root{
+  --danger:      #b3261e;
+  --danger-soft: #fdeceb;
+}
+
+.auth-main{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:calc(100dvh - 72px);
+  padding:3rem 0 5rem;
+}
+
+.auth-card{
+  position:relative;
+  max-width:440px;
+  margin-inline:auto;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  padding:2.75rem 2.25rem 2.5rem;
+  box-shadow:var(--shadow-lg);
+  text-align:center;
+}
+
+/* Same amber hairline the landing card carries. */
+.auth-card::before{
+  content:'';
+  position:absolute;
+  inset:-1px;
+  border-radius:inherit;
+  padding:1px;
+  background:linear-gradient(135deg, var(--accent-soft), transparent 40%, transparent 60%, var(--accent-soft));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+          mask-composite:exclude;
+  pointer-events:none;
+}
+
+.auth-icon{
+  width:58px;height:58px;
+  border-radius:50%;
+  background:var(--accent-soft);
+  color:var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 1.25rem;
+}
+
+.auth-h1{
+  font-family:var(--serif);
+  font-weight:500;
+  font-size:clamp(1.6rem,3.4vw,2.1rem);
+  letter-spacing:-.025em;
+  line-height:1.15;
+  color:var(--ink);
+  margin-bottom:.65rem;
+}
+.auth-h1 em{font-style:italic;color:var(--accent);font-weight:400}
+
+.auth-lead{
+  color:var(--muted);
+  font-size:.97rem;
+  line-height:1.6;
+  margin-bottom:1.75rem;
+}
+.auth-lead strong{color:var(--ink-2);font-weight:600}
+
+.auth-form{
+  display:flex;
+  flex-direction:column;
+  gap:.9rem;
+  text-align:left;
+}
+
+.auth-label{
+  font-family:var(--mono);
+  font-size:.68rem;
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  color:var(--muted);
+}
+
+.auth-input{
+  width:100%;
+  padding:.9rem 1rem;
+  font-family:inherit;
+  font-size:1rem;
+  color:var(--ink);
+  background:var(--paper-2);
+  border:1px solid var(--line-2);
+  border-radius:var(--r);
+  transition:border-color .15s, background .15s, box-shadow .2s;
+}
+.auth-input::placeholder{color:var(--faint)}
+.auth-input:focus{
+  outline:none;
+  background:var(--card);
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px var(--accent-tint);
+}
+
+.auth-submit{
+  width:100%;
+  margin-top:.35rem;
+}
+
+.auth-error{
+  background:var(--danger-soft);
+  color:var(--danger);
+  border-radius:var(--r);
+  padding:.7rem 1rem;
+  font-size:.9rem;
+  line-height:1.45;
+  margin-bottom:1.25rem;
+  text-align:left;
+}
+
+@media (max-width:520px){
+  .auth-card{padding:2.25rem 1.5rem 2rem}
+  .auth-main{min-height:auto;padding:2rem 0 4rem}
+}

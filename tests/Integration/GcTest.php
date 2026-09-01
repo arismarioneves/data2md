@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Data2Md\Tests\Integration;
 
+use Data2Md\Auth\LoginTokenStore;
+use Data2Md\Auth\SessionStore;
+use Data2Md\Auth\UserStore;
 use Data2Md\Log\Logger;
 use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
@@ -14,8 +17,11 @@ use PHPUnit\Framework\TestCase;
 final class GcTest extends TestCase
 {
     private string $root;
+    private Database $db;
     private FileStorage $files;
     private MappingStorage $mappings;
+    private SessionStore $sessions;
+    private LoginTokenStore $loginTokens;
     private Gc $gc;
 
     protected function setUp(): void
@@ -26,23 +32,27 @@ final class GcTest extends TestCase
             mkdir($this->root . '/' . $sub, 0770, true);
         }
 
-        $db = new Database($this->root . '/db/mappings.sqlite');
-        $db->migrate();
+        $this->db = new Database($this->root . '/db/mappings.sqlite');
+        $this->db->migrate();
 
-        $this->files    = new FileStorage($this->root . '/md', $this->root . '/tmp');
-        $this->mappings = new MappingStorage($db);
+        $this->files       = new FileStorage($this->root . '/md', $this->root . '/tmp');
+        $this->mappings    = new MappingStorage($this->db);
+        $this->sessions    = new SessionStore($this->db, 30, 14);
+        $this->loginTokens = new LoginTokenStore($this->db, 900);
 
         $this->gc = new Gc(
-            files:                  $this->files,
-            mappings:               $this->mappings,
-            logger:                 new Logger($this->root . '/logs', 10_485_760, false),
-            logDir:                 $this->root . '/logs',
-            rateLimitDir:           $this->root . '/ratelimit',
-            logRetentionDays:       90,
-            auditLogRetentionDays:  30,
-            rateLimitWindowSeconds: 60,
-            convertTimeoutSeconds:  900,
-            lockDir:                $this->root . '/tmp',
+            files:                     $this->files,
+            mappings:                  $this->mappings,
+            logger:                    new Logger($this->root . '/logs', 10_485_760, false),
+            logDir:                    $this->root . '/logs',
+            rateLimitDir:              $this->root . '/ratelimit',
+            logRetentionDays:          90,
+            auditLogRetentionDays:     30,
+            rateLimitMaxWindowSeconds: 60,
+            convertTimeoutSeconds:     900,
+            lockDir:                   $this->root . '/tmp',
+            sessions:                  $this->sessions,
+            loginTokens:               $this->loginTokens,
         );
     }
 
@@ -128,6 +138,66 @@ final class GcTest extends TestCase
         self::assertSame(1, $report->rateLimitFiles);
         self::assertFileExists($fresh);
         self::assertFileDoesNotExist($stale);
+    }
+
+    public function testExpiredSessionsAndSignInLinksAreCollected(): void
+    {
+        $userId = (new UserStore($this->db))->ensure('alice@example.com');
+        $past   = time() - (60 * 86400);
+
+        $live    = $this->sessions->create($userId);
+        $expired = $this->sessions->create($userId, $past);
+
+        $this->loginTokens->issue('alice@example.com');
+        $this->loginTokens->issue('alice@example.com', $past);
+
+        $report = $this->gc->run();
+
+        self::assertSame(1, $report->expiredSessions);
+        self::assertSame(1, $report->expiredLoginTokens);
+        self::assertNotNull($this->sessions->find($live), 'a live session survives');
+        self::assertNull($this->sessions->find($expired));
+        self::assertSame(1, $this->loginTokens->count());
+    }
+
+    /** A bucket collected before its window elapses stops enforcing its limit. */
+    public function testRateLimitCutScalesWithTheConfiguredWindow(): void
+    {
+        $gc = $this->makeGcWithMaxWindow(3600);
+
+        // Cut is 2 x 3600 = 7200s ago.
+        $withinWindow = $this->root . '/ratelimit/within.json';
+        $pastWindow   = $this->root . '/ratelimit/past.json';
+
+        file_put_contents($withinWindow, '{}');
+        file_put_contents($pastWindow, '{}');
+        touch($withinWindow, time() - 5_000);
+        touch($pastWindow, time() - 10_000);
+
+        $report = $gc->run();
+
+        self::assertSame(1, $report->rateLimitFiles);
+        self::assertFileExists(
+            $withinWindow,
+            'a bucket still inside its window must survive collection, or the limit it enforces resets'
+        );
+        self::assertFileDoesNotExist($pastWindow);
+    }
+
+    private function makeGcWithMaxWindow(int $seconds): Gc
+    {
+        return new Gc(
+            files:                     $this->files,
+            mappings:                  $this->mappings,
+            logger:                    new Logger($this->root . '/logs', 10_485_760, false),
+            logDir:                    $this->root . '/logs',
+            rateLimitDir:              $this->root . '/ratelimit',
+            logRetentionDays:          90,
+            auditLogRetentionDays:     30,
+            rateLimitMaxWindowSeconds: $seconds,
+            convertTimeoutSeconds:     900,
+            lockDir:                   $this->root . '/tmp',
+        );
     }
 
     public function testRotatedLogsPastRetentionAreRemoved(): void

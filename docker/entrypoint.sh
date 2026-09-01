@@ -45,7 +45,10 @@ EOF
 # Apache reads these from the environment via ${...} in the vhost.
 APACHE_LIMIT_REQUEST_BODY=$((POST_MAX * 1024 * 1024))
 APACHE_TIMEOUT=$REQUEST_CEILING
-export APACHE_LIMIT_REQUEST_BODY APACHE_TIMEOUT
+# Host portion of APP_URL, or localhost when it cannot be parsed.
+APACHE_SERVER_NAME=$(printf '%s' "${APP_URL}" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+.-]*://||' -e 's|[:/].*$||')
+[ -n "$APACHE_SERVER_NAME" ] || APACHE_SERVER_NAME=localhost
+export APACHE_LIMIT_REQUEST_BODY APACHE_TIMEOUT APACHE_SERVER_NAME
 
 # ── 4. External tools ─────────────────────────────────────────────────────────
 for binary in pdftotext nice ionice; do

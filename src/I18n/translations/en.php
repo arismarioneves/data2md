@@ -28,10 +28,11 @@ return [
     // ── Landing — meta ─────────────────────────────────────────
     'landing.title'     => '%s · Documents, distilled into Markdown',
     'landing.meta.desc' => 'Drop a PDF. Get clean, AI-ready Markdown. Built for large files, structure-preserving, and free to use.',
-    'og.image.alt'      => 'The data2md logo beside a sample of converted Markdown.',
+    'og.image.alt'      => 'The Data2MD logo beside a sample of converted Markdown.',
 
     // ── Landing — hero ─────────────────────────────────────────
     'landing.hero.eyebrow' => 'Free · No account · Up to %s',
+    'landing.hero.eyebrow.signedin' => 'Signed in · Up to %s',
     'landing.hero.title'   => 'Documents, <em>distilled</em> into Markdown.',
     'landing.hero.sub'     => 'Drop a PDF. Get clean, structured Markdown, ready to paste into ChatGPT, Claude, or any model. Large files welcome.',
     'landing.hero.cta'     => 'Convert a file',
@@ -72,16 +73,111 @@ return [
     'landing.perf.bench.sub'   => 'measured conversion times',
 
     // ── Landing — sign in ──────────────────────────────────────
-    'landing.signin.eyebrow' => '// coming soon',
+    'landing.signin.eyebrow' => '// accounts',
     'landing.signin.title'   => 'Save your <em>conversions</em>.',
-    'landing.signin.lead'    => 'Sign in to keep a private library of your converted documents, share download links and access them from anywhere.',
+    'landing.signin.lead'    => 'Sign in to keep a library of your converted documents, share download links and reach them from anywhere.',
     'landing.signin.card.title' => 'Create your library',
-    'landing.signin.card.lead'  => 'One click with Google. We\'ll never share your data — you decide when to delete each file.',
-    'landing.signin.btn'     => 'Continue with Google',
-    'landing.signin.tooltip' => 'Google sign-in is coming soon',
-    'landing.signin.soon'    => 'Authentication arriving soon',
+    'landing.signin.card.lead'  => 'Enter your e-mail and we send a single-use link. No password to remember or lose.',
+    'landing.signin.btn'     => 'Continue with e-mail',
     'landing.signin.or'      => 'or',
     'landing.signin.alt'     => 'Continue without an account',
+
+    // ── Sign in ────────────────────────────────────────────────
+    'auth.login.title'      => '%s · Sign in',
+    'auth.login.meta.desc'  => 'Sign in to Data2MD with a single-use link sent to your e-mail. No password to remember.',
+    'auth.login.eyebrow'    => '// sign in',
+    'auth.login.heading'    => 'Sign in with a <em>link</em>.',
+    'auth.login.lead'       => 'Enter your e-mail and we send a single-use link. There is no password, and signing in for the first time creates your account.',
+    'auth.login.email'      => 'E-mail address',
+    'auth.login.submit'     => 'Send the link',
+    'auth.login.bad_email'  => 'That does not look like an e-mail address.',
+    'auth.login.throttled'  => 'Too many requests for a link. Try again in a few minutes.',
+    'auth.login.sent.head'  => 'Check your inbox',
+    'auth.login.sent.body'  => 'If that address can receive mail, a sign-in link is on its way. It works once and expires in %d minutes.',
+    'auth.login.sent.again' => 'Use a different address',
+
+    'auth.confirm.head'     => 'Confirm sign-in',
+    'auth.confirm.body'     => 'This link signs you in as <strong>%s</strong>.',
+    'auth.confirm.btn'      => 'Sign in as %s',
+    'auth.confirm.other'    => 'You are already signed in as <strong>%s</strong>. Sign out first to use this link.',
+
+    'auth.dead.head'        => 'This link no longer works',
+    'auth.dead.body'        => 'A sign-in link works once and expires after %d minutes.',
+    'auth.dead.btn'         => 'Request a new link',
+
+    'auth.mail.subject'     => 'Sign in to %s',
+    'auth.mail.body'        => "Open this link to sign in to %s:\n\n%s\n\nIt works once and expires in %d minutes. If you did not ask for it, ignore this message.",
+
+    'nav.dashboard'         => 'Dashboard',
+    'nav.signout'           => 'Sign out',
+
+    // ── Dashboard ──────────────────────────────────────────────
+    'dash.title'            => '%s · Dashboard',
+    'dash.meta.desc'        => 'Your converted documents, ready to download or share.',
+    'dash.eyebrow'          => '// your library',
+    'dash.heading'          => 'Your <em>conversions</em>.',
+
+    'dash.account.head'     => 'Account',
+    'dash.account.since'    => 'Member since %s',
+
+    'dash.bill.head'        => 'Plan',
+    'dash.bill.plan.free'   => 'Free',
+    'dash.bill.plan.premium' => 'Premium',
+    'dash.bill.renews'      => 'Renews %s',
+    'dash.bill.ends'        => 'Ends %s',
+    'dash.bill.active'      => 'Your subscription is active.',
+    'dash.bill.cancelling'  => 'Cancelled. Access continues to the end of the period you have paid for.',
+    'dash.bill.granted'     => 'Premium access, granted directly rather than through a subscription.',
+    'dash.bill.free.head'   => 'Free plan',
+    'dash.bill.free.sub'    => 'Up to %s per file, and no API access.',
+    'dash.bill.subscribe'   => 'Subscribe',
+    'dash.bill.manage'      => 'Manage billing',
+    'dash.bill.compare'     => 'What each plan includes is on the %s page.',
+    'dash.bill.thanks'      => 'Thank you. Your subscription is being confirmed; this page updates once it is.',
+    'dash.bill.already'     => 'This account already has an active subscription. Use Manage billing to change it.',
+    'dash.bill.nothing'     => 'There is nothing billed on this account yet.',
+    'dash.bill.error'       => 'The billing page could not be opened. Please try again shortly.',
+
+    'dash.api.head'         => 'API access',
+    'dash.api.limits'       => '%d call(s) / %d s · up to %s',
+    'dash.api.none'         => 'No token yet',
+    'dash.api.none.sub'     => 'A token is what lets a script call the API on this account.',
+    'dash.api.create'       => 'Create token',
+    'dash.api.rotate'       => 'Generate new',
+    'dash.api.rotate.confirm' => 'Generate a new token? The current one stops working immediately.',
+    'dash.api.revoke'       => 'Revoke',
+    'dash.api.revoke.confirm' => 'Revoke this token? Anything using it stops working immediately.',
+    'dash.api.issued'       => 'Token created. Copy it now.',
+    'dash.api.revoked'      => 'Token revoked.',
+    'dash.api.once'         => 'Copy it now — it is stored hashed and cannot be shown again.',
+    'dash.api.copy'         => 'Copy',
+    'dash.api.created'      => 'Created %s',
+    'dash.api.used'         => 'last used %s',
+    'dash.api.unused'       => 'never used',
+    'dash.api.locked'       => 'The API is part of the subscription. A token works for %s either way, but conversions answer 403 until this account has one.',
+    'dash.api.docs'         => 'Endpoints, errors and examples are in the %s reference.',
+
+    'dash.files.head'       => 'Files',
+    'dash.files.count'      => '%d converted',
+    'dash.files.note'       => 'A download link works for anyone who has it. Delete a file to stop the link working.',
+    'dash.empty.head'       => 'Nothing here yet',
+    'dash.empty.body'       => 'Convert a document while signed in and it shows up here.',
+    'dash.empty.cta'        => 'Convert a document',
+
+    'dash.col.name'         => 'File',
+    'dash.col.size'         => 'Size',
+    'dash.col.date'         => 'Converted',
+    'dash.download'         => 'Download',
+    'dash.copy'             => 'Copy link',
+    'dash.copied'           => 'Copied',
+    'dash.delete'           => 'Delete',
+    'dash.delete.confirm'   => 'Delete this file? The download link stops working for everyone who has it.',
+    'dash.deleted'          => 'File deleted.',
+    'dash.delete.failed'    => 'That file is not yours, or no longer exists.',
+
+    'dash.newer'            => 'Newer',
+    'dash.older'            => 'Older',
+    'dash.page'             => 'Page %d of %d',
 
     // ── Converter (/app) ───────────────────────────────────────
     'app.title'           => '%s · Convert',
@@ -135,12 +231,63 @@ return [
     'app.tip.3' => 'Markdown files diff cleanly in Git, great for tracking document changes over time.',
     'app.tip.4' => 'Structured headings help AI models locate and cite specific sections accurately.',
 
+    // ── Pricing (/pricing) ─────────────────────────────────────
+    'nav.pricing'          => 'Pricing',
+
+    'price.title'          => '%s · Pricing',
+    'price.meta.desc'      => 'Free for manual conversions. A subscription raises the size limit and opens the HTTP API.',
+    'price.eyebrow'        => '// plans',
+    'price.heading'        => 'Convert for <em>free</em>. Subscribe for scale.',
+    'price.lead'           => 'The converter on this site stays free, with no account needed. A subscription is for larger documents and for calling the API from your own code.',
+
+    'price.free.name'      => 'Free',
+    'price.free.amount'    => 'No charge',
+    'price.free.sub'       => 'No card, and no account unless you want your conversions listed.',
+    'price.free.f1'        => 'Up to %s per file without signing in',
+    'price.free.f2'        => 'Up to %s per file with an account',
+    'price.free.f3'        => 'Your conversions listed, downloadable and deletable',
+    'price.free.f4'        => 'No API access',
+
+    'price.premium.badge'  => 'Subscription',
+    'price.premium.name'   => 'Premium',
+    'price.premium.currency' => 'Charged in the currency of the country your card is issued in. Both amounts are shown so there is no surprise at checkout.',
+    'price.premium.f1'     => 'Up to %s per file',
+    'price.premium.f2'     => 'HTTP API, %d request(s) per %d seconds',
+    'price.premium.f3'     => 'An API token you can rotate or revoke at any time',
+    'price.premium.f4'     => 'Cancel whenever you like, from your own billing page',
+
+    'price.per.month'      => '/month',
+
+    'price.cta.subscribe'  => 'Subscribe',
+    'price.cta.note'       => 'Payment is handled by Stripe. Card details never reach this site.',
+    'price.cta.manage'     => 'Manage billing',
+    'price.cta.current'    => 'This is your current plan.',
+    'price.cta.signin'     => 'Sign in to subscribe',
+    'price.cta.signin.note' => 'A subscription belongs to an account, so signing in comes first.',
+
+    'price.flash.cancelled' => 'Checkout was cancelled. Nothing was charged.',
+    'price.flash.error'    => 'The payment page could not be opened. Please try again shortly.',
+
+    'price.faq.head'       => 'Before you subscribe',
+    'price.faq.q1'         => 'Which currency am I charged in?',
+    'price.faq.a1'         => 'Stripe decides from where your card was issued, not from the language this site is in. A Brazilian card is charged in reais; cards from elsewhere are charged in US dollars. Reading this page in English does not change what you pay.',
+    'price.faq.q2'         => 'What happens if I cancel?',
+    'price.faq.a2'         => 'Access continues to the end of the period you have already paid for, then the account returns to the free plan. Nothing you converted is deleted.',
+    'price.faq.q3'         => 'Do I need a subscription to convert files?',
+    'price.faq.a3'         => 'No. The converter on this site is free. A subscription raises the size limit and is what opens the HTTP API.',
+    'price.faq.q4'         => 'Where do my card details go?',
+    'price.faq.a4'         => 'To Stripe, on a page they host. This site never sees or stores a card number.',
+
     // ── API docs (/api) ────────────────────────────────────────
     'api.title'      => '%s · API Reference',
-    'api.meta.desc'  => 'REST endpoint for converting PDFs to Markdown: one POST, a JSON response, and the rate limits documented in full.',
+    'api.meta.desc'  => 'REST endpoint for converting PDFs to Markdown: one authenticated POST, a JSON response, and the rate limits documented in full.',
     'api.eyebrow'    => '// rest api',
     'api.heading'    => 'API <em>Reference</em>',
-    'api.lead'       => 'Integrate %s into your workflow with a single HTTP POST. Max %s per request.',
+    'api.lead'       => 'Integrate %s into your workflow with a single HTTP POST. Included with a subscription; up to %s per request.',
+
+    'api.section.auth' => 'Authentication',
+    'api.auth.body'    => 'Every request carries a token in an <code>Authorization</code> header. Tokens belong to an account with an active subscription and are created in your <a href="/dashboard">dashboard</a>.',
+    'api.auth.rotate'  => 'A token is shown once and stored only as a hash, so treat it like a password. Generating a new one replaces the previous token immediately.',
 
     'api.section.endpoint' => 'Endpoint',
     'api.endpoint.ct'      => 'Content-Type: <code>multipart/form-data</code>',
@@ -160,15 +307,33 @@ return [
     'api.success.note'      => '<code>preview</code> contains up to ~8 KB of Markdown trimmed at a line boundary. <code>preview_truncated</code> tells you whether the file is larger; fetch the full document via <code>download_url</code>.',
     'api.section.error'     => 'Error response',
     'api.tag.error'         => '4xx · 5xx',
+    'api.error.note'        => 'Every error carries <code>success: false</code> and a readable <code>message</code>. Where a <code>code</code> is listed, branch on the code rather than on the message text.',
+    'api.errors.col.status'  => 'Status',
+    'api.errors.col.code'    => 'Code',
+    'api.errors.col.meaning' => 'Meaning',
+    'api.error.token_required' => 'No <code>Authorization</code> header, or one that is not a bearer token.',
+    'api.error.token_invalid'  => 'The token does not exist — it was replaced, revoked, or its account was deleted.',
+    'api.error.plan_required'  => 'A valid token on an account with no active subscription.',
+    'api.error.unprocessable'  => 'The file was rejected: wrong type, over the size limit, or no text layer to extract.',
+    'api.error.throttled'      => 'The rate limit is spent. <code>Retry-After</code> says how many seconds to wait.',
+    'api.error.unavailable'    => 'Every conversion slot is busy, or this deployment has accounts switched off.',
 
     'api.section.rate'      => 'Rate limits',
-    'api.rate.body'         => '%d requests per minute per IP. Exceeding returns <code>429 Too Many Requests</code> with a <code>Retry-After: %d</code> header.',
+    'api.rate.body'         => '%d request(s) per %d seconds, counted per account and separately from what the same account converts on the website. Exceeding returns <code>429 Too Many Requests</code>.',
+    'api.rate.headers'      => 'Conversion and <code>/api/me</code> responses carry <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code> and <code>X-RateLimit-Reset</code>, a Unix timestamp. A <code>429</code> adds <code>Retry-After</code> in seconds.',
+
+    'api.section.me' => 'Checking an account',
+    'api.me.body'    => 'Returns the plan behind a token, the limits that apply to it, and how much of the current window is left.',
+    'api.me.note'    => 'It works on any plan and is not rate limited, so a <code>403</code> from a conversion can always be explained: read <code>api_access</code> and <code>plan</code>.',
 
     'api.section.examples'  => 'Examples',
     'api.copy'              => 'Copy',
     'api.copied'            => 'Copied',
 
     // ── Queue / retry ──────────────────────────────────────────
+    'app.error.toobig'      => 'That file is larger than %s.',
+    'app.error.toobig.anon' => 'Sign in for a bigger limit, or subscribe for the largest.',
+    'app.error.toobig.free' => 'Subscribe to convert files up to the largest size.',
     'app.error.busy'      => 'The server is converting other documents right now. Retrying in %s s…',
     'app.status.queued'   => 'Queued…',
     'app.status.retrying' => 'Retrying (%s of %s)…',
@@ -176,55 +341,76 @@ return [
     // ── Legal pages ────────────────────────────────────────────
     'nav.terms'          => 'Terms',
     'nav.privacy'        => 'Privacy',
-    'legal.updated'      => 'Last updated 18 August 2026.',
+    'legal.updated'      => 'Last updated 31 August 2026.',
 
     'legal.terms.title'   => '%s — Terms of use',
     'legal.terms.meta'    => 'Conditions for using the document-to-Markdown conversion service.',
     'legal.terms.heading' => 'Terms of use',
 
-    'legal.terms.s1.h' => 'The service',
-    'legal.terms.s1.b' => 'data2md converts uploaded documents into Markdown text. It is free to use and requires no account.',
+    'legal.terms.service.h' => 'The service',
+    'legal.terms.service.b' => 'Data2MD converts documents into Markdown text. The converter on this site is free to use. An account raises the file size limit; a paid subscription raises it further and is what opens the HTTP API.',
 
-    'legal.terms.s2.h' => 'Your responsibility',
-    'legal.terms.s2.b' => 'You are responsible for what you upload. By using the service you confirm you have the right to process that content. Do not upload unlawful material or content you are not authorised to handle.',
+    'legal.terms.accounts.h' => 'Accounts',
+    'legal.terms.accounts.b' => 'An account is optional. Signing in works through a single-use link sent to your e-mail address, so there is no password to choose or lose. An account lists the conversions you made while signed in, so you can download, share or delete them. Because the link is what proves the account is yours, keeping access to that mailbox is your responsibility. To close an account, write to <a href="mailto:%4$s">%4$s</a>.',
 
-    'legal.terms.s3.h' => 'Usage limits',
-    'legal.terms.s3.b' => 'Each file may be at most %s, and there is a limit of %s conversions per minute per source address. These limits keep the service available to everyone and may change without notice.',
+    'legal.terms.conduct.h' => 'Your responsibility',
+    'legal.terms.conduct.b' => 'You are responsible for what you upload. By using the service you confirm you have the right to process that content. Do not upload unlawful material or content you are not authorised to handle.',
 
-    'legal.terms.s4.h' => 'Availability and results',
-    'legal.terms.s4.b' => 'The service is provided as is, with no guarantee of continuous availability or of conversion fidelity. Documents with no text layer — scanned images, for instance — cannot be converted. Check the result before relying on it for anything that depends on accuracy.',
+    'legal.terms.limits.h' => 'Usage limits',
+    'legal.terms.limits.b' => 'File size and how often you may convert both depend on whether you are signed in and whether you subscribe. Without an account the limit is %1$s per file; with a free account, %2$s; with a subscription, %3$s. A limit on how often you may convert also applies, counted per address for anonymous use and per account otherwise. These limits keep the service available to everyone and may change without notice.',
 
-    'legal.terms.s5.h' => 'Content removal',
-    'legal.terms.s5.b' => 'We may remove any conversion at any time, including for operational reasons, without prior notice.',
+    'legal.terms.subscription.h' => 'Subscription and payment',
+    'legal.terms.subscription.b' => 'A subscription is monthly and renews automatically until cancelled. Payment is handled by Stripe, on a page they host: card details are never sent to or stored by this site. The charge is made in the currency of the country your card was issued in, and both amounts are shown on the plans page before you start.',
 
-    'legal.terms.s6.h' => 'Changes to these terms',
-    'legal.terms.s6.b' => 'These terms may change. The version in force is always the one published on this page. Questions: <a href="mailto:%3$s">%3$s</a>.',
+    'legal.terms.cancel.h' => 'Cancelling',
+    'legal.terms.cancel.b' => 'You can cancel at any time from the billing page linked in your dashboard. Cancelling stops future renewals; subscription features stay available to the end of the period already paid for, and the account then returns to the free plan. Nothing you converted is deleted by cancelling. For anything about a specific charge, write to <a href="mailto:%4$s">%4$s</a>.',
+
+    'legal.terms.availability.h' => 'Availability and results',
+    'legal.terms.availability.b' => 'The service is provided as is, with no guarantee of continuous availability or of conversion fidelity. Documents with no text layer — scanned images, for instance — cannot be converted. Check the result before relying on it for anything that depends on accuracy.',
+
+    'legal.terms.api.h' => 'The API',
+    'legal.terms.api.b' => 'The HTTP API is part of the subscription and is used with a token created in your dashboard. Treat the token like a password: anything done with it counts as done by your account. You can replace or revoke it at any time, and the previous token stops working immediately.',
+
+    'legal.terms.removal.h' => 'Content and account removal',
+    'legal.terms.removal.b' => 'We may remove any conversion at any time, including for operational reasons, without prior notice. We may also suspend an account being used in a way that threatens the availability of the service for others.',
+
+    'legal.terms.changes.h' => 'Changes to these terms',
+    'legal.terms.changes.b' => 'These terms may change. The version in force is always the one published on this page. Questions: <a href="mailto:%4$s">%4$s</a>.',
 
     'legal.privacy.title'   => '%s — Privacy',
-    'legal.privacy.meta'    => 'What the service keeps, for how long, and how to request deletion.',
+    'legal.privacy.meta'    => 'What the service keeps, for how long, and how to have it deleted.',
     'legal.privacy.heading' => 'Privacy',
 
-    'legal.privacy.s1.h' => 'Who is responsible',
-    'legal.privacy.s1.b' => 'data2md is responsible for handling the data described on this page. Contact: <a href="mailto:%3$s">%3$s</a>.',
+    'legal.privacy.controller.h' => 'Who is responsible',
+    'legal.privacy.controller.b' => 'Data2MD is responsible for handling the data described on this page. Contact: <a href="mailto:%4$s">%4$s</a>.',
 
-    'legal.privacy.s2.h' => 'The file you upload',
-    'legal.privacy.s2.b' => '<strong>It is deleted from the server right after conversion</strong>, including when the conversion fails. It is used only to extract the text and is not retained.',
+    'legal.privacy.upload.h' => 'The file you upload',
+    'legal.privacy.upload.b' => '<strong>It is deleted from the server right after conversion</strong>, including when the conversion fails. It is used only to extract the text and is not retained.',
 
-    'legal.privacy.s3.h' => 'The Markdown produced',
-    'legal.privacy.s3.b' => 'It is kept and reachable through the download link <strong>until it is deleted</strong>. It does not expire on its own.',
+    'legal.privacy.markdown.h' => 'The Markdown produced',
+    'legal.privacy.markdown.b' => 'It is kept and reachable through the download link <strong>until it is deleted</strong>. It does not expire on its own.',
 
-    'legal.privacy.s4.h' => 'The file name',
-    'legal.privacy.s4.b' => 'It is stored alongside the conversion, because it is what names the file you download. If your file name contains personal data, that data is kept for as long as the conversion exists.',
+    'legal.privacy.filename.h' => 'The file name',
+    'legal.privacy.filename.b' => 'It is stored alongside the conversion, because it is what names the file you download. If your file name contains personal data, that data is kept for as long as the conversion exists.',
 
-    'legal.privacy.s5.h' => 'IP address',
-    'legal.privacy.s5.b' => 'It is recorded for security and to enforce the usage limit. In the operational record the address is stored in reduced form, without its final part. In the access record the full address is kept for up to 30 days and then deleted.',
+    'legal.privacy.account.h' => 'Account data',
+    'legal.privacy.account.b' => 'If you create an account, your e-mail address is stored, together with the records that keep you signed in and a record of each conversion you make while signed in. The address is used to send sign-in links and, where relevant, messages about your subscription. It is not used for marketing and is not shared.',
 
-    'legal.privacy.s6.h' => 'Who can reach your conversion',
-    'legal.privacy.s6.b' => 'Anyone holding the download link. The link contains a random identifier and is not listed anywhere, but <strong>do not share links to sensitive documents</strong>.',
+    'legal.privacy.payment.h' => 'Payment data',
+    'legal.privacy.payment.b' => 'Payments are processed by Stripe, acting as our payment processor. Stripe receives what it needs to take the payment; we receive back an identifier for your customer record and the state of your subscription — its status, which price it is on, and when the current period ends. Card numbers are never sent to or stored by this site. Stripe handles what it receives under its own terms, published at <a href="https://stripe.com/privacy" rel="noopener noreferrer" target="_blank">stripe.com/privacy</a>.',
 
-    'legal.privacy.s7.h' => 'Cookies',
-    'legal.privacy.s7.b' => 'We use a single cookie, to remember the language you picked. There is no tracking, no behavioural analytics and no advertising.',
+    'legal.privacy.token.h' => 'API token',
+    'legal.privacy.token.b' => 'An API token is stored only as a cryptographic hash, so the token itself cannot be read back from our records by anyone, including us. What is kept beside it is enough to recognise which token you are looking at and not enough to use it. We also record when it was last used, so you can tell whether it is still in service.',
 
-    'legal.privacy.s8.h' => 'Requesting deletion',
-    'legal.privacy.s8.b' => 'Write to <a href="mailto:%3$s">%3$s</a> with the identifier shown in the download link. The conversion and its record are deleted.',
+    'legal.privacy.ip.h' => 'IP address',
+    'legal.privacy.ip.b' => 'It is recorded for security and to enforce the usage limit. In the operational record the address is stored in reduced form, without its final part. In the access record the full address is kept for up to 30 days and then deleted.',
+
+    'legal.privacy.reach.h' => 'Who can reach your conversion',
+    'legal.privacy.reach.b' => 'Anyone holding the download link. The link contains a random identifier and is not listed anywhere, but <strong>do not share links to sensitive documents</strong>.',
+
+    'legal.privacy.cookies.h' => 'Cookies',
+    'legal.privacy.cookies.b' => 'We use two cookies: one to remember the language you picked, and one to keep you signed in, which exists only while you have an account session. There is no tracking, no behavioural analytics and no advertising.',
+
+    'legal.privacy.deletion.h' => 'Deleting your data',
+    'legal.privacy.deletion.b' => 'You can delete any conversion yourself from your dashboard, which removes the Markdown and its record, and the download link then stops working for everyone who has it. For a conversion made without an account, write to <a href="mailto:%4$s">%4$s</a> with the identifier shown in the download link. To close an account, write to the same address: the account and its sign-in records are removed, and <strong>its conversions are detached from it rather than deleted</strong> — so delete anything you want gone before closing the account.',
 ];

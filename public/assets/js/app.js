@@ -27,6 +27,15 @@ function trf(key, fallback) {
     return template.replace(/%s/g, function () { return args[i++]; });
 }
 
+function maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
 (function () {
     var form        = document.getElementById('upload-form');
     var fileInput   = document.getElementById('file-input');
@@ -113,6 +122,16 @@ function trf(key, fallback) {
     });
 
     function sendUpload(file) {
+        var limit = maxUploadBytes();
+
+        if (limit > 0 && file.size > limit) {
+            showErrors([
+                trf('app.error.toobig', 'That file is larger than %s.', maxSizeLabel()),
+                (window.D2MD && window.D2MD.sizeHint) || ''
+            ].filter(Boolean));
+            if (fileInput) { fileInput.value = ''; }
+            return;
+        }
         var fakeTimer = null;
         var fakePct   = 65;
 
@@ -142,7 +161,16 @@ function trf(key, fallback) {
         ];
         xhr.upload.addEventListener('load', function () {
             overlaySet(convertMsgs[0], 65);
-            fakeTimer = setInterval(function () {
+            fakeTimer = setIntervalfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () {
                 fakePct = Math.min(fakePct + 0.4, 93);
                 var msgIdx = Math.min(
                     Math.floor(((fakePct - 65) / 28) * convertMsgs.length),
@@ -154,7 +182,7 @@ function trf(key, fallback) {
 
         // Response received
         xhr.addEventListener('load', function () {
-            if ((xhr.status === 503 || xhr.status === 429) && retryCount < MAX_RETRIES) {
+            if (xhr.status === 503 && retryCount < MAX_RETRIES) {
                 clearInterval(fakeTimer);
 
                 var retryAfter = parseInt(xhr.getResponseHeader('Retry-After'), 10);
@@ -169,7 +197,16 @@ function trf(key, fallback) {
                 };
                 tick();
 
-                var ticker = setInterval(function () {
+                var ticker = setIntervalfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () {
                     remaining--;
                     if (remaining > 0) { tick(); return; }
 
@@ -188,8 +225,24 @@ function trf(key, fallback) {
             try { data = JSON.parse(xhr.responseText); }
             catch (_) { data = null; }
 
+            if (!data && xhr.status === 413) {
+                clearInterval(fakeTimer);
+                overlayHide();
+                showErrors([trf('app.error.toobig', 'That file is larger than %s.', maxSizeLabel())]);
+                return;
+            }
+
             // Brief pause so the 100% bar is visible
-            setTimeout(function () {
+            setTimeoutfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () {
                 overlayHide();
                 if (data && data.success) {
                     showResult(data);
@@ -215,7 +268,7 @@ function trf(key, fallback) {
         });
 
         xhr.timeout = D2MD.timeout;
-        xhr.open('POST', '/api');
+        xhr.open('POST', '/convert');
         xhr.send(fd);
     }
 
@@ -320,13 +373,40 @@ function trf(key, fallback) {
         if (!tipEl) return;
         var idx = Math.floor(Math.random() * tips.length);
         tipEl.style.opacity = '0';
-        setTimeout(function () {
+        setTimeoutfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () {
             tipEl.textContent = tips[idx];
             tipEl.style.opacity = '1';
         }, 50);
-        tipTimer = setInterval(function () {
+        tipTimer = setIntervalfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () {
             tipEl.style.opacity = '0';
-            setTimeout(function () {
+            setTimeoutfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () {
                 idx = (idx + 1) % tips.length;
                 tipEl.textContent = tips[idx];
                 tipEl.style.opacity = '1';
@@ -411,12 +491,39 @@ function copyMarkdown() {
         btn.disabled = false;
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(text)
-                .then(function () { flashCopied(btn, orig); })
-                .catch(function () { legacyCopy(text, btn, orig); });
+                .thenfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () { flashCopied(btn, orig); })
+                .catchfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () { legacyCopy(text, btn, orig); });
         } else {
             legacyCopy(text, btn, orig);
         }
-    }).catch(function () {
+    }).catchfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () {
         btn.disabled = false;
         btn.textContent = orig;
         showErrors([tr('app.error.network', 'Network error. Please check your connection and try again.')]);
@@ -438,7 +545,16 @@ function flashCopied(btn, origLabel) {
     var orig = origLabel || btn.textContent;
     btn.textContent = tr('app.result.copied', 'Copied!');
     btn.style.color = '#ea580c';
-    setTimeout(function () { btn.textContent = orig; btn.style.color = ''; }, 2000);
+    setTimeoutfunction maxUploadBytes() {
+    var n = window.D2MD && window.D2MD.maxBytes;
+    return (typeof n === 'number' && n > 0) ? n : 0;
+}
+
+function maxSizeLabel() {
+    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
+}
+
+(function () { btn.textContent = orig; btn.style.color = ''; }, 2000);
 }
 
 document.addEventListener('DOMContentLoaded', function () {

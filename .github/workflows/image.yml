@@ -34,6 +34,15 @@ jobs:
           docker compose run --rm test sh -c \
             "composer install --no-interaction && vendor/bin/phpunit"
 
+      # The image build already runs `composer validate --strict`, which fails on
+      # a lock that drifted from composer.json. This is the other half: known
+      # advisories in the pinned versions. It matters now that real runtime
+      # dependencies handle payments and SMTP credentials.
+      - name: Audit dependencies for known advisories
+        run: |
+          docker compose run --rm test sh -c \
+            "composer install --no-interaction && composer audit"
+
   smoke:
     name: Smoke test the app image
     needs: test
@@ -66,9 +75,30 @@ jobs:
           docker compose logs app
           exit 1
 
+      # POST /api is subscriber-only, and a token belongs to an account. Nothing
+      # reachable over HTTP can mint one: that needs the sign-in link, which
+      # lands in this container's own logs. So the tokens come from the operator
+      # CLI and go in as test input. Without this step the 403-by-plan and
+      # 201-with-subscription cases only ever skip, which is the whole point of
+      # the phase going untested.
+      - name: Mint API tokens for the smoke test
+        run: |
+          token() {
+            docker compose exec -T app bin/data2md token:create "$1" \
+              | grep -o 'd2md_[0-9a-f]\{48\}'
+          }
+
+          echo "D2MD_API_TOKEN_FREE=$(token free@smoke.test)" >> "$GITHUB_ENV"
+
+          # token:create makes the account, so the grant comes after it.
+          premium=$(token premium@smoke.test)
+          docker compose exec -T app bin/data2md user:premium premium@smoke.test --days=1
+          echo "D2MD_API_TOKEN_PREMIUM=$premium" >> "$GITHUB_ENV"
+
       - name: Run SmokeTest against the running container
         run: |
-          docker compose run --rm -e D2MD_BASE_URL=http://app test sh -c \
+          docker compose run --rm -e D2MD_BASE_URL=http://app \
+            -e D2MD_API_TOKEN_FREE -e D2MD_API_TOKEN_PREMIUM test sh -c \
             "composer install --no-interaction && vendor/bin/phpunit --filter SmokeTest"
 
       - name: Dump app logs on failure

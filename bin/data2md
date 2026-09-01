@@ -10,7 +10,19 @@ declare(strict_types=1);
  *   docker compose exec app bin/data2md logs --tail=50
  */
 
+use Data2Md\Auth\ApiTokenStore;
+use Data2Md\Auth\LoginTokenStore;
+use Data2Md\Auth\SessionStore;
+use Data2Md\Auth\UserStore;
+use Data2Md\Billing\Entitlement;
+use Data2Md\Billing\BillingStore;
+use Data2Md\Billing\EntitlementWriter;
+use Data2Md\Billing\PriceValidator;
+use Data2Md\Billing\Reconciler;
+use Data2Md\Billing\StripeGateway;
+use Data2Md\Billing\WebhookEventStore;
 use Data2Md\Log\Logger;
+use Data2Md\Mail\Mailer;
 use Data2Md\Storage\Database;
 use Data2Md\Storage\FileStorage;
 use Data2Md\Storage\Gc;
@@ -39,35 +51,98 @@ function option(array $argv, string $name, string $default): string
     return $default;
 }
 
+/**
+ * Migration belongs to `data2md migrate`, which the entrypoint runs. Read and
+ * maintenance commands only report a missing schema.
+ */
+function requireSchema(Database $db): void
+{
+    if ($db->version() !== 0) {
+        return;
+    }
+
+    fwrite(STDERR, "database has no schema yet — run: data2md migrate\n");
+    exit(1);
+}
+
 /** Shared by gc, delete and prune, so the three can never drift apart. */
 function makeGc(\Data2Md\Config\Config $config, string $dataDir): Gc
 {
     $db = new Database($dataDir . '/db/mappings.sqlite');
-    $db->migrate();
+    requireSchema($db);
 
     return new Gc(
-        files:                  new FileStorage($dataDir . '/md', $dataDir . '/tmp'),
-        mappings:               new MappingStorage($db),
-        logger:                 new Logger($dataDir . '/logs'),
-        logDir:                 $dataDir . '/logs',
-        rateLimitDir:           $dataDir . '/ratelimit',
-        logRetentionDays:       $config->int('LOG_RETENTION_DAYS'),
-        auditLogRetentionDays:  $config->int('AUDIT_LOG_RETENTION_DAYS'),
-        rateLimitWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
-        convertTimeoutSeconds:  $config->int('CONVERT_TIMEOUT_SECONDS'),
-        lockDir:                $dataDir . '/tmp',
+        files:                     new FileStorage($dataDir . '/md', $dataDir . '/tmp'),
+        mappings:                  new MappingStorage($db),
+        logger:                    new Logger($dataDir . '/logs'),
+        logDir:                    $dataDir . '/logs',
+        rateLimitDir:              $dataDir . '/ratelimit',
+        logRetentionDays:          $config->int('LOG_RETENTION_DAYS'),
+        auditLogRetentionDays:     $config->int('AUDIT_LOG_RETENTION_DAYS'),
+        rateLimitMaxWindowSeconds: \Data2Md\rate_limit_max_window_seconds($config),
+        convertTimeoutSeconds:     $config->int('CONVERT_TIMEOUT_SECONDS'),
+        lockDir:                   $dataDir . '/tmp',
+        sessions:                  new SessionStore(
+            $db,
+            $config->int('SESSION_LIFETIME_DAYS'),
+            $config->int('SESSION_IDLE_DAYS'),
+        ),
+        loginTokens:               new LoginTokenStore($db, $config->int('LOGIN_TOKEN_TTL_SECONDS')),
+        webhookEvents:             new WebhookEventStore($db),
     );
 }
 
 switch ($command) {
     case 'config:check':
         // Reaching this line means bootstrap validated everything.
-        fwrite(STDOUT, "configuration OK (" . count(\Data2Md\Config\Config::keys()) . " keys)\n");
+        fwrite(STDOUT, sprintf(
+            "configuration OK (%d required, %d optional with defaults)\n",
+            count(\Data2Md\Config\Config::requiredKeys()),
+            count(\Data2Md\Config\Config::optionalKeys())
+        ));
         exit(0);
 
     case 'migrate':
-        (new Database($dataDir . '/db/mappings.sqlite'))->migrate();
-        fwrite(STDOUT, "schema up to date\n");
+        $db     = new Database($dataDir . '/db/mappings.sqlite');
+        $latest = Database::latestVersion();
+
+        if (in_array('--status', $argv, true)) {
+            $version = $db->version();
+
+            fwrite(STDOUT, sprintf("database %d, build %d\n", $version, $latest));
+
+            if ($version < $latest) {
+                fwrite(STDOUT, "pending: " . implode(', ', array_filter(
+                    Database::migrationVersions(),
+                    static fn (int $v): bool => $v > $version
+                )) . "\n");
+                exit(1);
+            }
+
+            fwrite(STDOUT, $version > $latest
+                ? "schema is ahead of this build (older image, or a rollback)\n"
+                : "up to date\n");
+            exit(0);
+        }
+
+        $applied = $db->migrate();
+        $version = $db->version();
+
+        // migrate() treats this as a no-op, so this is the only place an
+        // operator hears about a rollback onto a newer volume.
+        if ($version > $latest) {
+            (new Logger($dataDir . '/logs'))->app(
+                'schema.ahead',
+                ['db' => $version, 'build' => $latest],
+                'warning'
+            );
+            fwrite(STDOUT, "schema is ahead of this build (database $version, build $latest) — no changes made\n");
+            exit(0);
+        }
+
+        fwrite(STDOUT, $applied === []
+            ? "schema up to date (version $version)\n"
+            : 'applied ' . implode(', ', $applied) . " — now at version $version\n");
         exit(0);
 
     case 'gc':
@@ -79,9 +154,9 @@ switch ($command) {
         }
 
         foreach ($report->toArray() as $key => $count) {
-            fwrite(STDOUT, sprintf("%-18s %d\n", $key, $count));
+            fwrite(STDOUT, sprintf("%-22s %d\n", $key, $count));
         }
-        fwrite(STDOUT, sprintf("%-18s %d\n", 'total', $report->total()));
+        fwrite(STDOUT, sprintf("%-22s %d\n", 'total', $report->total()));
         exit(0);
 
     case 'delete':
@@ -111,12 +186,47 @@ switch ($command) {
         fwrite(STDOUT, "removed $removed conversion(s) older than $days day(s)\n");
         exit(0);
 
+    case 'list':
+        $limit = (int) option($argv, 'limit', '20');
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $mappings = new MappingStorage($db);
+        $files    = new FileStorage($dataDir . '/md', $dataDir . '/tmp');
+
+        $rows  = $mappings->recent($limit);
+        $total = $mappings->count();
+
+        if ($rows === []) {
+            fwrite(STDOUT, "no conversions stored\n");
+            exit(0);
+        }
+
+        fwrite(STDOUT, sprintf("%-16s %10s %10s  %-16s %s\n", 'HASH', 'UPLOAD', 'MARKDOWN', 'CREATED', 'NAME'));
+
+        foreach ($rows as $row) {
+            fwrite(STDOUT, sprintf(
+                "%-16s %10s %10s  %-16s %s\n",
+                $row['hash'],
+                \Data2Md\format_bytes($row['size_bytes']),
+                $files->markdownExists($row['hash'])
+                    ? \Data2Md\format_bytes($files->markdownSize($row['hash']))
+                    : 'MISSING',
+                gmdate('Y-m-d H:i', $row['created_at']),
+                $row['original_name']
+            ));
+        }
+
+        fwrite(STDOUT, sprintf("\nshowing %d of %d\n", count($rows), $total));
+        exit(0);
+
     case 'logs':
         $channel = option($argv, 'channel', 'app');
         $tail    = (int) option($argv, 'tail', '50');
 
-        if (!in_array($channel, ['app', 'audit'], true)) {
-            fwrite(STDERR, "unknown channel: $channel (use app or audit)\n");
+        if (!in_array($channel, Logger::CHANNELS, true)) {
+            fwrite(STDERR, "unknown channel: $channel (use " . implode(', ', Logger::CHANNELS) . ")\n");
             exit(1);
         }
 
@@ -160,6 +270,351 @@ switch ($command) {
         }
         exit(0);
 
+    case 'billing:reconcile':
+        if (!$config->bool('BILLING_ENABLED')) {
+            fwrite(STDERR, "BILLING_ENABLED is off\n");
+            exit(1);
+        }
+
+        // For the host's cron: this container has none, and without a second
+        // reader an account keeps whatever the last delivered webhook said.
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $logger = new Logger($dataDir . '/logs');
+        $store  = new BillingStore($db);
+
+        $gateway = StripeGateway::fromConfig($config);
+
+        $reconciler = new Reconciler(
+            $gateway,
+            new EntitlementWriter($store, $logger, $config->string('STRIPE_PRICE_ID')),
+            $logger,
+            $gateway,
+            $store,
+        );
+
+        $accounts = $store->withSubscriptions();
+        $changed  = 0;
+
+        foreach ($accounts as $account) {
+            if ($reconciler->refresh($account)) {
+                $changed++;
+            }
+        }
+
+        fwrite(STDOUT, sprintf("checked %d account(s), %d updated\n", count($accounts), $changed));
+        exit(0);
+
+    case 'billing:validate-prices':
+        if ($config->string('STRIPE_SECRET_KEY') === '' || $config->string('STRIPE_PRICE_ID') === '') {
+            fwrite(STDERR, "STRIPE_SECRET_KEY and STRIPE_PRICE_ID must both be set\n");
+            exit(1);
+        }
+
+        $gateway = StripeGateway::fromConfig($config);
+        $priceId = $config->string('STRIPE_PRICE_ID');
+
+        try {
+            $price = $gateway->price($priceId);
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            fwrite(STDERR, "cannot read $priceId: " . $e->getMessage() . "\n");
+            exit(1);
+        }
+
+        $problems = PriceValidator::problems(
+            $price,
+            $config->int('PREMIUM_PRICE_USD'),
+            $config->int('PREMIUM_PRICE_BRL')
+        );
+
+        fwrite(STDOUT, sprintf(
+            "%s  %s mode\n",
+            $priceId,
+            $gateway->isLiveMode() ? 'LIVE' : 'test'
+        ));
+
+        foreach (['usd', 'brl'] as $currency) {
+            $amount = $price['currency_options'][$currency]['unit_amount'] ?? null;
+
+            fwrite(STDOUT, sprintf(
+                "  %-4s %s\n",
+                strtoupper($currency),
+                $amount === null ? '—' : number_format((int) $amount / 100, 2)
+            ));
+        }
+
+        if ($problems === []) {
+            fwrite(STDOUT, "price is usable\n");
+            exit(0);
+        }
+
+        foreach ($problems as $problem) {
+            fwrite(STDERR, "  ! $problem\n");
+        }
+        exit(1);
+
+    case 'billing:create-product':
+        if ($config->string('STRIPE_SECRET_KEY') === '') {
+            fwrite(STDERR, "STRIPE_SECRET_KEY is not set\n");
+            exit(1);
+        }
+
+        $gateway = StripeGateway::fromConfig($config);
+        $usd     = $config->int('PREMIUM_PRICE_USD');
+        $brl     = $config->int('PREMIUM_PRICE_BRL');
+        // The name a customer reads on the Stripe receipt and the card
+        // statement, which is not always how the app names itself.
+        $name    = option($argv, 'name', $config->string('APP_NAME') . ' Premium');
+
+        // A Stripe price cannot be edited or deleted, only archived, so a wrong
+        // amount is permanent. Show the exact payload and make the operator ask
+        // for it twice.
+        fwrite(STDOUT, sprintf(
+            "%s mode\n  product  %s\n  price    USD %s / month\n           BRL %s as a currency option\n",
+            $gateway->isLiveMode() ? 'LIVE — this bills real cards' : 'test',
+            $name,
+            number_format($usd, 2),
+            number_format($brl, 2)
+        ));
+
+        if ($config->string('STRIPE_PRICE_ID') !== '' && !in_array('--force', $argv, true)) {
+            fwrite(STDERR, "\nSTRIPE_PRICE_ID is already set to " . $config->string('STRIPE_PRICE_ID') . "\n");
+            fwrite(STDERR, "creating another price leaves the first one in the account for good;\n");
+            fwrite(STDERR, "pass --force only if a second price is what you mean\n");
+            exit(1);
+        }
+
+        if (!in_array('--confirm', $argv, true)) {
+            fwrite(STDERR, "\nnothing created. Re-run with --confirm to create it\n");
+            exit(1);
+        }
+
+        try {
+            $productId = $gateway->createProduct($name, 'Subscription access: larger uploads and the HTTP API.');
+            $price     = $gateway->createMonthlyPrice($productId, $usd * 100, $brl * 100);
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            fwrite(STDERR, 'Stripe refused it: ' . $e->getMessage() . "\n");
+            exit(1);
+        }
+
+        fwrite(STDOUT, sprintf("\ncreated product %s\ncreated price   %s\n", $productId, $price['id']));
+
+        $problems = PriceValidator::problems($price, $usd, $brl);
+
+        foreach ($problems as $problem) {
+            fwrite(STDERR, "  ! $problem\n");
+        }
+
+        fwrite(STDOUT, sprintf("\nset STRIPE_PRICE_ID=%s and re-run billing:validate-prices\n", $price['id']));
+        exit($problems === [] ? 0 : 1);
+
+    case 'mail:test':
+        $to = $argv[2] ?? '';
+
+        if (filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
+            fwrite(STDERR, "usage: data2md mail:test <email>\n");
+            exit(1);
+        }
+
+        // A sign-in link is the only way into an account, so mail that does not
+        // arrive locks everyone out -- and from inside the container there is
+        // otherwise no way to tell a wrong password from a blocked port from a
+        // domain that fails SPF.
+        fwrite(STDOUT, sprintf(
+            "transport %s\n",
+            $config->string('MAIL_TRANSPORT') === 'log'
+                ? 'log (written to logs/mail.jsonl, nothing is sent)'
+                : sprintf(
+                    'smtp %s:%d %s as %s',
+                    $config->string('SMTP_HOST'),
+                    $config->int('SMTP_PORT'),
+                    $config->string('SMTP_ENCRYPTION'),
+                    $config->string('SMTP_USER') ?: '(no user)'
+                )
+        ));
+
+        $logger = new Logger($dataDir . '/logs');
+        $sent   = Mailer::fromConfig($config, $logger)->send(
+            $to,
+            $config->string('APP_NAME') . ' — test message',
+            "This is a test from `data2md mail:test`.\n\n"
+            . "If it arrived, sign-in links will too.\n"
+        );
+
+        if (!$sent) {
+            fwrite(STDERR, "not sent — the reason is in the app log:\n");
+            fwrite(STDERR, "  data2md logs --tail=5\n");
+            exit(1);
+        }
+
+        fwrite(STDOUT, "accepted by the server for $to\n");
+        fwrite(STDOUT, "the relay accepting it is not the same as an inbox keeping it:\n");
+        fwrite(STDOUT, "check the inbox, and the spam folder, before trusting SPF and DKIM\n");
+        exit(0);
+
+    case 'user:list':
+        $limit = (int) option($argv, 'limit', '20');
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $users = new UserStore($db);
+        $rows  = $users->recent($limit);
+
+        if ($rows === []) {
+            fwrite(STDOUT, "no accounts yet\n");
+            exit(0);
+        }
+
+        fwrite(STDOUT, sprintf("%-4s %-34s %-8s %-16s %s\n", 'ID', 'EMAIL', 'PLAN', 'CREATED', 'SUBSCRIPTION'));
+
+        foreach ($rows as $row) {
+            fwrite(STDOUT, sprintf(
+                "%-4d %-34s %-8s %-16s %s\n",
+                $row['id'],
+                $row['email'],
+                Entitlement::forUser($row),
+                gmdate('Y-m-d H:i', (int) $row['created_at']),
+                $row['subscription_status'] ?? '-'
+            ));
+        }
+
+        fwrite(STDOUT, sprintf("\nshowing %d of %d\n", count($rows), $users->count()));
+        exit(0);
+
+    case 'user:delete':
+        $email = $argv[2] ?? '';
+
+        if ($email === '') {
+            fwrite(STDERR, "usage: data2md user:delete <email>\n");
+            exit(1);
+        }
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $users = new UserStore($db);
+        $user  = $users->findByEmail($email);
+
+        if ($user === null) {
+            fwrite(STDERR, "no such account: $email\n");
+            exit(1);
+        }
+
+        if (!in_array('--confirm', $argv, true)) {
+            fwrite(STDERR, "this removes the account, its sessions and its API token.\n");
+            fwrite(STDERR, "its conversions are detached, NOT deleted: the markdown stays\n");
+            fwrite(STDERR, "reachable by hash. Delete those first if they should go.\n");
+            fwrite(STDERR, "\nre-run with --confirm\n");
+            exit(1);
+        }
+
+        $deleted = $users->delete((int) $user['id']);
+
+        (new Logger($dataDir . '/logs'))->app('auth.user.delete', ['user' => (int) $user['id']], 'warning');
+
+        fwrite(STDOUT, $deleted ? "deleted the account for $email\n" : "nothing deleted\n");
+        exit($deleted ? 0 : 1);
+
+    case 'user:premium':
+        $email = $argv[2] ?? '';
+        $days  = (int) option($argv, 'days', '-1');
+
+        if ($email === '' || $days < 0) {
+            fwrite(STDERR, "usage: data2md user:premium <email> --days=<n>   (0 revokes)\n");
+            exit(1);
+        }
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $users = new UserStore($db);
+        $user  = $users->findByEmail($email);
+
+        if ($user === null) {
+            fwrite(STDERR, "no such account: $email\n");
+            exit(1);
+        }
+
+        // premium_until is the manual grant Entitlement honours ahead of any
+        // subscription, which is what makes a courtesy account possible without
+        // inventing a Stripe subscription for it.
+        $until = $days === 0 ? null : time() + ($days * 86400);
+
+        $users->setPremiumUntil((int) $user['id'], $until);
+
+        fwrite(STDOUT, $until === null
+            ? "revoked the premium grant for $email\n"
+            : "$email is premium until " . gmdate('Y-m-d H:i', $until) . " UTC\n");
+        exit(0);
+
+    case 'token:create':
+        $email = $argv[2] ?? '';
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            fwrite(STDERR, "usage: data2md token:create <email>\n");
+            exit(1);
+        }
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $users  = new UserStore($db);
+        $known  = $users->findByEmail($email) !== null;
+        $userId = $users->ensure($email);
+
+        // Signing in is also signing up, so this stays true of the CLI: it is
+        // how the first account on a deployment gets made.
+        if (!$known) {
+            fwrite(STDOUT, "created account $email\n");
+        }
+
+        $tokens   = new ApiTokenStore($db);
+        $existing = $tokens->describeFor($userId);
+        $raw      = $tokens->issue($userId);
+
+        if ($existing !== null) {
+            fwrite(STDOUT, sprintf(
+                "replaced %s...%s — it stops working now\n",
+                $existing['prefix'],
+                $existing['last4']
+            ));
+        }
+
+        fwrite(STDOUT, "$raw\n");
+        fwrite(STDOUT, "shown once; it is stored hashed and cannot be read back\n");
+
+        // A token on a free account authenticates and is then refused by plan,
+        // which is confusing to discover from a 403.
+        if (Entitlement::forUser($users->findById($userId)) !== Entitlement::PREMIUM) {
+            fwrite(STDERR, "warning: $email has no subscription, so POST /api will answer 403\n");
+        }
+        exit(0);
+
+    case 'token:revoke':
+        $email = $argv[2] ?? '';
+
+        if ($email === '') {
+            fwrite(STDERR, "usage: data2md token:revoke <email>\n");
+            exit(1);
+        }
+
+        $db = new Database($dataDir . '/db/mappings.sqlite');
+        requireSchema($db);
+
+        $user = (new UserStore($db))->findByEmail($email);
+
+        if ($user === null) {
+            fwrite(STDERR, "no such account: $email\n");
+            exit(1);
+        }
+
+        $revoked = (new ApiTokenStore($db))->revokeFor((int) $user['id']);
+
+        fwrite(STDOUT, $revoked ? "revoked the token for $email\n" : "$email has no token\n");
+        exit($revoked ? 0 : 1);
+
     case 'health':
         $checks = require BASE_PATH . '/src/health-checks.php';
 
@@ -175,11 +630,21 @@ switch ($command) {
         data2md CLI
 
           config:check          validate every environment variable
-          migrate               apply the SQLite schema (idempotent)
+          migrate [--status]    apply pending schema migrations; --status only reports
+          list [--limit=N]      stored conversions, newest first
           gc                    housekeeping: orphans, rate limits, rotated logs
           delete <hash>         permanently remove one conversion
           prune --older-than=N  permanently remove conversions older than N days
-          logs [--channel=app|audit] [--tail=N]
+          user:list [--limit=N] accounts, newest first
+          user:delete <email>   remove an account (--confirm)
+          user:premium <email>  grant premium directly: --days=N, 0 revokes
+          mail:test <email>     send a test message through the configured transport
+          billing:reconcile              re-read every subscription from Stripe
+          billing:validate-prices        check the configured Stripe price
+          billing:create-product         create the product and price (--confirm, --name=)
+          token:create <email>  issue or replace an account's API token
+          token:revoke <email>  remove an account's API token
+          logs [--channel=app|audit|mail] [--tail=N]
           health                run the same checks as GET /health
 
         Converted markdown is permanent. Only delete and prune remove it.

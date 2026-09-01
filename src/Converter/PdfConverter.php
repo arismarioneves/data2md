@@ -16,6 +16,19 @@ final class PdfConverter implements ConverterInterface
 {
     private const PAGE_BREAK = "\x0c";
 
+    /**
+     * Ten pages costs about the same as three -- the work is reading the
+     * document structure, not the pages -- and tolerates a scanned cover or
+     * separator sheet ahead of the text.
+     */
+    private const PROBE_PAGES = 10;
+
+    /**
+     * The probe runs before any quota is committed, so it gets a deadline of
+     * its own rather than the full conversion budget.
+     */
+    private const PROBE_TIMEOUT_SECONDS = 30;
+
     public function __construct(
         private readonly string $pdftotextBin,
         private readonly Process $process,
@@ -37,6 +50,26 @@ final class PdfConverter implements ConverterInterface
                 @unlink($textPath);
             }
         }
+    }
+
+    public function probe(string $filePath): bool
+    {
+        $result = $this->process->run([
+            $this->pdftotextBin,
+            '-f', '1',
+            '-l', (string) self::PROBE_PAGES,
+            '-q',
+            $filePath,
+            '-',
+        ], self::PROBE_TIMEOUT_SECONDS);
+
+        if ($result->timedOut || $result->exitCode !== 0) {
+            return true;
+        }
+
+        // \S rather than trim(): pdftotext emits one form feed per page, and
+        // trim()'s default character list keeps it.
+        return preg_match('/\S/', $result->stdout) === 1;
     }
 
     private function extract(string $filePath, string $textPath): void
@@ -136,9 +169,7 @@ final class PdfConverter implements ConverterInterface
             }
 
             if ($pages === 0) {
-                throw new NoTextLayerException(
-                    'This PDF has no text layer — it looks like a scan or an image-only export, and needs OCR.'
-                );
+                throw new NoTextLayerException(NoTextLayerException::MESSAGE);
             }
 
             return new ConversionResult($stats->lines, $stats->characters, $pages);

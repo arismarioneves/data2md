@@ -8,24 +8,19 @@ define('BASE_PATH', dirname(__DIR__));
 $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 
-use Data2Md\Converter\ConversionException;
-use Data2Md\Converter\MarkdownSanitizer;
-use Data2Md\Converter\PdfConverter;
+use Data2Md\Auth\Actor;
+use Data2Md\Auth\ApiTokenStore;
+use Data2Md\Auth\TierResolver;
+use Data2Md\Http\BearerToken;
 use Data2Md\Http\ClientIp;
 use Data2Md\Http\Cors;
 use Data2Md\I18n\I18n;
 use Data2Md\Log\Logger;
 use Data2Md\Response\ApiResponse;
-use Data2Md\Runtime\ConversionSemaphore;
-use Data2Md\Runtime\Process;
-use Data2Md\Runtime\QueueTimeoutException;
-use Data2Md\Security\RateLimiter;
-use Data2Md\Security\Validator;
+use Data2Md\Security\RateLimiterFactory;
+use Data2Md\Security\RateLimitState;
 use Data2Md\Storage\Database;
-use Data2Md\Storage\FileStorage;
-use Data2Md\Storage\MappingStorage;
-
-const PREVIEW_BYTES = 8000;
+use Data2Md\Storage\Gc;
 
 $dataDir = $config->string('APP_DATA_DIR');
 $logger  = new Logger($dataDir . '/logs');
@@ -49,236 +44,171 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// ── GET → API documentation page ────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    renderDocs();
+// The vhost rewrites /api/me to this file, so the route comes from the path
+// rather than from a second file on disk: one front controller, one place the
+// credential is read.
+$route  = trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH), '/');
+$method = (string) $_SERVER['REQUEST_METHOD'];
+
+// ── GET /api → documentation page ───────────────────────────────────────────
+if ($route === 'api' && ($method === 'GET' || $method === 'HEAD')) {
+    // Only the docs page resolves a session. Everything below reads
+    // Authorization and never a cookie, which is what keeps CSRF away from the
+    // one route that answers cross-origin.
+    require BASE_PATH . '/src/Auth/bootstrap.php';
+
+    renderDocs($session, $apiTier);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    ApiResponse::error('Method not allowed. Use POST.', 405);
-}
-
-// ── Bootstrap ────────────────────────────────────────────────────────────────
-$database  = new Database($dataDir . '/db/mappings.sqlite');
-$mappings  = new MappingStorage($database);
-$files     = new FileStorage($dataDir . '/md', $dataDir . '/tmp');
-$validator = new Validator(MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL);
-
+// ── Everything below is JSON, and authenticated ─────────────────────────────
 $clientIp = (new ClientIp($config->list('TRUSTED_PROXIES')))->resolve($_SERVER);
 $loggedIp = Logger::truncateIp($clientIp);
 
-// ── Rate limit ───────────────────────────────────────────────────────────────
-$rateLimiter = new RateLimiter(
-    $dataDir . '/ratelimit',
-    RATE_LIMIT_MAX,
-    RATE_LIMIT_WINDOW,
-);
-
-if (!$rateLimiter->isAllowed($clientIp)) {
-    $logger->app('ratelimit.block', ['ip' => $loggedIp], 'warning');
-
-    header('Retry-After: ' . $rateLimiter->retryAfter());
+if (!$config->bool('ACCOUNTS_ENABLED')) {
+    // Not "fall back to anonymous": a flag about sign-in must never be what
+    // decides who may call the API. Without accounts no token can exist, so say
+    // that, rather than quietly reopening the endpoint.
     ApiResponse::error(
-        'Rate limit exceeded. Maximum ' . RATE_LIMIT_MAX . ' requests per ' . RATE_LIMIT_WINDOW . ' seconds.',
-        429
+        'The API is unavailable: this deployment has accounts switched off.',
+        503,
+        code: 'api_unavailable'
     );
 }
 
-// ── Validate ─────────────────────────────────────────────────────────────────
-$file = $_FILES['file'] ?? null;
+$tiers        = TierResolver::fromConfig($config);
+$rateLimiters = new RateLimiterFactory($dataDir . '/ratelimit');
+$tokens       = new ApiTokenStore(new Database($dataDir . '/db/mappings.sqlite'));
+$presented    = BearerToken::fromRequest($_SERVER);
 
-if ($file === null) {
-    ApiResponse::error('No file provided. Send multipart/form-data with a "file" field.', 400);
+if ($presented === null) {
+    header('WWW-Authenticate: Bearer realm="api"');
+    $logger->app('api.auth.reject', ['ip' => $loggedIp, 'reason' => 'no_token'], 'warning');
+
+    ApiResponse::error(
+        'Authentication required. Send an Authorization: Bearer <token> header.',
+        401,
+        code: 'token_required'
+    );
 }
 
-// A repeated field ("file[]=@a" twice, "format[]=pdf") turns the expected
-// scalars into arrays; PHP's superglobals don't enforce the shape for us, and
-// Validator::validateUpload()/uploadErrorMessage() take those values typed,
-// so an array here would otherwise reach a TypeError before the try below.
-if (!is_array($file) || array_filter($file, 'is_array') !== []) {
-    ApiResponse::error('Send exactly one file in the "file" field.', 400);
+$user = $tokens->authenticate($presented);
+
+if ($user === null) {
+    header('WWW-Authenticate: Bearer realm="api"');
+    $logger->app('api.auth.reject', ['ip' => $loggedIp, 'reason' => 'unknown_token'], 'warning');
+
+    ApiResponse::error(
+        'That token does not exist. Generate a new one from your dashboard.',
+        401,
+        code: 'token_invalid'
+    );
 }
 
-$formatInput = $_POST['format'] ?? 'pdf';
+$actor = Actor::forApi($user, $clientIp, $tiers);
+$quota = $actor->primaryQuota();
 
-if (!is_string($formatInput)) {
-    ApiResponse::error('The "format" field must be a single string value.', 400);
+// ── GET /api/me → plan, limits and window ───────────────────────────────────
+if ($route === 'api/me') {
+    if ($method !== 'GET' && $method !== 'HEAD') {
+        ApiResponse::error('Method not allowed. Use GET.', 405);
+    }
+
+    // Open to every plan on purpose: this is how a caller finds out why a
+    // conversion was refused. It charges nothing, so a free token may ask.
+    $state = $rateLimiters->make($quota->maxRequests, $quota->windowSeconds)->snapshot($quota->key);
+    $token = $tokens->describeFor((int) $actor->userId);
+
+    sendRateLimitHeaders($state);
+    header('Cache-Control: private, no-store');
+
+    ApiResponse::success([
+        'email'      => (string) $user['email'],
+        'plan'       => $actor->plan,
+        'api_access' => $actor->tier->allowsApi(),
+        'limits'     => [
+            'max_conversions'     => $actor->tier->maxConversions,
+            'window_seconds'      => $actor->tier->windowSeconds,
+            'max_file_size_bytes' => $actor->tier->maxFileSizeBytes(),
+        ],
+        'rate_limit' => [
+            'limit'     => $state->limit,
+            'remaining' => $state->remaining(),
+            'reset'     => $state->resetAt,
+        ],
+        'subscription' => [
+            'status'               => $user['subscription_status'],
+            'current_period_end'   => isset($user['current_period_end'])
+                ? (int) $user['current_period_end']
+                : null,
+            'cancel_at_period_end' => (bool) ($user['cancel_at_period_end'] ?? 0),
+        ],
+        'token' => [
+            'prefix'       => (string) $token['prefix'],
+            'last4'        => (string) $token['last4'],
+            'created_at'   => (int) $token['created_at'],
+            'rotated_at'   => isset($token['rotated_at']) ? (int) $token['rotated_at'] : null,
+            'last_used_at' => isset($token['last_used_at']) ? (int) $token['last_used_at'] : null,
+        ],
+    ]);
 }
 
-$format = strtolower(trim($formatInput));
-
-if (!$validator->isAllowedFormat($format)) {
-    ApiResponse::error('Unsupported format. Allowed: ' . implode(', ', $validator->supportedFormats()), 400);
+if ($route !== 'api') {
+    ApiResponse::error('Not found.', 404);
 }
 
-$uploadErrors = $validator->validateUpload($file, $format);
-
-if ($uploadErrors !== []) {
-    ApiResponse::error('Validation failed.', 422, $uploadErrors);
+if ($method !== 'POST') {
+    ApiResponse::error('Method not allowed. Use POST.', 405);
 }
 
-// ── Queue for a conversion slot ──────────────────────────────────────────────
-$semaphore = new ConversionSemaphore(
-    $dataDir . '/tmp',
-    $config->int('CONVERT_CONCURRENCY'),
-    $config->int('CONVERT_QUEUE_WAIT_SECONDS'),
-);
+if (!$actor->tier->allowsApi()) {
+    $logger->app('api.auth.reject', [
+        'ip'     => $loggedIp,
+        'user'   => $actor->userId,
+        'plan'   => $actor->plan,
+        'reason' => 'plan',
+    ], 'warning');
 
-try {
-    $slot = $semaphore->acquire();
-} catch (QueueTimeoutException $e) {
-    $logger->app('convert.rejected', ['ip' => $loggedIp, 'reason' => 'queue_full'], 'warning');
-
-    header('Retry-After: ' . $e->retryAfter());
-    ApiResponse::error('The server is busy converting other documents. Please retry shortly.', 503);
+    ApiResponse::error(
+        'The API is part of the subscription. This token is valid, but the account has no active one.',
+        403,
+        code: 'plan_required'
+    );
 }
 
 // ── Convert ──────────────────────────────────────────────────────────────────
-$originalPath = null;
-$hash         = null;
-$startedAt    = microtime(true);
+require BASE_PATH . '/src/Convert/bootstrap.php';
 
-// ApiResponse::success()/error() call exit(), and exit() from inside a try
-// or catch does not run an enclosing finally — so the response is deferred
-// to $respond and sent only after the try/catch/finally below has completed,
-// guaranteeing the cleanup in finally always runs first.
-$respond = null;
+$outcome = $pipeline->handle(
+    $_FILES,
+    $_POST,
+    $actor,
+    (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
+);
 
-try {
-    $originalName = $validator->sanitizeOriginalName((string) $file['name']);
-    $sizeBytes    = (int) $file['size'];
+Gc::registerShutdownSweep($config, $logger, $database, $files, $mappings);
 
-    $hash         = $mappings->generateUniqueHash();
-    $originalPath = $files->acceptUpload((string) $file['tmp_name'], $hash);
+// Read after the pipeline, so the numbers describe the caller's window as this
+// request leaves it.
+sendRateLimitHeaders($rateLimiters->make($quota->maxRequests, $quota->windowSeconds)->snapshot($quota->key));
 
-    $converter = match ($format) {
-        'pdf'   => new PdfConverter(
-            'pdftotext',
-            new Process(
-                $config->int('CONVERT_TIMEOUT_SECONDS'),
-                Process::priorityPrefix($config->int('CONVERT_NICE')),
-            ),
-            new MarkdownSanitizer(),
-            $dataDir . '/tmp',
-        ),
-        default => throw new \InvalidArgumentException("Unsupported format: $format"),
-    };
-
-    $result = $converter->convertToFile($originalPath, $files->markdownPath($hash));
-
-    $mappings->save($hash, $originalName, $format, $sizeBytes);
-
-    $elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
-
-    $logger->app('convert.ok', [
-        'hash'     => $hash,
-        'bytes'    => $sizeBytes,
-        'ms'       => $elapsedMs,
-        'pages'    => $result->pages,
-        'queue_ms' => $slot->waitedMs(),
-        'ip'       => $loggedIp,
-    ]);
-
-    $logger->audit([
-        'hash'          => $hash,
-        'original_name' => $originalName,
-        'bytes'         => $sizeBytes,
-        'ip'            => $clientIp,
-        'ua'            => substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 256),
-    ]);
-
-    // The preview is read back from the file rather than held in memory, so
-    // the response cost is bounded no matter how large the document is.
-    $totalBytes = $files->markdownSize($hash);
-    $truncated  = $totalBytes > PREVIEW_BYTES;
-    $preview    = $files->readMarkdownPrefix($hash, PREVIEW_BYTES);
-
-    if ($truncated) {
-        $breakAt = strrpos($preview, "\n");
-
-        if ($breakAt !== false && $breakAt > 0) {
-            $preview = substr($preview, 0, $breakAt);
-        }
-    }
-
-    $respond = static fn () => ApiResponse::success([
-        'hash'              => $hash,
-        'original_name'     => $originalName,
-        'format'            => $format,
-        'lines'             => $result->lines,
-        'characters'        => $result->characters,
-        'pages'             => $result->pages,
-        'download_url'      => '/download?hash=' . urlencode($hash),
-        'preview'           => $preview,
-        'preview_truncated' => $truncated,
-    ], 201);
-
-} catch (ConversionException $e) {
-    $logger->app('convert.fail', [
-        'hash'   => $hash,
-        'ip'     => $loggedIp,
-        'ms'     => (int) round((microtime(true) - $startedAt) * 1000),
-        'reason' => $e::class,
-        'detail' => $e->detail(),
-    ], 'error');
-
-    $respond = static fn () => ApiResponse::error($e->getMessage(), $e->httpStatus());
-
-} catch (\Throwable $e) {
-    // The message may name internal paths, so it goes to the log, not the wire.
-    $logger->app('convert.fail', [
-        'hash'   => $hash,
-        'ip'     => $loggedIp,
-        'reason' => $e::class,
-        'detail' => $e->getMessage(),
-    ], 'error');
-
-    $respond = static fn () => ApiResponse::error('Conversion failed.', 500);
-
-} finally {
-    if ($originalPath !== null) {
-        // The uploaded file is not kept — this runs on success and on failure.
-        $files->deleteOriginal($originalPath);
-    }
-
-    $slot->release();
+foreach ($outcome->headers as $name => $value) {
+    header("$name: $value");
 }
 
-// Deferred to run after the response is on the wire, not before: Gc::run()
-// globs the whole markdown directory and scans the mappings table, so its
-// cost grows with the total number of conversions ever made, not with this
-// request. A register_shutdown_function callback still runs after
-// ApiResponse's exit() — finally blocks do not, see the note on $respond
-// above — and by then ApiResponse::send() has already flushed the response
-// with an explicit Content-Length, so the client does not wait on this.
-// A failure here (a busy database, disk pressure) is logged and swallowed:
-// there is no response left to fail by this point.
-if ($config->float('GC_PROBABILITY') > 0.0) {
-    register_shutdown_function(static function () use ($config, $files, $mappings, $logger, $dataDir): void {
-        try {
-            (new \Data2Md\Storage\Gc(
-                files:                  $files,
-                mappings:               $mappings,
-                logger:                 $logger,
-                logDir:                 $dataDir . '/logs',
-                rateLimitDir:           $dataDir . '/ratelimit',
-                logRetentionDays:       $config->int('LOG_RETENTION_DAYS'),
-                auditLogRetentionDays:  $config->int('AUDIT_LOG_RETENTION_DAYS'),
-                rateLimitWindowSeconds: $config->int('RATE_LIMIT_WINDOW_SECONDS'),
-                convertTimeoutSeconds:  $config->int('CONVERT_TIMEOUT_SECONDS'),
-                lockDir:                $dataDir . '/tmp',
-            ))->maybeRun($config->float('GC_PROBABILITY'));
-        } catch (\Throwable $e) {
-            $logger->app('gc.fail', ['reason' => $e::class, 'detail' => $e->getMessage()], 'error');
-        }
-    });
-}
+$outcome->isSuccess()
+    ? ApiResponse::success($outcome->payload, $outcome->status)
+    : ApiResponse::error((string) $outcome->message, $outcome->status, $outcome->errors);
 
-$respond();
+function sendRateLimitHeaders(RateLimitState $state): void
+{
+    header('X-RateLimit-Limit: ' . $state->limit);
+    header('X-RateLimit-Remaining: ' . $state->remaining());
+    header('X-RateLimit-Reset: ' . $state->resetAt);
+}
 
 // ── Docs renderer ────────────────────────────────────────────────────────────
-function renderDocs(): void
+function renderDocs(?\Data2Md\Auth\Session $session, \Data2Md\Auth\Tier $apiTier): void
 {
     header('Content-Type: text/html; charset=utf-8');
     header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:");
@@ -294,8 +224,8 @@ function renderDocs(): void
         $host   = preg_replace('/[^A-Za-z0-9.\-:]/', '', $_SERVER['HTTP_HOST'] ?? '');
         $base   = ($secure ? 'https' : 'http') . '://' . substr($host ?: 'localhost', 0, 255);
     }
-    $base = htmlspecialchars($base, ENT_QUOTES);
-    $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/api'), ENT_QUOTES);
+    $base   = htmlspecialchars($base, ENT_QUOTES);
+    $sample = ApiTokenStore::PREFIX . '4f1c8ab2d3e07695' . str_repeat('0', 28) . 'beef';
     ?>
 <!DOCTYPE html>
 <html lang="<?= I18n::current() ?>">
@@ -312,29 +242,14 @@ function renderDocs(): void
 </head>
 <body>
 
-<header class="l-header" id="l-header">
-    <div class="l-container">
-        <div class="l-header-inner">
-            <a href="/" class="l-logo" aria-label="<?= htmlspecialchars(APP_NAME, ENT_QUOTES) ?> home">
-                <img class="l-logo-mark" src="/assets/img/icon.svg" width="30" height="30" alt="" aria-hidden="true">
-                <span class="l-logo-name"><?= htmlspecialchars(APP_NAME) ?></span>
-            </a>
-            <nav class="l-nav">
-                <a href="/" class="l-nav-link" data-hide-sm><?= t('nav.about') ?></a>
-                <a href="/api" class="l-nav-link"><?= t('nav.api') ?></a>
-                <a href="/app" class="l-nav-cta">
-                    <?= t('nav.app') ?>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                </a>
-                <span class="l-lang" role="group" aria-label="<?= htmlspecialchars(t('lang.aria'), ENT_QUOTES) ?>">
-                    <a href="/lang?to=en&amp;back=<?= $back ?>" class="<?= I18n::current() === 'en' ? 'is-active' : '' ?>"><?= t('lang.label.en') ?></a>
-                    <span class="l-lang-sep" aria-hidden="true">·</span>
-                    <a href="/lang?to=pt&amp;back=<?= $back ?>" class="<?= I18n::current() === 'pt' ? 'is-active' : '' ?>"><?= t('lang.label.pt') ?></a>
-                </span>
-            </nav>
-        </div>
-    </div>
-</header>
+<?php
+$navLinks = [
+    ['href' => '/',    'label' => t('nav.about'), 'hideSm' => true],
+    ['href' => '/api', 'label' => t('nav.api')],
+];
+$navCta = ['href' => '/app', 'label' => t('nav.app'), 'icon' => 'arrow'];
+require BASE_PATH . '/src/View/header.php';
+?>
 
 <main class="l-main">
     <div class="l-container">
@@ -344,8 +259,18 @@ function renderDocs(): void
                 <header class="docs-hero">
                     <span class="docs-eyebrow"><?= t('api.eyebrow') ?></span>
                     <h1 class="docs-title"><?= t('api.heading') ?></h1>
-                    <p class="docs-sub"><?= t('api.lead', htmlspecialchars(APP_NAME), MAX_FILE_SIZE_LABEL) ?></p>
+                    <p class="docs-sub"><?= t('api.lead', htmlspecialchars(APP_NAME), $apiTier->maxFileSizeLabel()) ?></p>
                 </header>
+
+                <section class="docs-section">
+                    <h2><?= t('api.section.auth') ?></h2>
+                    <p><?= t('api.auth.body') ?></p>
+                    <div class="code-block-wrap">
+                        <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
+<pre class="code-block">Authorization: Bearer <?= $sample ?></pre>
+                    </div>
+                    <p><?= t('api.auth.rotate') ?></p>
+                </section>
 
                 <section class="docs-section">
                     <h2><?= t('api.section.endpoint') ?></h2>
@@ -362,7 +287,7 @@ function renderDocs(): void
                         <table class="docs-table">
                             <thead><tr><th><?= t('api.field.col.field') ?></th><th><?= t('api.field.col.type') ?></th><th><?= t('api.field.col.required') ?></th><th><?= t('api.field.col.desc') ?></th></tr></thead>
                             <tbody>
-                                <tr><td><code>file</code></td><td>file</td><td><?= t('api.field.required.yes') ?></td><td><?= t('api.field.file.desc', MAX_FILE_SIZE_LABEL) ?></td></tr>
+                                <tr><td><code>file</code></td><td>file</td><td><?= t('api.field.required.yes') ?></td><td><?= t('api.field.file.desc', $apiTier->maxFileSizeLabel()) ?></td></tr>
                                 <tr><td><code>format</code></td><td>string</td><td><?= t('api.field.required.no') ?></td><td><?= t('api.field.format.desc') ?></td></tr>
                             </tbody>
                         </table>
@@ -395,15 +320,57 @@ function renderDocs(): void
                         <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block">{
   <span class="ck">"success"</span>: <span class="cn">false</span>,
-  <span class="ck">"message"</span>: <span class="cs">"Validation failed."</span>,
-  <span class="ck">"errors"</span>: [<span class="cs">"File content does not match allowed types for this format."</span>]
+  <span class="ck">"message"</span>: <span class="cs">"The API is part of the subscription."</span>,
+  <span class="ck">"code"</span>: <span class="cs">"plan_required"</span>
 }</pre>
+                    </div>
+                    <p><?= t('api.error.note') ?></p>
+                    <div class="docs-table-wrap">
+                        <table class="docs-table">
+                            <thead><tr><th><?= t('api.errors.col.status') ?></th><th><?= t('api.errors.col.code') ?></th><th><?= t('api.errors.col.meaning') ?></th></tr></thead>
+                            <tbody>
+                                <tr><td>401</td><td><code>token_required</code></td><td><?= t('api.error.token_required') ?></td></tr>
+                                <tr><td>401</td><td><code>token_invalid</code></td><td><?= t('api.error.token_invalid') ?></td></tr>
+                                <tr><td>403</td><td><code>plan_required</code></td><td><?= t('api.error.plan_required') ?></td></tr>
+                                <tr><td>422</td><td>&mdash;</td><td><?= t('api.error.unprocessable') ?></td></tr>
+                                <tr><td>429</td><td>&mdash;</td><td><?= t('api.error.throttled') ?></td></tr>
+                                <tr><td>503</td><td>&mdash;</td><td><?= t('api.error.unavailable') ?></td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </section>
 
                 <section class="docs-section">
                     <h2><?= t('api.section.rate') ?></h2>
-                    <p><?= t('api.rate.body', RATE_LIMIT_MAX, RATE_LIMIT_WINDOW) ?></p>
+                    <p><?= t('api.rate.body', $apiTier->maxConversions, $apiTier->windowSeconds) ?></p>
+                    <p><?= t('api.rate.headers') ?></p>
+                </section>
+
+                <section class="docs-section">
+                    <h2><?= t('api.section.me') ?></h2>
+                    <div class="endpoint-pill">
+                        <span class="method">GET</span>
+                        <code class="endpoint-url"><?= $base ?>/api/me</code>
+                    </div>
+                    <p><?= t('api.me.body') ?></p>
+                    <div class="code-block-wrap">
+                        <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
+<pre class="code-block">{
+  <span class="ck">"success"</span>: <span class="cn">true</span>,
+  <span class="ck">"email"</span>: <span class="cs">"you@example.com"</span>,
+  <span class="ck">"plan"</span>: <span class="cs">"premium"</span>,
+  <span class="ck">"api_access"</span>: <span class="cn">true</span>,
+  <span class="ck">"limits"</span>: {
+    <span class="ck">"max_conversions"</span>: <span class="cn"><?= $apiTier->maxConversions ?></span>,
+    <span class="ck">"window_seconds"</span>: <span class="cn"><?= $apiTier->windowSeconds ?></span>,
+    <span class="ck">"max_file_size_bytes"</span>: <span class="cn"><?= $apiTier->maxFileSizeBytes() ?></span>
+  },
+  <span class="ck">"rate_limit"</span>: { <span class="ck">"limit"</span>: <span class="cn"><?= $apiTier->maxConversions ?></span>, <span class="ck">"remaining"</span>: <span class="cn">0</span>, <span class="ck">"reset"</span>: <span class="cn">1767225600</span> },
+  <span class="ck">"subscription"</span>: { <span class="ck">"status"</span>: <span class="cs">"active"</span>, <span class="ck">"current_period_end"</span>: <span class="cn">1767225600</span>, <span class="ck">"cancel_at_period_end"</span>: <span class="cn">false</span> },
+  <span class="ck">"token"</span>: { <span class="ck">"prefix"</span>: <span class="cs">"d2md_4f1c"</span>, <span class="ck">"last4"</span>: <span class="cs">"beef"</span>, <span class="ck">"created_at"</span>: <span class="cn">1764547200</span>, <span class="ck">"rotated_at"</span>: <span class="cn">null</span>, <span class="ck">"last_used_at"</span>: <span class="cn">1767139200</span> }
+}</pre>
+                    </div>
+                    <p><?= t('api.me.note') ?></p>
                 </section>
 
                 <section class="docs-section">
@@ -413,8 +380,12 @@ function renderDocs(): void
                     <div class="code-block-wrap">
                         <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
 <pre class="code-block">curl -X POST <?= $base ?>/api \
+  -H <span class="cs">"Authorization: Bearer $D2MD_TOKEN"</span> \
   -F <span class="cs">"file=@document.pdf"</span> \
-  -F <span class="cs">"format=pdf"</span></pre>
+  -F <span class="cs">"format=pdf"</span>
+
+curl <?= $base ?>/api/me \
+  -H <span class="cs">"Authorization: Bearer $D2MD_TOKEN"</span></pre>
                     </div>
 
                     <h3>PHP</h3>
@@ -425,6 +396,7 @@ $ch = curl_init(<span class="cs">'<?= $base ?>/api'</span>);
 curl_setopt_array($ch, [
     CURLOPT_POST           =&gt; <span class="cn">true</span>,
     CURLOPT_RETURNTRANSFER =&gt; <span class="cn">true</span>,
+    CURLOPT_HTTPHEADER     =&gt; [<span class="cs">'Authorization: Bearer '</span> . getenv(<span class="cs">'D2MD_TOKEN'</span>)],
     CURLOPT_POSTFIELDS     =&gt; [
         <span class="cs">'file'</span>   =&gt; <span class="ck">new</span> CURLFile(<span class="cs">'document.pdf'</span>, <span class="cs">'application/pdf'</span>, <span class="cs">'document.pdf'</span>),
         <span class="cs">'format'</span> =&gt; <span class="cs">'pdf'</span>,
@@ -440,10 +412,12 @@ $markdown = file_get_contents(<span class="cs">'<?= $base ?>'</span> . $data[<sp
                     <h3>Python</h3>
                     <div class="code-block-wrap">
                         <button type="button" class="code-copy" data-copy><?= t('api.copy') ?></button>
-<pre class="code-block"><span class="ck">import</span> requests
+<pre class="code-block"><span class="ck">import</span> os, requests
+
+headers = {<span class="cs">'Authorization'</span>: <span class="cs">'Bearer '</span> + os.environ[<span class="cs">'D2MD_TOKEN'</span>]}
 
 <span class="ck">with</span> <span class="ck">open</span>(<span class="cs">'document.pdf'</span>, <span class="cs">'rb'</span>) <span class="ck">as</span> f:
-    r = requests.post(<span class="cs">'<?= $base ?>/api'</span>, files={<span class="cs">'file'</span>: f}, data={<span class="cs">'format'</span>: <span class="cs">'pdf'</span>})
+    r = requests.post(<span class="cs">'<?= $base ?>/api'</span>, headers=headers, files={<span class="cs">'file'</span>: f}, data={<span class="cs">'format'</span>: <span class="cs">'pdf'</span>})
 
 data = r.json()
 markdown = requests.get(<span class="cs">'<?= $base ?>'</span> + data[<span class="cs">'download_url'</span>]).text
@@ -456,30 +430,19 @@ markdown = requests.get(<span class="cs">'<?= $base ?>'</span> + data[<span clas
     </div>
 </main>
 
-<footer class="l-footer">
-    <div class="l-container">
-        <div class="l-footer-inner">
-            <p class="l-footer-text"><?= t('footer.api.text', htmlspecialchars(APP_NAME)) ?></p>
-            <nav class="l-footer-links">
-                <a href="/"><?= t('footer.home') ?></a>
-                <a href="/app"><?= t('footer.converter') ?></a>
-                <a href="/terms"><?= t('nav.terms') ?></a>
-                <a href="/privacy"><?= t('nav.privacy') ?></a>
-            </nav>
-        </div>
-    </div>
-</footer>
+<?php
+$footerText  = t('footer.api.text', e(APP_NAME));
+$footerLinks = [
+    ['href' => '/',        'label' => t('footer.home')],
+    ['href' => '/app',     'label' => t('footer.converter')],
+    ['href' => '/terms',   'label' => t('nav.terms')],
+    ['href' => '/privacy', 'label' => t('nav.privacy')],
+];
+require BASE_PATH . '/src/View/footer.php';
+?>
 
 <script>
 (function(){
-    var header = document.getElementById('l-header');
-    var onScroll = function(){
-        if (window.scrollY > 8) header.classList.add('is-scrolled');
-        else header.classList.remove('is-scrolled');
-    };
-    document.addEventListener('scroll', onScroll, { passive:true });
-    onScroll();
-
     document.querySelectorAll('[data-copy]').forEach(function(btn){
         btn.addEventListener('click', function(){
             var pre = btn.parentElement.querySelector('.code-block');

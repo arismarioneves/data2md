@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Data2Md\Storage;
 
+use Data2Md\Auth\LoginTokenStore;
+use Data2Md\Billing\WebhookEventStore;
+use Data2Md\Auth\SessionStore;
 use Data2Md\Log\Logger;
 
 /**
  * run() removes orphaned markdown, orphaned mappings, expired rate-limit
- * counters, rotated logs past retention, and stale temp files. It never
+ * counters, rotated logs past retention, stale temp files, and expired
+ * sessions, sign-in links and Stripe event records past retention. It never
  * removes a markdown file that still has a mapping record, regardless of
  * age, and it never removes a markdown file recent enough to still belong
  * to a conversion in progress. When a concurrent collection already holds
@@ -27,10 +31,81 @@ final class Gc
         private readonly string $rateLimitDir,
         private readonly int $logRetentionDays,
         private readonly int $auditLogRetentionDays,
-        private readonly int $rateLimitWindowSeconds,
+        /**
+         * The longest window of any bucket in the directory, not any one of
+         * them. Bucket filenames are hashes, so collection cannot tell a
+         * 60-second bucket from a one-hour one; a shorter value here resets a
+         * limiter that is still counting.
+         */
+        private readonly int $rateLimitMaxWindowSeconds,
         private readonly int $convertTimeoutSeconds,
         private readonly string $lockDir,
+        private readonly ?SessionStore $sessions = null,
+        private readonly ?LoginTokenStore $loginTokens = null,
+        private readonly ?WebhookEventStore $webhookEvents = null,
     ) {
+    }
+
+    /**
+     * Queues a sweep for after the response is on the wire.
+     *
+     * run() globs the whole markdown directory and scans the mappings table, so
+     * its cost grows with every conversion ever made rather than with this
+     * request. A shutdown callback still runs after ApiResponse's exit(), and by
+     * then the response has been flushed with an explicit Content-Length, so the
+     * client does not wait on it. A failure here is logged and swallowed: there
+     * is no response left to fail.
+     *
+     * Called by a front controller, once. The pipeline must not know about it.
+     */
+    public static function registerShutdownSweep(
+        \Data2Md\Config\Config $config,
+        Logger $logger,
+        Database $database,
+        FileStorage $files,
+        MappingStorage $mappings,
+    ): void {
+        $probability = $config->float('GC_PROBABILITY');
+
+        if ($probability <= 0.0) {
+            return;
+        }
+
+        $dataDir = $config->string('APP_DATA_DIR');
+
+        register_shutdown_function(static function () use (
+            $config,
+            $logger,
+            $database,
+            $files,
+            $mappings,
+            $dataDir,
+            $probability
+        ): void {
+            try {
+                (new self(
+                    files:                     $files,
+                    mappings:                  $mappings,
+                    logger:                    $logger,
+                    logDir:                    $dataDir . '/logs',
+                    rateLimitDir:              $dataDir . '/ratelimit',
+                    logRetentionDays:          $config->int('LOG_RETENTION_DAYS'),
+                    auditLogRetentionDays:     $config->int('AUDIT_LOG_RETENTION_DAYS'),
+                    rateLimitMaxWindowSeconds: \Data2Md\rate_limit_max_window_seconds($config),
+                    convertTimeoutSeconds:     $config->int('CONVERT_TIMEOUT_SECONDS'),
+                    lockDir:                   $dataDir . '/tmp',
+                    sessions:                  new SessionStore(
+                        $database,
+                        $config->int('SESSION_LIFETIME_DAYS'),
+                        $config->int('SESSION_IDLE_DAYS'),
+                    ),
+                    loginTokens:               new LoginTokenStore($database, $config->int('LOGIN_TOKEN_TTL_SECONDS')),
+                    webhookEvents:             new WebhookEventStore($database),
+                ))->maybeRun($probability);
+            } catch (\Throwable $e) {
+                $logger->app('gc.fail', ['reason' => $e::class, 'detail' => $e->getMessage()], 'error');
+            }
+        });
     }
 
     public function maybeRun(float $probability): ?GcReport
@@ -64,11 +139,17 @@ final class Gc
             $now = time();
 
             $report = new GcReport(
-                orphanMarkdown:  $this->collectOrphanMarkdown($now),
-                orphanMappings:  $this->collectOrphanMappings(),
-                rateLimitFiles:  $this->collectRateLimits($now),
-                rotatedLogs:     $this->collectRotatedLogs($now),
-                staleTempFiles:  $this->collectStaleTempFiles($now),
+                orphanMarkdown:     $this->collectOrphanMarkdown($now),
+                orphanMappings:     $this->collectOrphanMappings(),
+                rateLimitFiles:     $this->collectRateLimits($now),
+                rotatedLogs:        $this->collectRotatedLogs($now),
+                staleTempFiles:     $this->collectStaleTempFiles($now),
+                expiredSessions:    $this->sessions?->purgeExpired($now) ?? 0,
+                expiredLoginTokens: $this->loginTokens?->purgeExpired($now) ?? 0,
+                oldWebhookEvents:   $this->webhookEvents?->purgeOlderThan(
+                    WebhookEventStore::RETENTION_DAYS,
+                    $now
+                ) ?? 0,
             );
 
             if ($report->total() > 0) {
@@ -156,7 +237,7 @@ final class Gc
     private function collectRateLimits(int $now): int
     {
         // Twice the window: anything older cannot influence a decision.
-        $cut     = $now - ($this->rateLimitWindowSeconds * 2);
+        $cut     = $now - ($this->rateLimitMaxWindowSeconds * 2);
         $removed = 0;
 
         foreach (glob($this->rateLimitDir . '/*') ?: [] as $file) {
@@ -175,6 +256,9 @@ final class Gc
         $retention = [
             'app.jsonl.1'   => $this->logRetentionDays,
             'audit.jsonl.1' => $this->auditLogRetentionDays,
+            // Development-only channel holding live sign-in links, so it keeps
+            // the shorter of the two retentions rather than its own key.
+            'mail.jsonl.1'  => $this->auditLogRetentionDays,
         ];
 
         foreach ($retention as $name => $days) {

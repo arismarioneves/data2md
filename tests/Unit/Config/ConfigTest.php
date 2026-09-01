@@ -77,6 +77,174 @@ final class ConfigTest extends TestCase
         }
     }
 
+    public function testOptionalKeysFallBackToTheirDefaults(): void
+    {
+        $config = Config::fromArray(self::valid());
+
+        self::assertFalse($config->bool('ACCOUNTS_ENABLED'));
+        self::assertFalse($config->bool('BILLING_ENABLED'));
+        self::assertSame(3600, $config->int('TIER_ANON_WINDOW_SECONDS'));
+        self::assertSame(10, $config->int('TIER_ANON_MAX_FILE_SIZE_MB'));
+        self::assertSame(200, $config->int('TIER_PREMIUM_MAX_FILE_SIZE_MB'));
+        self::assertSame('smtp', $config->string('MAIL_TRANSPORT'));
+        self::assertSame(587, $config->int('SMTP_PORT'));
+        self::assertSame('', $config->string('STRIPE_SECRET_KEY'));
+    }
+
+    /** Control panels leave a declared variable blank rather than unset. */
+    public function testBlankOptionalKeyFallsBackToItsDefault(): void
+    {
+        $config = Config::fromArray(self::valid([
+            'TIER_ANON_WINDOW_SECONDS' => '',
+            'MAIL_TRANSPORT'           => '',
+            'ACCOUNTS_ENABLED'         => '',
+        ]));
+
+        self::assertSame(3600, $config->int('TIER_ANON_WINDOW_SECONDS'));
+        self::assertSame('smtp', $config->string('MAIL_TRANSPORT'));
+        self::assertFalse($config->bool('ACCOUNTS_ENABLED'));
+    }
+
+    public function testOptionalKeysAreStillValidatedWhenSet(): void
+    {
+        $this->expectException(ConfigError::class);
+        Config::fromArray(self::valid(['TIER_ANON_WINDOW_SECONDS' => '999999']));
+    }
+
+    /**
+     * @dataProvider booleanInputs
+     */
+    public function testBooleanKeyParsing(string $input, ?bool $expected): void
+    {
+        if ($expected === null) {
+            $this->expectException(ConfigError::class);
+            Config::fromArray(self::valid(['ACCOUNTS_ENABLED' => $input]));
+            return;
+        }
+
+        $config = Config::fromArray(self::valid([
+            'ACCOUNTS_ENABLED' => $input,
+            'SMTP_HOST'        => 'smtp.example.com',
+        ]));
+
+        self::assertSame($expected, $config->bool('ACCOUNTS_ENABLED'));
+    }
+
+    public static function booleanInputs(): array
+    {
+        return [
+            'true'  => ['true', true],
+            'TRUE'  => ['TRUE', true],
+            'one'   => ['1', true],
+            'false' => ['false', false],
+            'zero'  => ['0', false],
+            'yes'   => ['yes', null],
+            'junk'  => ['maybe', null],
+        ];
+    }
+
+    public function testAccountsWithoutAWayToSendMailFails(): void
+    {
+        try {
+            Config::fromArray(self::valid(['ACCOUNTS_ENABLED' => 'true']));
+            self::fail('expected ConfigError');
+        } catch (ConfigError $e) {
+            self::assertStringContainsString('SMTP_HOST', implode("\n", $e->getProblems()));
+        }
+    }
+
+    /** The log transport is how CI exercises sign-in without a relay. */
+    public function testAccountsWithTheLogTransportNeedNoSmtpHost(): void
+    {
+        $config = Config::fromArray(self::valid([
+            'ACCOUNTS_ENABLED' => 'true',
+            'MAIL_TRANSPORT'   => 'log',
+        ]));
+
+        self::assertTrue($config->bool('ACCOUNTS_ENABLED'));
+    }
+
+    public function testBillingWithoutAccountsFails(): void
+    {
+        try {
+            Config::fromArray(self::valid(['BILLING_ENABLED' => 'true']));
+            self::fail('expected ConfigError');
+        } catch (ConfigError $e) {
+            self::assertStringContainsString('ACCOUNTS_ENABLED', implode("\n", $e->getProblems()));
+        }
+    }
+
+    public function testBillingWithoutStripeCredentialsFails(): void
+    {
+        try {
+            Config::fromArray(self::valid([
+                'ACCOUNTS_ENABLED' => 'true',
+                'MAIL_TRANSPORT'   => 'log',
+                'BILLING_ENABLED'  => 'true',
+            ]));
+            self::fail('expected ConfigError');
+        } catch (ConfigError $e) {
+            $problems = implode("\n", $e->getProblems());
+            self::assertStringContainsString('STRIPE_SECRET_KEY', $problems);
+            self::assertStringContainsString('STRIPE_WEBHOOK_SECRET', $problems);
+            self::assertStringContainsString('STRIPE_PRICE_ID', $problems);
+        }
+    }
+
+    /**
+     * A key in the wrong mode makes every webhook answer 400 with nothing else
+     * looking wrong.
+     *
+     * @dataProvider stripeKeyModeMismatches
+     */
+    public function testStripeKeyModeMustMatchTheEnvironment(string $env, string $key): void
+    {
+        try {
+            Config::fromArray(self::valid(['APP_ENV' => $env, 'STRIPE_SECRET_KEY' => $key]));
+            self::fail('expected ConfigError');
+        } catch (ConfigError $e) {
+            self::assertStringContainsString('STRIPE_SECRET_KEY', implode("\n", $e->getProblems()));
+        }
+    }
+
+    public static function stripeKeyModeMismatches(): array
+    {
+        return [
+            'test key in production' => ['production', 'sk_test_abc123'],
+            'live key in development' => ['development', 'sk_live_abc123'],
+        ];
+    }
+
+    public function testIdleSessionLongerThanItsLifetimeFails(): void
+    {
+        try {
+            Config::fromArray(self::valid([
+                'SESSION_LIFETIME_DAYS' => '7',
+                'SESSION_IDLE_DAYS'     => '30',
+            ]));
+            self::fail('expected ConfigError');
+        } catch (ConfigError $e) {
+            self::assertStringContainsString('SESSION_IDLE_DAYS', implode("\n", $e->getProblems()));
+        }
+    }
+
+    /**
+     * Apache and PHP take their body limits from MAX_FILE_SIZE_MB at boot, so a
+     * tier above it promises a size the request never reaches PHP to honour.
+     */
+    public function testTierAboveTheGlobalCeilingFails(): void
+    {
+        try {
+            Config::fromArray(self::valid([
+                'MAX_FILE_SIZE_MB'              => '50',
+                'TIER_PREMIUM_MAX_FILE_SIZE_MB' => '200',
+            ]));
+            self::fail('expected ConfigError');
+        } catch (ConfigError $e) {
+            self::assertStringContainsString('TIER_PREMIUM_MAX_FILE_SIZE_MB', implode("\n", $e->getProblems()));
+        }
+    }
+
     public function testEmptyIsAcceptedOnlyWhereAllowed(): void
     {
         $config = Config::fromArray(self::valid(['TRUSTED_PROXIES' => '']));

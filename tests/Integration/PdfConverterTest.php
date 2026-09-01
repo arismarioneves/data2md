@@ -46,6 +46,33 @@ final class PdfConverterTest extends TestCase
         return dirname(__DIR__) . '/fixtures/' . $name;
     }
 
+    /**
+     * @dataProvider probeExpectations
+     */
+    public function testProbeDetectsWhetherAFullRunIsWorthwhile(string $fixture, bool $expected, string $why): void
+    {
+        self::assertSame($expected, $this->converter()->probe($this->fixture($fixture)), $why);
+    }
+
+    public static function probeExpectations(): array
+    {
+        return [
+            'text'              => ['sample.pdf', true, 'has a text layer'],
+            'multi page'        => ['multi-page.pdf', true, 'has a text layer'],
+            'blank middle page' => ['blank-middle-page.pdf', true, 'text on the surrounding pages'],
+            'image only'        => ['image-only.pdf', false, 'nothing for a full run to extract'],
+            // pdftotext exits non-zero here; the full run reports the specific
+            // failure, so the probe must not swallow it as "no text".
+            'corrupt'           => ['corrupt.pdf', true, 'defers to the full run'],
+        ];
+    }
+
+    /** pdftotext emits a form feed per page, which is not content. */
+    public function testProbeTreatsPageBreaksAsEmpty(): void
+    {
+        self::assertFalse($this->converter()->probe($this->fixture('image-only.pdf')));
+    }
+
     public function testConvertsAPdfWithATextLayer(): void
     {
         $mdPath = $this->tmpDir . '/out.md';

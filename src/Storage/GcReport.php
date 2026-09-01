@@ -12,6 +12,9 @@ final class GcReport
         public readonly int $rateLimitFiles = 0,
         public readonly int $rotatedLogs = 0,
         public readonly int $staleTempFiles = 0,
+        public readonly int $expiredSessions = 0,
+        public readonly int $expiredLoginTokens = 0,
+        public readonly int $oldWebhookEvents = 0,
         public readonly bool $skipped = false,
     ) {
     }
@@ -22,18 +25,24 @@ final class GcReport
             + $this->orphanMappings
             + $this->rateLimitFiles
             + $this->rotatedLogs
-            + $this->staleTempFiles;
+            + $this->staleTempFiles
+            + $this->expiredSessions
+            + $this->expiredLoginTokens
+            + $this->oldWebhookEvents;
     }
 
     /** @return array<string,int> */
     public function toArray(): array
     {
         return [
-            'orphan_markdown'  => $this->orphanMarkdown,
-            'orphan_mappings'  => $this->orphanMappings,
-            'rate_limit_files' => $this->rateLimitFiles,
-            'rotated_logs'     => $this->rotatedLogs,
-            'stale_temp_files' => $this->staleTempFiles,
+            'orphan_markdown'      => $this->orphanMarkdown,
+            'orphan_mappings'      => $this->orphanMappings,
+            'rate_limit_files'     => $this->rateLimitFiles,
+            'rotated_logs'         => $this->rotatedLogs,
+            'stale_temp_files'     => $this->staleTempFiles,
+            'expired_sessions'     => $this->expiredSessions,
+            'expired_login_tokens' => $this->expiredLoginTokens,
+            'old_webhook_events'   => $this->oldWebhookEvents,
         ];
     }
 }

@@ -14,14 +14,21 @@ final class Validator
         // Additional formats registered here as they are implemented
     ];
 
-    public function __construct(
-        private readonly int $maxFileSizeBytes,
-        private readonly string $maxFileSizeLabel,
-    ) {
-    }
-
-    public function validateUpload(array $file, string $format = 'pdf'): array
-    {
+    /**
+     * The size limit is a parameter rather than constructor state: it varies per
+     * caller, and a Validator built with one plan's ceiling would quietly apply
+     * it to another's.
+     *
+     * @param bool $isHttpUpload false only in tests, where there is no real
+     *                           multipart upload for is_uploaded_file to verify
+     */
+    public function validateUpload(
+        array $file,
+        string $format,
+        int $maxFileSizeBytes,
+        string $maxFileSizeLabel,
+        bool $isHttpUpload = true,
+    ): array {
         $errors = [];
 
         if (!isset($file['error'])) {
@@ -36,11 +43,16 @@ final class Validator
             return ["Unsupported format: $format"];
         }
 
-        if ($file['size'] > $this->maxFileSizeBytes) {
-            $errors[] = 'File exceeds the maximum allowed size of ' . $this->maxFileSizeLabel . '.';
+        if ($file['size'] > $maxFileSizeBytes) {
+            $errors[] = 'File exceeds the maximum allowed size of ' . $maxFileSizeLabel . '.';
         }
 
-        if (!is_uploaded_file($file['tmp_name'])) {
+        if ($isHttpUpload && !is_uploaded_file($file['tmp_name'])) {
+            $errors[] = 'Invalid upload source.';
+            return $errors;
+        }
+
+        if (!$isHttpUpload && !is_file($file['tmp_name'])) {
             $errors[] = 'Invalid upload source.';
             return $errors;
         }

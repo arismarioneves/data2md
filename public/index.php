@@ -8,7 +8,9 @@ define('BASE_PATH', dirname(__DIR__));
 $config = require BASE_PATH . '/src/bootstrap.php';
 
 require BASE_PATH . '/src/I18n/bootstrap.php';
+require BASE_PATH . '/src/Auth/bootstrap.php';
 
+use Data2Md\Billing\Entitlement;
 use Data2Md\I18n\I18n;
 
 // X-Content-Type-Options, X-Frame-Options and Referrer-Policy come from the vhost.
@@ -32,30 +34,27 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/'), ENT
 <body>
 
 <!-- ── Header ──────────────────────────────────────────────── -->
-<header class="l-header" id="l-header">
-    <div class="l-container">
-        <div class="l-header-inner">
-            <a href="/" class="l-logo" aria-label="<?= htmlspecialchars(APP_NAME, ENT_QUOTES) ?> home">
-                <img class="l-logo-mark" src="/assets/img/icon.svg" width="30" height="30" alt="" aria-hidden="true">
-                <span class="l-logo-name"><?= htmlspecialchars(APP_NAME) ?></span>
-            </a>
-            <nav class="l-nav">
-                <a href="#why" class="l-nav-link" data-hide-sm><?= t('nav.why') ?></a>
-                <a href="#performance" class="l-nav-link" data-hide-sm><?= t('nav.performance') ?></a>
-                <a href="/api" class="l-nav-link"><?= t('nav.api') ?></a>
-                <a href="/app" class="l-nav-cta">
-                    <?= t('nav.app') ?>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                </a>
-                <span class="l-lang" role="group" aria-label="<?= htmlspecialchars(t('lang.aria'), ENT_QUOTES) ?>">
-                    <a href="/lang?to=en&amp;back=<?= $back ?>" class="<?= I18n::current() === 'en' ? 'is-active' : '' ?>"><?= t('lang.label.en') ?></a>
-                    <span class="l-lang-sep" aria-hidden="true">·</span>
-                    <a href="/lang?to=pt&amp;back=<?= $back ?>" class="<?= I18n::current() === 'pt' ? 'is-active' : '' ?>"><?= t('lang.label.pt') ?></a>
-                </span>
-            </nav>
-        </div>
-    </div>
-</header>
+<?php
+$navLinks = [
+    ['href' => '#why',          'label' => t('nav.why'),         'hideSm' => true],
+    ['href' => '#performance',  'label' => t('nav.performance'), 'hideSm' => true],
+    ['href' => '/api',          'label' => t('nav.api')],
+];
+$navCta = ['href' => '/app', 'label' => t('nav.app'), 'icon' => 'arrow'];
+require BASE_PATH . '/src/View/header.php';
+?>
+
+<?php
+// The landing advertises what the product does, so it quotes the largest a
+// customer can convert rather than what this visitor is allowed today. The
+// converter at /app is where the visitor's own limit is stated, because that
+// is the page where being wrong about it wastes an upload.
+//
+// Read from the premium tier, not from MAX_FILE_SIZE_MB: that one is the
+// deployment's hard ceiling, which no plan necessarily reaches, and quoting a
+// number nobody can actually get is the failure this line exists to avoid.
+$ceiling = $tiers->for(Entitlement::PREMIUM)->maxFileSizeLabel();
+?>
 
 <main class="l-main">
 
@@ -64,7 +63,7 @@ $back = htmlspecialchars(I18n::sanitizeBack($_SERVER['REQUEST_URI'] ?? '/'), ENT
         <div class="l-container">
             <span class="l-hero-eyebrow">
                 <span class="l-hero-eyebrow-dot" aria-hidden="true"></span>
-                <?= t('landing.hero.eyebrow', MAX_FILE_SIZE_LABEL) ?>
+                <?= t($session?->isAuthenticated() ? 'landing.hero.eyebrow.signedin' : 'landing.hero.eyebrow', $ceiling) ?>
             </span>
             <h1><?= t('landing.hero.title') ?></h1>
             <p class="l-hero-sub"><?= t('landing.hero.sub') ?></p>
@@ -211,12 +210,12 @@ driven by enterprise contracts in EMEA.
 
                 <div>
                     <span class="l-eyebrow"><?= t('landing.perf.eyebrow') ?></span>
-                    <h2 class="l-h2"><?= t('landing.perf.title', str_replace(' ', "\u{00A0}", MAX_FILE_SIZE_LABEL)) ?></h2>
+                    <h2 class="l-h2"><?= t('landing.perf.title', str_replace(' ', "\u{00A0}", $ceiling)) ?></h2>
                     <p class="l-lead"><?= t('landing.perf.lead') ?></p>
 
                     <div class="l-perf-stat-row">
                         <div>
-                            <span class="l-stat-num"><em><?= MAX_FILE_SIZE_LABEL ?></em></span>
+                            <span class="l-stat-num"><em><?= e($ceiling) ?></em></span>
                             <span class="l-stat-lbl"><?= t('landing.perf.stat1.lbl') ?></span>
                         </div>
                         <div>
@@ -257,7 +256,7 @@ driven by enterprise contracts in EMEA.
                         <span class="l-perf-row-time">18.6 s</span>
                     </div>
                     <div class="l-perf-row">
-                        <span class="l-perf-row-name">corpus.pdf <span class="l-pill"><?= MAX_FILE_SIZE_LABEL ?></span></span>
+                        <span class="l-perf-row-name">corpus.pdf <span class="l-pill"><?= e($ceiling) ?></span></span>
                         <span class="l-perf-bar"><span class="l-perf-bar-fill" style="--w:100%"></span></span>
                         <span class="l-perf-row-time">29.4 s</span>
                     </div>
@@ -268,6 +267,7 @@ driven by enterprise contracts in EMEA.
     </section>
 
     <!-- ── Sign-in section ───────────────────────────────── -->
+    <?php if ($session !== null): ?>
     <section class="l-section l-signin" id="signin">
         <div class="l-container">
             <span class="l-eyebrow"><?= t('landing.signin.eyebrow') ?></span>
@@ -281,20 +281,10 @@ driven by enterprise contracts in EMEA.
                 <h3><?= t('landing.signin.card.title') ?></h3>
                 <p><?= t('landing.signin.card.lead') ?></p>
 
-                <button type="button" class="l-btn l-btn--google l-google-btn" disabled aria-disabled="true" title="<?= htmlspecialchars(t('landing.signin.tooltip'), ENT_QUOTES) ?>">
-                    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
-                        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
-                        <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
-                        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.167 6.656 3.58 9 3.58z"/>
-                    </svg>
-                    <?= t('landing.signin.btn') ?>
-                </button>
-
-                <div class="l-soon">
-                    <span class="l-soon-dot" aria-hidden="true"></span>
-                    <?= t('landing.signin.soon') ?>
-                </div>
+                <a href="<?= $session?->isAuthenticated() ? '/dashboard' : '/login' ?>" class="l-btn l-btn--primary l-google-btn" style="display:flex">
+                    <?= $session?->isAuthenticated() ? t('nav.dashboard') : t('landing.signin.btn') ?>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </a>
 
                 <div class="l-signin-or"><?= t('landing.signin.or') ?></div>
 
@@ -305,36 +295,22 @@ driven by enterprise contracts in EMEA.
             </div>
         </div>
     </section>
+    <?php endif; ?>
 
 </main>
 
 <!-- ── Footer ─────────────────────────────────────────────── -->
-<footer class="l-footer">
-    <div class="l-container">
-        <div class="l-footer-inner">
-            <p class="l-footer-text"><?= t('footer.text', htmlspecialchars(APP_NAME)) ?></p>
-            <nav class="l-footer-links">
-                <a href="/app"><?= t('footer.app') ?></a>
-                <a href="/api"><?= t('footer.api') ?></a>
-                <a href="https://daringfireball.net/projects/markdown/" target="_blank" rel="noreferrer"><?= t('footer.about_md') ?></a>
-                <a href="/terms"><?= t('nav.terms') ?></a>
-                <a href="/privacy"><?= t('nav.privacy') ?></a>
-            </nav>
-        </div>
-    </div>
-</footer>
-
-<script>
-(function(){
-    var header = document.getElementById('l-header');
-    var onScroll = function(){
-        if (window.scrollY > 8) header.classList.add('is-scrolled');
-        else header.classList.remove('is-scrolled');
-    };
-    document.addEventListener('scroll', onScroll, { passive:true });
-    onScroll();
-})();
-</script>
+<?php
+$footerText  = t('footer.text', e(APP_NAME));
+$footerLinks = [
+    ['href' => '/app', 'label' => t('footer.app')],
+    ['href' => '/api', 'label' => t('footer.api')],
+    ['href' => 'https://daringfireball.net/projects/markdown/', 'label' => t('footer.about_md'), 'external' => true],
+    ['href' => '/terms',   'label' => t('nav.terms')],
+    ['href' => '/privacy', 'label' => t('nav.privacy')],
+];
+require BASE_PATH . '/src/View/footer.php';
+?>
 
 </body>
 </html>

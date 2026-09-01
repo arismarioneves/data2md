@@ -109,6 +109,7 @@ final class I18n
             'app.error.busy',
             'app.status.queued',
             'app.status.retrying',
+            'app.error.toobig',
         ];
         $out = [];
         foreach ($keys as $k) {
@@ -127,15 +128,26 @@ final class I18n
     }
 
     /**
-     * Only allow same-origin relative paths starting with `/`, no `//`, no scheme.
+     * Only same-origin relative paths: leading `/`, no `//`, no scheme. The
+     * result goes straight into a Location header (public/lang.php).
      */
     public static function sanitizeBack(string $back): string
     {
+        // The WHATWG URL spec reads `\` as `/` in a special scheme, so
+        // /\evil.com resolves as //evil.com.
+        if (str_contains($back, '\\')) {
+            return '/';
+        }
+
+        // Stripping runs before validation: once the blanks are gone,
+        // "/ /evil.com" and "/\0/evil.com" are protocol-relative. Also removes
+        // CR and LF, so the value cannot inject a second header.
+        $back = preg_replace('/[\x00-\x1F\x7F\s]/u', '', $back) ?? '';
+
         if ($back === '' || $back[0] !== '/' || str_starts_with($back, '//')) {
             return '/';
         }
-        // Strip control chars and spaces
-        $back = preg_replace('/[\x00-\x1F\x7F\s]/u', '', $back) ?? '/';
-        return $back === '' ? '/' : $back;
+
+        return $back;
     }
 }

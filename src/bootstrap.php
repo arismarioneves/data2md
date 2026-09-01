@@ -5,8 +5,11 @@ declare(strict_types=1);
 use Data2Md\Config\Config;
 use Data2Md\Config\ConfigError;
 
+// helpers.php and View/helpers.php come in through composer's autoload.files:
+// production classes call them, so they cannot depend on this file being
+// included, and a page must not be able to call e() before an include defines
+// it.
 require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/helpers.php';
 
 try {
     $config = Config::fromEnvironment();
@@ -36,12 +39,13 @@ define('APP_NAME',    $config->string('APP_NAME'));
 define('APP_URL',     $config->string('APP_URL'));
 define('APP_VERSION', $config->string('APP_VERSION'));
 
-define('MAX_FILE_SIZE',       $config->int('MAX_FILE_SIZE_MB') * 1024 * 1024);
-define('MAX_FILE_SIZE_LABEL', \Data2Md\format_bytes_label($config->int('MAX_FILE_SIZE_MB')));
-
 define('RATE_LIMIT_MAX',    $config->int('RATE_LIMIT_MAX'));
 define('RATE_LIMIT_WINDOW', $config->int('RATE_LIMIT_WINDOW_SECONDS'));
 
 define('CONTACT_EMAIL', $config->string('CONTACT_EMAIL'));
+
+// Read by the shared header, so every page agrees about whether there is a
+// plan to link to.
+define('BILLING_ENABLED', $config->bool('BILLING_ENABLED'));
 
 return $config;

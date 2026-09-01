@@ -44,12 +44,40 @@ Inside the container:
 
 ## 2. Configuration variables
 
-All 19 keys are required by `Config` — there is no code-level default for any
-of them. The Dockerfile declares production `ENV` defaults for 18 of the 19;
+`Config` validates two groups, and `bin/data2md config:check` prints the count
+of each.
+
+**19 required keys** describe the deployment itself and have no code-level
+default. The Dockerfile declares production `ENV` values for 18 of them;
 `APP_URL` has none, on purpose, because there is no correct generic value and
 deriving it from the request's `Host` header is exactly the behaviour this
-project removed. In practice, on a fresh EasyPanel deployment you only need to
-set two variables yourself:
+project removed.
+
+**31 optional keys** describe behaviour that is off or conventional by default —
+accounts, billing, per-tier conversion limits, sessions, outbound mail, Stripe.
+Each carries a default in `Config::SCHEMA`, and a key left *blank* is read as
+absent rather than failing boot, because control panels routinely leave a
+declared variable empty. `.env.example` lists them all, commented out, with
+their defaults as the values. They are deliberately not duplicated into the
+Dockerfile: two copies of a default drift.
+
+Some rules span keys and are checked together, so `config:check` reports them
+the same way as a bad value:
+
+- `ACCOUNTS_ENABLED=true` needs a way to send the sign-in link — `SMTP_HOST`,
+  or `MAIL_TRANSPORT=log` for development and CI.
+- `BILLING_ENABLED=true` needs `ACCOUNTS_ENABLED=true` and all three `STRIPE_*`
+  values.
+- A `sk_test_` key with `APP_ENV=production`, or `sk_live_` in development, is
+  rejected: the mismatch otherwise fails silently, with every webhook answering
+  400 and nothing else looking wrong.
+- `SESSION_IDLE_DAYS` above `SESSION_LIFETIME_DAYS` can never expire anything.
+- A `TIER_*_MAX_FILE_SIZE_MB` above `MAX_FILE_SIZE_MB` promises a size the
+  request never reaches PHP to honour, since Apache's `LimitRequestBody` and
+  PHP's `upload_max_filesize` come from the ceiling at boot.
+
+In practice, on a fresh EasyPanel deployment you only need to set two variables
+yourself:
 
 - **`APP_URL`** — no default exists; the container refuses to boot without it.
 - **`CONTACT_EMAIL`** — has a default, but it's this project's placeholder
@@ -79,16 +107,42 @@ for tuning.
 | `LOG_RETENTION_DAYS` | `90` | 1–3650 | Operational log |
 | `AUDIT_LOG_RETENTION_DAYS` | `30` | 1–3650 | Access/audit log |
 | `GC_PROBABILITY` | `0.01` | 0.0–1.0 | Chance GC runs after any given request |
-| `CONTACT_EMAIL` | `contato@data2md.com.br` | valid e-mail | Placeholder — override for a real deployment |
+| `CONTACT_EMAIL` | `support@aiu4.com` | valid e-mail | Published on the Terms and Privacy pages |
 
-There is no `MD_RETENTION_DAYS` and there never was one. Converted Markdown is
-permanent; a retention variable would imply otherwise. The only way Markdown
-is removed is `bin/data2md delete <hash>` (one conversion) or
-`bin/data2md prune --older-than=N` (by age) — both CLI-only, with no
-self-service deletion exposed to users. Because of that, the data volume
-grows monotonically over the life of the deployment; a disk-space alert on
-the VPS is not optional, it's the only thing that will tell you before the
-volume fills.
+### Optional keys
+
+Everything above is required and has a value in the image. Accounts, mail and
+billing add keys that each carry a default in code, so an operator sets only
+what they mean to change — `bin/data2md config:check` prints how many of each
+the running build has, and names every problem at once rather than the first.
+
+Three cross-checks refuse to boot rather than degrade quietly:
+
+- `ACCOUNTS_ENABLED=true` with `MAIL_TRANSPORT=smtp` and no `SMTP_HOST`. A
+  sign-in link is the only way into an account, so mail that cannot be sent
+  is an outage, not a warning.
+- `BILLING_ENABLED=true` without accounts, or with any `STRIPE_*` empty. Half
+  a billing configuration is worse than none.
+- A test-mode Stripe key with `APP_ENV=production`, or a live key in
+  development. A key in the wrong mode fails silently: every webhook answers
+  400 and nothing else looks wrong.
+
+Do not set `APP_VERSION` on the service. It is written into the image by the
+CI build and is how `/health` reports which commit is running; setting it in
+the panel replaces that with whatever was typed.
+
+There is no `MD_RETENTION_DAYS` and there never was one. Converted Markdown does
+not expire; a retention variable would imply otherwise. It is removed by
+`bin/data2md delete <hash>`, by `bin/data2md prune --older-than=N`, or by a
+signed-in user deleting their own conversion from the dashboard. Nothing
+removes it on a timer, so the data volume still grows over the life of the
+deployment; a disk-space alert on the VPS is not optional, it's the only
+thing that will tell you before the volume fills.
+
+Deleting an account does **not** delete its conversions. They are detached
+from it and stay reachable by hash, exactly as an anonymous conversion is.
+The privacy page says so, and `bin/data2md user:delete` says so before it
+acts.
 
 ---
 

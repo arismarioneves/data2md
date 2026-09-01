@@ -23,6 +23,24 @@ $writable = static function (string $dir): bool {
     return is_dir($dir) && is_writable($dir);
 };
 
+/**
+ * A container serving requests against a schema it does not know about is
+ * the state a failed or half-run migration leaves behind, and every other
+ * check here passes while it happens.
+ */
+$schema = static function (string $path): bool {
+    try {
+        $version = (new \Data2Md\Storage\Database($path))->version();
+
+        // Ahead is a rollback onto a newer volume, which DEPLOY.md documents
+        // as supported: the older image serves what it understands.
+        return $version >= \Data2Md\Storage\Database::latestVersion()
+            || $version === 0;
+    } catch (\Throwable) {
+        return false;
+    }
+};
+
 $database = static function (string $path): bool {
     try {
         return (new \Data2Md\Storage\Database($path))->pdo()->query('SELECT 1')->fetchColumn() !== false;
@@ -37,4 +55,5 @@ return [
     'tmp_dir'   => $writable($dataDir . '/tmp'),
     'logs_dir'  => $writable($dataDir . '/logs'),
     'database'  => $database($dataDir . '/db/mappings.sqlite'),
+    'schema'    => $schema($dataDir . '/db/mappings.sqlite'),
 ];

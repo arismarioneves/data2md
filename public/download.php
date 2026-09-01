@@ -36,14 +36,14 @@ $rateLimiter = new RateLimiter(
 );
 
 if (!$rateLimiter->isAllowed('download:' . $clientIp)) {
-    header('Retry-After: ' . $rateLimiter->retryAfter());
+    header('Retry-After: ' . $rateLimiter->retryAfter('download:' . $clientIp));
     http_response_code(429);
     header('Content-Type: text/plain; charset=utf-8');
     echo "Rate limit exceeded.\n";
     exit;
 }
 
-$validator = new Validator(MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL);
+$validator = new Validator();
 $hash      = (string) ($_GET['hash'] ?? '');
 
 if (!$validator->isValidHash($hash)) {

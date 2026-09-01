@@ -1,5 +1,5 @@
 /* ============================================================
-   data2md — Converter (/app)
+   Data2MD — Converter (/app)
    Reuses tokens from landing.css. Loaded after it.
    ============================================================ */
 
@@ -179,6 +179,15 @@
 .pill--active{
   background:var(--ink);
   border-color:var(--ink);
+  color:var(--paper);
+}
+/* .pill:hover is a class plus a pseudo-class and .pill--active is one
+   class, so the hover wins and paints ink text on the active pill's ink
+   background -- the label vanishes. This restates the colour at equal
+   specificity, and takes the amber the header CTA uses for the same job. */
+.pill--active:hover{
+  background:var(--accent);
+  border-color:var(--accent);
   color:var(--paper);
 }
 

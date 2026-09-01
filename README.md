@@ -1,6 +1,6 @@
-<img src="public/assets/img/logo.png" alt="data2md" width="300">
+<img src="public/assets/img/logo.png" alt="Data2MD" width="300">
 
-# data2md
+# Data2MD
 
 Convert documents to clean, structured Markdown via a web interface or HTTP API.
 
@@ -46,7 +46,7 @@ For a real deployment (GHCR image, EasyPanel, rollback, operator commands), see 
 
 ## Configuration
 
-There is no `config.php` — all 19 tuneable values are environment variables, validated at container boot; a missing or invalid one aborts startup and names the problem in the log. `APP_URL` has no default and must always be set; every other variable has a production default declared in the `Dockerfile` and only needs overriding to tune behaviour.
+There is no `config.php` — configuration is environment variables only, validated at container boot; a missing or invalid one aborts startup and names the problem in the log. `APP_URL` has no default and must always be set. The rest split in two: keys the `Dockerfile` declares as production `ENV`, and optional keys that default in code and only need setting to change behaviour. `bin/data2md config:check` reports the count of each.
 
 See [`.env.example`](.env.example) for every variable with its default, and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full reference — variable table, sizing arithmetic, and architecture.
 
@@ -63,7 +63,13 @@ Open the root URL in a browser, select or drop a PDF file, and click **Convert t
 ### API
 
 **Endpoint:** `POST /api`  
-**Content-Type:** `multipart/form-data`
+**Content-Type:** `multipart/form-data`  
+**Authentication:** `Authorization: Bearer d2md_…` — the API is part of the subscription
+
+Tokens are created in the dashboard, or with `bin/data2md token:create <email>`. Without one the
+endpoint answers `401`; with one on an account that has no subscription, `403` and
+`"code": "plan_required"`. The browser uses `POST /convert`, which reads the session cookie
+instead.
 
 | Field | Required | Description |
 |---|---|---|
@@ -93,17 +99,23 @@ Open the root URL in a browser, select or drop a PDF file, and click **Convert t
 
 ```bash
 curl -X POST https://yourdomain.com/api \
+  -H "Authorization: Bearer $D2MD_TOKEN" \
   -F "file=@document.pdf" \
   -F "format=pdf"
 ```
 
+`GET /api/me` reports the plan behind a token, its limits and what is left of the current
+window. It works on any plan and is not rate limited, so a `403` is always explainable.
+
 **Python example:**
 
 ```python
-import requests
+import os, requests
+
+headers = {'Authorization': 'Bearer ' + os.environ['D2MD_TOKEN']}
 
 with open('document.pdf', 'rb') as f:
-    r = requests.post('https://yourdomain.com/api',
+    r = requests.post('https://yourdomain.com/api', headers=headers,
                       files={'file': f}, data={'format': 'pdf'})
 
 data = r.json()
@@ -119,7 +131,7 @@ Visit `/api` in a browser for the full interactive API reference.
 GET /download?hash={hash}
 ```
 
-Returns the `.md` file as an attachment. Converted Markdown is kept permanently — there is no automatic expiry. The only way it's removed is `bin/data2md delete <hash>` or `bin/data2md prune --older-than=N`, both operator-only; there is no self-service deletion.
+Returns the `.md` file as an attachment. Converted Markdown has no automatic expiry. It is removed by `bin/data2md delete <hash>`, by `bin/data2md prune --older-than=N`, or by a signed-in user deleting their own conversion from the dashboard.
 
 ---
 
@@ -143,7 +155,7 @@ data2md/
 │   ├── terms.php / privacy.php  # Legal pages
 │   └── assets/
 ├── src/
-│   ├── Config/                  # Env schema, validation — no defaults in code
+│   ├── Config/                  # Env schema, validation, cross-key rules
 │   ├── Converter/               # PdfConverter (pdftotext), ConverterInterface
 │   ├── Storage/                 # FileStorage, MappingStorage (SQLite), Gc
 │   ├── Security/                # Validator, RateLimiter

@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="data2md">
-  <title>data2md</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Data2MD">
+  <title>Data2MD</title>
   <desc>Small-size variant: serif M alone on an ink rounded square.</desc>
   <!-- 16px variant. Side by side, M and arrow get ~7px each and both turn to
        mush; the M alone stays legible. Same corner radius (26.6%) as icon.svg. -->
