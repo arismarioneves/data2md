@@ -28,6 +28,7 @@ use Data2Md\Storage\FileStorage;
 use Data2Md\Storage\Gc;
 use Data2Md\Storage\MappingStorage;
 use Data2Md\Storage\StorageIdentity;
+use Data2Md\Storage\StorageMount;
 
 if (PHP_SAPI !== 'cli') {
     exit(1);
@@ -618,6 +619,7 @@ switch ($command) {
 
     case 'storage:check':
         $identity = (new StorageIdentity($dataDir))->markAndRead();
+        $mount    = (new StorageMount($dataDir))->describe();
 
         $db = new Database($dataDir . '/db/mappings.sqlite');
 
@@ -632,21 +634,40 @@ switch ($command) {
 
         $logger = new Logger($dataDir . '/logs');
 
-        if ($identity['fresh']) {
-            // Loud, and an error: on any deploy but the first, this means the
-            // volume is not persisting and everything the service had is gone.
+        $ephemeral = (new StorageMount($dataDir))->isEphemeral();
+
+        if ($ephemeral) {
+            // Not a guess. Docker names an anonymous volume with 64 hex
+            // characters, and nothing mounted at all means the container's own
+            // writable layer. Both go with the container, so this can be said on
+            // the very first boot, before anything has been lost.
+            $logger->app('storage.ephemeral', [
+                'dir'    => $dataDir,
+                'kind'   => $mount['kind'],
+                'source' => $mount['source'],
+            ], 'error');
+
+            fwrite(STDERR, "[data2md] WARNING: this storage will not survive a redeploy.\n");
+            fwrite(STDERR, sprintf("  %s is on %s storage.\n", $dataDir, $mount['kind']));
+            fwrite(STDERR, "  Docker mounts an anonymous volume when the host configures none and\n");
+            fwrite(STDERR, "  discards it with the container: every account and every converted\n");
+            fwrite(STDERR, "  document goes with the next deploy.\n");
+            fwrite(STDERR, "  Mount a persistent volume at $dataDir. See docs/DEPLOY.md section 6.\n");
+        } elseif ($identity['fresh']) {
+            // Durable storage that has never been used: legitimate on a first
+            // deploy, a replaced volume on any other.
             $logger->app('storage.fresh', [
                 'dir'    => $dataDir,
+                'kind'   => $mount['kind'],
                 'schema' => $schema,
             ], 'error');
 
             fwrite(STDERR, "[data2md] WARNING: this data directory is new.\n");
-            fwrite(STDERR, "  If this is not the first deploy, no persistent volume is mounted at\n");
-            fwrite(STDERR, "  $dataDir, and the accounts and conversions the service had are gone.\n");
-            fwrite(STDERR, "  Docker mounts an anonymous volume when the host configures none, so a\n");
-            fwrite(STDERR, "  redeploy silently starts empty. See docs/DEPLOY.md section 6.\n");
+            fwrite(STDERR, "  The storage looks durable, so if this is not the first deploy it was\n");
+            fwrite(STDERR, "  replaced, and the accounts and conversions the service had are gone.\n");
         } else {
             $logger->app('storage.ok', [
+                'kind'        => $mount['kind'],
                 'since'       => gmdate('c', $identity['since']),
                 'accounts'    => $accounts,
                 'conversions' => $conversions,
@@ -654,18 +675,19 @@ switch ($command) {
         }
 
         fwrite(STDOUT, sprintf(
-            "storage %s  in use since %s  schema %d  accounts %d  conversions %d\n",
-            $identity['fresh'] ? 'NEW' : 'persistent',
+            "storage %s (%s)  in use since %s  schema %d  accounts %d  conversions %d\n",
+            $ephemeral ? 'EPHEMERAL' : ($identity['fresh'] ? 'NEW' : 'persistent'),
+            $mount['kind'],
             gmdate('Y-m-d H:i', $identity['since']),
             $schema,
             $accounts,
             $conversions
         ));
 
-        // Run by hand this reads "persistent" even right after a wipe, because
-        // the boot already wrote the marker. The deploy log is the answer.
-        fwrite(STDOUT, "the verdict that matters is the one at boot: data2md logs | grep storage
-");
+        // The marker half reads "persistent" even right after a wipe, because
+        // the boot already wrote it. The mount half above is true whenever it
+        // is asked, and the deploy log carries both.
+        fwrite(STDOUT, "the verdict that matters is the one at boot: data2md logs | grep storage\n");
 
         // Never fatal: a first deploy is legitimate, and refusing to boot would
         // turn a warning into an outage.
