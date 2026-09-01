@@ -17,13 +17,13 @@ return [
     'nav.performance'   => 'Performance',
 
     // ── Rodapé (landing) ───────────────────────────────────────
-    'footer.text'       => '<strong>%s</strong> — o arquivo enviado é descartado após a conversão; o Markdown gerado fica guardado, sem prazo de expiração.',
+    'footer.text'       => '<strong>%s</strong> — solte um PDF e receba Markdown que um modelo realmente lê.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'Sobre o .md',
     'footer.home'       => 'Início',
     'footer.converter'  => 'Conversor',
-    'footer.api.text'   => '<strong>%s</strong> API — sem cadastro, sem chave.',
+    'footer.api.text'   => '<strong>%s</strong> API — um POST, Markdown estruturado de volta.',
 
     // ── Landing — meta ─────────────────────────────────────────
     'landing.title'     => '%s · Documentos, destilados em Markdown',

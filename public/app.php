@@ -135,7 +135,7 @@ require BASE_PATH . '/src/View/header.php';
                 <p class="app-upsell">
                     <?= $upsell ?>
                     <?php if (BILLING_ENABLED): ?>
-                    <a class="app-upsell-link" href="/pricing"><?= t('app.upsell.cta') ?></a>
+                    <a class="app-upsell-link" href="/pricing"><?= t('app.upsell.cta') ?><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
                     <?php endif; ?>
                 </p>
                 <?php endif; ?>

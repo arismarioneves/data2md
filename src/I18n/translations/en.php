@@ -17,13 +17,13 @@ return [
     'nav.performance'   => 'Performance',
 
     // ── Footer (landing) ───────────────────────────────────────
-    'footer.text'         => '<strong>%s</strong> — the uploaded file is discarded after conversion; the generated Markdown is kept, with no automatic expiry.',
+    'footer.text'         => '<strong>%s</strong> — drop a PDF, get Markdown a model can actually read.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'About .md',
     'footer.home'       => 'Home',
     'footer.converter'  => 'Converter',
-    'footer.api.text'     => '<strong>%s</strong> API — no account, no API key.',
+    'footer.api.text'     => '<strong>%s</strong> API — one POST, structured Markdown back.',
 
     // ── Landing — meta ─────────────────────────────────────────
     'landing.title'     => '%s · Documents, distilled into Markdown',
