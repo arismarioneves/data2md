@@ -1,5 +1,11 @@
 /* Dashboard — panels on paper. Extends landing.css tokens. */
 
+/* Same safety net as app.css and docs.css: [hidden] comes from the user-agent
+   stylesheet at the lowest specificity, so any display: on a class silently
+   beats it. A hidden overlay that still lays out covers the page and swallows
+   every click, and it does not look broken -- it looks unresponsive. */
+[hidden]{display:none !important}
+
 :root{
   --danger:      #b3261e;
   --danger-soft: #fdeceb;
@@ -233,6 +239,40 @@
 }
 .dash-token-mask code{background:none;padding:0}
 .dash-api-foot{margin-top:1.25rem}
+
+/* ── Confirmation ───────────────────────────────────────────── */
+.dash-modal{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:1.5rem;
+  background:rgba(21,17,13,.45);
+}
+.dash-modal-card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  box-shadow:0 24px 60px rgba(21,17,13,.22);
+  padding:1.75rem;
+  max-width:26rem;
+  width:100%;
+}
+.dash-modal-text{
+  font-family:var(--serif);
+  font-size:1.12rem;
+  line-height:1.45;
+  color:var(--ink);
+  margin-bottom:1.5rem;
+}
+.dash-modal-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:.75rem;
+  flex-wrap:wrap;
+}
 
 @media (max-width:640px){
   .dash-panel{padding:1.35rem}

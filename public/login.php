@@ -15,6 +15,7 @@ use Data2Md\Auth\UserStore;
 use Data2Md\Http\ClientIp;
 use Data2Md\Log\Logger;
 use Data2Md\Mail\Mailer;
+use Data2Md\Mail\SignInMessage;
 use Data2Md\Security\RateLimiter;
 use Data2Md\Storage\Database;
 
@@ -101,10 +102,13 @@ if ($rawToken !== '') {
             $raw = $tokens->issue($email);
             $url = rtrim(APP_URL, '/') . '/login?token=' . urlencode($raw);
 
+            $message = SignInMessage::build(APP_NAME, $url, $ttlMinutes);
+
             $sent = Mailer::fromConfig($config, $logger)->send(
                 $email,
-                t('auth.mail.subject', APP_NAME),
-                t('auth.mail.body', APP_NAME, $url, $ttlMinutes)
+                $message->subject,
+                $message->text,
+                $message->html
             );
 
             $logger->app('auth.login.request', ['sent' => $sent, 'ip' => $loggedIp]);
