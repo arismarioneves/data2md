@@ -662,6 +662,11 @@ switch ($command) {
             $conversions
         ));
 
+        // Run by hand this reads "persistent" even right after a wipe, because
+        // the boot already wrote the marker. The deploy log is the answer.
+        fwrite(STDOUT, "the verdict that matters is the one at boot: data2md logs | grep storage
+");
+
         // Never fatal: a first deploy is legitimate, and refusing to boot would
         // turn a warning into an outage.
         exit(0);
