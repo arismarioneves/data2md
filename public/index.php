@@ -10,6 +10,7 @@ $config = require BASE_PATH . '/src/bootstrap.php';
 require BASE_PATH . '/src/I18n/bootstrap.php';
 require BASE_PATH . '/src/Auth/bootstrap.php';
 
+use Data2Md\Billing\Entitlement;
 use Data2Md\I18n\I18n;
 
 // X-Content-Type-Options, X-Frame-Options and Referrer-Policy come from the vhost.
@@ -43,6 +44,18 @@ $navCta = ['href' => '/app', 'label' => t('nav.app'), 'icon' => 'arrow'];
 require BASE_PATH . '/src/View/header.php';
 ?>
 
+<?php
+// The landing advertises what the product does, so it quotes the largest a
+// customer can convert rather than what this visitor is allowed today. The
+// converter at /app is where the visitor's own limit is stated, because that
+// is the page where being wrong about it wastes an upload.
+//
+// Read from the premium tier, not from MAX_FILE_SIZE_MB: that one is the
+// deployment's hard ceiling, which no plan necessarily reaches, and quoting a
+// number nobody can actually get is the failure this line exists to avoid.
+$ceiling = $tiers->for(Entitlement::PREMIUM)->maxFileSizeLabel();
+?>
+
 <main class="l-main">
 
     <!-- ── Hero ────────────────────────────────────────────── -->
@@ -50,7 +63,7 @@ require BASE_PATH . '/src/View/header.php';
         <div class="l-container">
             <span class="l-hero-eyebrow">
                 <span class="l-hero-eyebrow-dot" aria-hidden="true"></span>
-                <?= t($session?->isAuthenticated() ? 'landing.hero.eyebrow.signedin' : 'landing.hero.eyebrow', $viewerTier->maxFileSizeLabel()) ?>
+                <?= t($session?->isAuthenticated() ? 'landing.hero.eyebrow.signedin' : 'landing.hero.eyebrow', $ceiling) ?>
             </span>
             <h1><?= t('landing.hero.title') ?></h1>
             <p class="l-hero-sub"><?= t('landing.hero.sub') ?></p>
@@ -197,12 +210,12 @@ driven by enterprise contracts in EMEA.
 
                 <div>
                     <span class="l-eyebrow"><?= t('landing.perf.eyebrow') ?></span>
-                    <h2 class="l-h2"><?= t('landing.perf.title', str_replace(' ', "\u{00A0}", MAX_FILE_SIZE_LABEL)) ?></h2>
+                    <h2 class="l-h2"><?= t('landing.perf.title', str_replace(' ', "\u{00A0}", $ceiling)) ?></h2>
                     <p class="l-lead"><?= t('landing.perf.lead') ?></p>
 
                     <div class="l-perf-stat-row">
                         <div>
-                            <span class="l-stat-num"><em><?= MAX_FILE_SIZE_LABEL ?></em></span>
+                            <span class="l-stat-num"><em><?= e($ceiling) ?></em></span>
                             <span class="l-stat-lbl"><?= t('landing.perf.stat1.lbl') ?></span>
                         </div>
                         <div>
@@ -243,7 +256,7 @@ driven by enterprise contracts in EMEA.
                         <span class="l-perf-row-time">18.6 s</span>
                     </div>
                     <div class="l-perf-row">
-                        <span class="l-perf-row-name">corpus.pdf <span class="l-pill"><?= MAX_FILE_SIZE_LABEL ?></span></span>
+                        <span class="l-perf-row-name">corpus.pdf <span class="l-pill"><?= e($ceiling) ?></span></span>
                         <span class="l-perf-bar"><span class="l-perf-bar-fill" style="--w:100%"></span></span>
                         <span class="l-perf-row-time">29.4 s</span>
                     </div>

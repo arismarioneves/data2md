@@ -39,9 +39,6 @@ define('APP_NAME',    $config->string('APP_NAME'));
 define('APP_URL',     $config->string('APP_URL'));
 define('APP_VERSION', $config->string('APP_VERSION'));
 
-define('MAX_FILE_SIZE',       $config->int('MAX_FILE_SIZE_MB') * 1024 * 1024);
-define('MAX_FILE_SIZE_LABEL', \Data2Md\format_bytes_label($config->int('MAX_FILE_SIZE_MB')));
-
 define('RATE_LIMIT_MAX',    $config->int('RATE_LIMIT_MAX'));
 define('RATE_LIMIT_WINDOW', $config->int('RATE_LIMIT_WINDOW_SECONDS'));
 
