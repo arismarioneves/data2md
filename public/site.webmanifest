@@ -1,6 +1,6 @@
 {
-  "name": "data2md",
-  "short_name": "data2md",
+  "name": "Data2MD",
+  "short_name": "Data2MD",
   "description": "Convert documents to clean, structured Markdown.",
   "start_url": "/",
   "theme_color": "#f8f5ee",

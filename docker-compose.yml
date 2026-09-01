@@ -37,7 +37,7 @@ services:
     environment:
       APP_ENV: "development"
       APP_URL: "http://localhost"
-      APP_NAME: "data2md"
+      APP_NAME: "Data2MD"
       APP_VERSION: "1.1.0"
       APP_DATA_DIR: "/tmp/data2md"
       MAX_FILE_SIZE_MB: "200"

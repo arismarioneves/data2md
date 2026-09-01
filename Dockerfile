@@ -57,7 +57,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # value, and deriving it from the request Host is the behaviour this project
 # removed. Override any of these in the EasyPanel UI without rebuilding.
 ENV APP_ENV=production \
-    APP_NAME=data2md \
+    APP_NAME=Data2MD \
     APP_VERSION=${APP_VERSION} \
     APP_DATA_DIR=/var/lib/data2md \
     MAX_FILE_SIZE_MB=200 \

@@ -28,7 +28,7 @@ return [
     // ── Landing — meta ─────────────────────────────────────────
     'landing.title'     => '%s · Documents, distilled into Markdown',
     'landing.meta.desc' => 'Drop a PDF. Get clean, AI-ready Markdown. Built for large files, structure-preserving, and free to use.',
-    'og.image.alt'      => 'The data2md logo beside a sample of converted Markdown.',
+    'og.image.alt'      => 'The Data2MD logo beside a sample of converted Markdown.',
 
     // ── Landing — hero ─────────────────────────────────────────
     'landing.hero.eyebrow' => 'Free · No account · Up to %s',
@@ -84,7 +84,7 @@ return [
 
     // ── Sign in ────────────────────────────────────────────────
     'auth.login.title'      => '%s · Sign in',
-    'auth.login.meta.desc'  => 'Sign in to data2md with a single-use link sent to your e-mail. No password to remember.',
+    'auth.login.meta.desc'  => 'Sign in to Data2MD with a single-use link sent to your e-mail. No password to remember.',
     'auth.login.eyebrow'    => '// sign in',
     'auth.login.heading'    => 'Sign in with a <em>link</em>.',
     'auth.login.lead'       => 'Enter your e-mail and we send a single-use link. There is no password, and signing in for the first time creates your account.',
@@ -348,7 +348,7 @@ return [
     'legal.terms.heading' => 'Terms of use',
 
     'legal.terms.service.h' => 'The service',
-    'legal.terms.service.b' => 'data2md converts documents into Markdown text. The converter on this site is free to use. An account raises the file size limit; a paid subscription raises it further and is what opens the HTTP API.',
+    'legal.terms.service.b' => 'Data2MD converts documents into Markdown text. The converter on this site is free to use. An account raises the file size limit; a paid subscription raises it further and is what opens the HTTP API.',
 
     'legal.terms.accounts.h' => 'Accounts',
     'legal.terms.accounts.b' => 'An account is optional. Signing in works through a single-use link sent to your e-mail address, so there is no password to choose or lose. An account lists the conversions you made while signed in, so you can download, share or delete them. Because the link is what proves the account is yours, keeping access to that mailbox is your responsibility. To close an account, write to <a href="mailto:%4$s">%4$s</a>.',
@@ -382,7 +382,7 @@ return [
     'legal.privacy.heading' => 'Privacy',
 
     'legal.privacy.controller.h' => 'Who is responsible',
-    'legal.privacy.controller.b' => 'data2md is responsible for handling the data described on this page. Contact: <a href="mailto:%4$s">%4$s</a>.',
+    'legal.privacy.controller.b' => 'Data2MD is responsible for handling the data described on this page. Contact: <a href="mailto:%4$s">%4$s</a>.',
 
     'legal.privacy.upload.h' => 'The file you upload',
     'legal.privacy.upload.b' => '<strong>It is deleted from the server right after conversion</strong>, including when the conversion fails. It is used only to extract the text and is not retained.',

@@ -1,6 +1,6 @@
-<img src="public/assets/img/logo.png" alt="data2md" width="300">
+<img src="public/assets/img/logo.png" alt="Data2MD" width="300">
 
-# data2md
+# Data2MD
 
 Convert documents to clean, structured Markdown via a web interface or HTTP API.
 
@@ -131,7 +131,7 @@ Visit `/api` in a browser for the full interactive API reference.
 GET /download?hash={hash}
 ```
 
-Returns the `.md` file as an attachment. Converted Markdown is kept permanently — there is no automatic expiry. The only way it's removed is `bin/data2md delete <hash>` or `bin/data2md prune --older-than=N`, both operator-only; there is no self-service deletion.
+Returns the `.md` file as an attachment. Converted Markdown has no automatic expiry. It is removed by `bin/data2md delete <hash>`, by `bin/data2md prune --older-than=N`, or by a signed-in user deleting their own conversion from the dashboard.
 
 ---
 

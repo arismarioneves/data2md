@@ -28,7 +28,7 @@ return [
     // ── Landing — meta ─────────────────────────────────────────
     'landing.title'     => '%s · Documentos, destilados em Markdown',
     'landing.meta.desc' => 'Solte um PDF. Receba Markdown limpo e pronto pra IA. Feito pra arquivos grandes, preserva a estrutura e é grátis.',
-    'og.image.alt'      => 'O logo do data2md ao lado de uma amostra de Markdown convertido.',
+    'og.image.alt'      => 'O logo do Data2MD ao lado de uma amostra de Markdown convertido.',
 
     // ── Landing — hero ─────────────────────────────────────────
     'landing.hero.eyebrow' => 'Grátis · Sem cadastro · Até %s',
@@ -84,7 +84,7 @@ return [
 
     // ── Entrar ─────────────────────────────────────────────────
     'auth.login.title'      => '%s · Entrar',
-    'auth.login.meta.desc'  => 'Entre no data2md com um link de uso único enviado por e-mail. Sem senha pra lembrar.',
+    'auth.login.meta.desc'  => 'Entre no Data2MD com um link de uso único enviado por e-mail. Sem senha pra lembrar.',
     'auth.login.eyebrow'    => '// entrar',
     'auth.login.heading'    => 'Entre com um <em>link</em>.',
     'auth.login.lead'       => 'Informe seu e-mail e enviamos um link de uso único. Não existe senha, e entrar pela primeira vez cria sua conta.',
@@ -348,7 +348,7 @@ return [
     'legal.terms.heading' => 'Termos de uso',
 
     'legal.terms.service.h' => 'O serviço',
-    'legal.terms.service.b' => 'O data2md converte documentos em texto Markdown. O conversor deste site é gratuito. Uma conta aumenta o limite de tamanho de arquivo; a assinatura paga aumenta mais e é o que abre a API HTTP.',
+    'legal.terms.service.b' => 'O Data2MD converte documentos em texto Markdown. O conversor deste site é gratuito. Uma conta aumenta o limite de tamanho de arquivo; a assinatura paga aumenta mais e é o que abre a API HTTP.',
 
     'legal.terms.accounts.h' => 'Contas',
     'legal.terms.accounts.b' => 'A conta é opcional. Entrar funciona por um link de uso único enviado ao seu e-mail, então não há senha para escolher nem perder. A conta lista as conversões feitas enquanto você estava logado, para baixar, compartilhar ou excluir. Como é o link que prova que a conta é sua, manter o acesso a essa caixa de e-mail é responsabilidade sua. Para encerrar uma conta, escreva para <a href="mailto:%4$s">%4$s</a>.',
@@ -382,7 +382,7 @@ return [
     'legal.privacy.heading' => 'Privacidade',
 
     'legal.privacy.controller.h' => 'Quem é o responsável',
-    'legal.privacy.controller.b' => 'O data2md é responsável pelo tratamento dos dados descritos nesta página. Contato: <a href="mailto:%4$s">%4$s</a>.',
+    'legal.privacy.controller.b' => 'O Data2MD é responsável pelo tratamento dos dados descritos nesta página. Contato: <a href="mailto:%4$s">%4$s</a>.',
 
     'legal.privacy.upload.h' => 'O arquivo que você envia',
     'legal.privacy.upload.b' => '<strong>Ele é apagado do servidor logo após a conversão</strong>, inclusive quando a conversão falha. É usado apenas para extrair o texto e não é retido.',
