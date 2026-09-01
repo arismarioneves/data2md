@@ -90,7 +90,7 @@ final class SignInMessage
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:8px 32px 0 32px;">
+                  <td style="padding:8px 32px 8px 32px;">
                     <div style="font-family:Consolas,Menlo,monospace;font-size:12px;line-height:1.5;color:#15110d;background:#f1ecde;border-radius:8px;padding:12px;word-break:break-all;">$href</div>
                   </td>
                 </tr>

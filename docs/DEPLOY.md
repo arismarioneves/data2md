@@ -108,11 +108,22 @@ Demais variáveis e seus domínios estão em [`.env.example`](../.env.example).
 
 ## 6. Volume e recursos
 
-**Volume** — obrigatório, senão os arquivos convertidos são perdidos a cada deploy:
+**Volume** — obrigatório, senão as contas e os arquivos convertidos são perdidos a cada deploy:
 
 | Mount path |
 |---|
 | `/var/lib/data2md` |
+
+Tem de ser uma **montagem de volume nomeada** (no EasyPanel, *Armazenamento → Adicionar Montagem de Volume*). Deixar em branco não deixa o diretório sem volume: o `Dockerfile` declara `VOLUME`, então o Docker inventa um **volume anônimo** — um novo e vazio por container, descartado junto com o antigo. Todo check passa, porque um banco vazio é um banco válido, e a perda só aparece quando alguém procura a própria conta.
+
+O boot diz em qual dos dois casos o serviço está:
+
+```
+storage persistent (named)  in use since 2026-08-20 …  accounts 3  conversions 41
+storage EPHEMERAL (anonymous)   ← o próximo deploy apaga tudo
+```
+
+`storage NEW (named)` é legítimo uma vez só, no primeiro deploy com o volume recém-criado; em qualquer outro deploy significa que o volume foi trocado. Para conferir a qualquer momento: `bin/data2md storage:check`, ou `grep storage` nos logs de boot.
 
 **Recursos:**
 
