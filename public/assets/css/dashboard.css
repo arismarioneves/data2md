@@ -4,278 +4,369 @@
    stylesheet at the lowest specificity, so any display: on a class silently
    beats it. A hidden overlay that still lays out covers the page and swallows
    every click, and it does not look broken -- it looks unresponsive. */
-[hidden]{display:none !important}
+[hidden] {
+  display: none !important
+}
 
-:root{
-  --danger:      #b3261e;
+:root {
+  --danger: #b3261e;
   --danger-soft: #fdeceb;
-  --ok-soft:     #eef6ec;
-  --ok-ink:      #2f6b34;
+  --ok-soft: #eef6ec;
+  --ok-ink: #2f6b34;
 }
 
-.dash-main{padding:3rem 0 5rem}
-
-.dash-hero{margin-bottom:2rem}
-
-.dash-h1{
-  font-family:var(--serif);
-  font-weight:500;
-  font-size:clamp(1.9rem,4vw,2.6rem);
-  letter-spacing:-.025em;
-  line-height:1.1;
-  color:var(--ink);
-}
-.dash-h1 em{font-style:italic;color:var(--accent);font-weight:400}
-
-.dash-flash{
-  border-radius:var(--r);
-  padding:.75rem 1.1rem;
-  font-size:.92rem;
-  margin-bottom:1.5rem;
-  background:var(--ok-soft);
-  color:var(--ok-ink);
-}
-.dash-flash--error{background:var(--danger-soft);color:var(--danger)}
-
-.dash-panel{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:var(--r-lg);
-  box-shadow:var(--shadow);
-  padding:1.75rem;
-  margin-bottom:1.5rem;
+.dash-main {
+  padding: 3rem 0 5rem
 }
 
-.dash-panel-head{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:1rem;
-  margin-bottom:1.25rem;
+.dash-hero {
+  margin-bottom: 2rem
 }
 
-.dash-h2{
-  font-family:var(--serif);
-  font-weight:500;
-  font-size:1.35rem;
-  letter-spacing:-.02em;
-  color:var(--ink);
+.dash-h1 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  letter-spacing: -.025em;
+  line-height: 1.1;
+  color: var(--ink);
 }
 
-.dash-count{
-  font-family:var(--mono);
-  font-size:.72rem;
-  text-transform:uppercase;
-  letter-spacing:.14em;
-  color:var(--muted);
+.dash-h1 em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 400
 }
 
-.dash-sub{color:var(--muted);font-size:.87rem}
-
-.dash-account{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:1.25rem;
-  flex-wrap:wrap;
-}
-.dash-email{
-  font-size:1.05rem;
-  color:var(--ink);
-  font-weight:600;
-  margin-bottom:.2rem;
-  word-break:break-all;
+.dash-flash {
+  border-radius: var(--r);
+  padding: .75rem 1.1rem;
+  font-size: .92rem;
+  margin-bottom: 1.5rem;
+  background: var(--ok-soft);
+  color: var(--ok-ink);
 }
 
-.dash-btn-sm{padding:.55rem 1.1rem;font-size:.87rem}
+.dash-flash--error {
+  background: var(--danger-soft);
+  color: var(--danger)
+}
 
-.dash-note{
-  color:var(--muted);
-  font-size:.87rem;
-  line-height:1.5;
-  background:var(--paper-2);
-  border-radius:var(--r);
-  padding:.7rem 1rem;
-  margin-bottom:1.25rem;
+.dash-panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  padding: 1.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.dash-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.dash-h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.35rem;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+
+.dash-count {
+  font-family: var(--mono);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--muted);
+}
+
+.dash-sub {
+  color: var(--muted);
+  font-size: .87rem
+}
+
+.dash-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.dash-email {
+  font-size: 1.05rem;
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: .2rem;
+  word-break: break-all;
+}
+
+.dash-btn-sm {
+  padding: .55rem 1.1rem;
+  font-size: .87rem
+}
+
+.dash-note {
+  color: var(--muted);
+  font-size: .87rem;
+  line-height: 1.5;
+  background: var(--paper-2);
+  border-radius: var(--r);
+  padding: .7rem 1rem;
+  margin-bottom: 1.25rem;
 }
 
 /* Wide content scrolls inside its own box; the page never scrolls sideways. */
-.dash-table-wrap{overflow-x:auto}
-
-.dash-table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:.92rem;
-}
-.dash-table th{
-  text-align:left;
-  font-family:var(--mono);
-  font-size:.68rem;
-  text-transform:uppercase;
-  letter-spacing:.14em;
-  color:var(--faint);
-  font-weight:500;
-  padding:0 .75rem .6rem;
-  border-bottom:1px solid var(--line);
-  white-space:nowrap;
-}
-.dash-table td{
-  padding:.85rem .75rem;
-  border-bottom:1px solid var(--line);
-  vertical-align:middle;
-  color:var(--ink-2);
-}
-.dash-table tr:last-child td{border-bottom:none}
-.dash-table tbody tr:hover{background:var(--paper-2)}
-
-.dash-name{
-  max-width:min(38vw,340px);
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  color:var(--ink);
-  font-weight:500;
-}
-.dash-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.dash-date{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
-
-.dash-actions{
-  display:flex;
-  align-items:center;
-  gap:1rem;
-  justify-content:flex-end;
-  white-space:nowrap;
-}
-.dash-inline{display:inline}
-
-.dash-link{
-  background:none;
-  border:none;
-  padding:0;
-  font:inherit;
-  font-size:.87rem;
-  font-weight:600;
-  color:var(--accent);
-  cursor:pointer;
-  text-decoration:none;
-  border-bottom:1px solid transparent;
-  transition:color .15s, border-color .15s;
-}
-.dash-link:hover{color:var(--accent-h);border-bottom-color:currentColor}
-.dash-link.is-copied{color:var(--ok-ink)}
-.dash-link--danger{color:var(--muted)}
-.dash-link--danger:hover{color:var(--danger)}
-
-.dash-sr{
-  position:absolute;
-  width:1px;height:1px;
-  overflow:hidden;
-  clip-path:inset(50%);
+.dash-table-wrap {
+  overflow-x: auto
 }
 
-.dash-empty{
-  text-align:center;
-  padding:2.5rem 1rem 1.5rem;
-}
-.dash-empty-icon{
-  width:58px;height:58px;
-  border-radius:50%;
-  background:var(--accent-soft);
-  color:var(--accent);
-  display:flex;align-items:center;justify-content:center;
-  margin:0 auto 1.25rem;
-}
-.dash-empty h3{
-  font-family:var(--serif);
-  font-weight:500;
-  font-size:1.35rem;
-  color:var(--ink);
-  margin-bottom:.4rem;
-}
-.dash-empty p{color:var(--muted);font-size:.94rem;margin-bottom:1.5rem}
-
-.dash-pager{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:1.25rem;
-  margin-top:1.5rem;
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
 }
 
-.dash-token-fresh{
-  background:var(--ok-soft);
-  border:1px solid var(--ok-ink);
-  border-radius:var(--r);
-  padding:1rem 1.15rem;
-  margin-bottom:1.25rem;
+.dash-table th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--faint);
+  font-weight: 500;
+  padding: 0 .75rem .6rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
 }
-.dash-token-once{
-  color:var(--ok-ink);
-  font-size:.87rem;
-  font-weight:600;
-  margin-bottom:.7rem;
+
+.dash-table td {
+  padding: .85rem .75rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  color: var(--ink-2);
 }
-.dash-token-row{
-  display:flex;
-  align-items:center;
-  gap:.75rem;
-  flex-wrap:wrap;
+
+.dash-table tr:last-child td {
+  border-bottom: none
 }
-.dash-token-value{
-  font-family:var(--mono);
-  font-size:.82rem;
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:var(--r);
-  padding:.55rem .7rem;
-  word-break:break-all;
-  flex:1 1 20rem;
+
+.dash-table tbody tr:hover {
+  background: var(--paper-2)
 }
-.dash-token-mask{
-  font-family:var(--mono);
-  font-size:.95rem;
-  color:var(--ink);
-  margin-bottom:.2rem;
+
+.dash-name {
+  max-width: min(38vw, 340px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-weight: 500;
 }
-.dash-token-mask code{background:none;padding:0}
-.dash-api-foot{margin-top:1.25rem}
+
+.dash-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap
+}
+
+.dash-date {
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums
+}
+
+.dash-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.dash-inline {
+  display: inline
+}
+
+.dash-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: .87rem;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+
+.dash-link:hover {
+  color: var(--accent-h);
+  border-bottom-color: currentColor
+}
+
+.dash-link.is-copied {
+  color: var(--ok-ink)
+}
+
+.dash-link--danger {
+  color: var(--muted)
+}
+
+.dash-link--danger:hover {
+  color: var(--danger)
+}
+
+.dash-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.dash-empty {
+  text-align: center;
+  padding: 2.5rem 1rem 1.5rem;
+}
+
+.dash-empty-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem;
+}
+
+.dash-empty h3 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.35rem;
+  color: var(--ink);
+  margin-bottom: .4rem;
+}
+
+.dash-empty p {
+  color: var(--muted);
+  font-size: .94rem;
+  margin-bottom: 1.5rem
+}
+
+.dash-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.dash-token-fresh {
+  background: var(--ok-soft);
+  border: 1px solid var(--ok-ink);
+  border-radius: var(--r);
+  padding: 1rem 1.15rem;
+  margin-bottom: 1.25rem;
+}
+
+.dash-token-once {
+  color: var(--ok-ink);
+  font-size: .87rem;
+  font-weight: 600;
+  margin-bottom: .7rem;
+}
+
+.dash-token-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.dash-token-value {
+  font-family: var(--mono);
+  font-size: .82rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: .55rem .7rem;
+  word-break: break-all;
+  flex: 1 1 20rem;
+}
+
+.dash-token-mask {
+  font-family: var(--mono);
+  font-size: .95rem;
+  color: var(--ink);
+  margin-bottom: .2rem;
+}
+
+.dash-token-mask code {
+  background: none;
+  padding: 0
+}
+
+.dash-api-foot {
+  margin-top: 1.25rem
+}
 
 /* ── Confirmation ───────────────────────────────────────────── */
-.dash-modal{
-  position:fixed;
-  inset:0;
-  z-index:50;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:1.5rem;
-  background:rgba(21,17,13,.45);
-}
-.dash-modal-card{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:var(--r-lg);
-  box-shadow:0 24px 60px rgba(21,17,13,.22);
-  padding:1.75rem;
-  max-width:26rem;
-  width:100%;
-}
-.dash-modal-text{
-  font-family:var(--serif);
-  font-size:1.12rem;
-  line-height:1.45;
-  color:var(--ink);
-  margin-bottom:1.5rem;
-}
-.dash-modal-actions{
-  display:flex;
-  justify-content:flex-end;
-  gap:.75rem;
-  flex-wrap:wrap;
+.dash-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(21, 17, 13, .45);
 }
 
-@media (max-width:640px){
-  .dash-panel{padding:1.35rem}
-  .dash-name{max-width:52vw}
-  .dash-actions{gap:.75rem}
+.dash-modal-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 24px 60px rgba(21, 17, 13, .22);
+  padding: 1.75rem;
+  max-width: 26rem;
+  width: 100%;
+}
+
+.dash-modal-text {
+  font-family: var(--serif);
+  font-size: 1.12rem;
+  line-height: 1.45;
+  color: var(--ink);
+  margin-bottom: 1.5rem;
+}
+
+.dash-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width:640px) {
+  .dash-panel {
+    padding: 1.35rem
+  }
+
+  .dash-name {
+    max-width: 52vw
+  }
+
+  .dash-actions {
+    gap: .75rem
+  }
 }
