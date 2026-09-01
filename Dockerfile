@@ -23,6 +23,14 @@ WORKDIR /var/www/html
 # ── Development and test ──────────────────────────────────────────────────────
 FROM base AS dev
 ENV APP_ENV=development
+
+# node is here only to parse the browser JavaScript in the test suite. A
+# syntax error there breaks the converter in every browser while the whole
+# PHP suite, which never loads the file, stays green -- which is exactly how
+# one reached production. Dev stage only; the app image ships no node.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends nodejs \
+ && rm -rf /var/lib/apt/lists/*
 COPY composer.json composer.lock ./
 # --strict fails the build when composer.lock has drifted from composer.json.
 RUN composer validate --no-check-publish --no-check-all --strict \

@@ -27,6 +27,7 @@ function trf(key, fallback) {
     return template.replace(/%s/g, function () { return args[i++]; });
 }
 
+// What this visitor may upload, rendered into the page by their tier.
 function maxUploadBytes() {
     var n = window.D2MD && window.D2MD.maxBytes;
     return (typeof n === 'number' && n > 0) ? n : 0;
@@ -117,13 +118,12 @@ function maxSizeLabel() {
         e.preventDefault();
         if (!fileInput.files.length) return;
 
-        retryCount = 0;
-        sendUpload(fileInput.files[0]);
-    });
-
-    function sendUpload(file) {
+        var file  = fileInput.files[0];
         var limit = maxUploadBytes();
 
+        // Refused here rather than after the bytes are on the wire: the server
+        // would reject it anyway, and against a one-per-hour tier that upload
+        // costs the visitor the whole window for nothing.
         if (limit > 0 && file.size > limit) {
             showErrors([
                 trf('app.error.toobig', 'That file is larger than %s.', maxSizeLabel()),
@@ -132,6 +132,12 @@ function maxSizeLabel() {
             if (fileInput) { fileInput.value = ''; }
             return;
         }
+
+        retryCount = 0;
+        sendUpload(file);
+    });
+
+    function sendUpload(file) {
         var fakeTimer = null;
         var fakePct   = 65;
 
@@ -161,16 +167,7 @@ function maxSizeLabel() {
         ];
         xhr.upload.addEventListener('load', function () {
             overlaySet(convertMsgs[0], 65);
-            fakeTimer = setIntervalfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () {
+            fakeTimer = setInterval(function () {
                 fakePct = Math.min(fakePct + 0.4, 93);
                 var msgIdx = Math.min(
                     Math.floor(((fakePct - 65) / 28) * convertMsgs.length),
@@ -182,6 +179,9 @@ function maxSizeLabel() {
 
         // Response received
         xhr.addEventListener('load', function () {
+            // 503 only. A 429 means the caller's own quota is spent, and against
+            // one conversion an hour, retrying is three guaranteed failures and
+            // three wasted uploads of the whole file.
             if (xhr.status === 503 && retryCount < MAX_RETRIES) {
                 clearInterval(fakeTimer);
 
@@ -197,16 +197,7 @@ function maxSizeLabel() {
                 };
                 tick();
 
-                var ticker = setIntervalfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () {
+                var ticker = setInterval(function () {
                     remaining--;
                     if (remaining > 0) { tick(); return; }
 
@@ -225,24 +216,21 @@ function maxSizeLabel() {
             try { data = JSON.parse(xhr.responseText); }
             catch (_) { data = null; }
 
+            // Apache rejects an oversized body itself, before PHP runs, so this
+            // one arrives as HTML and would otherwise fall through to the
+            // generic "conversion failed".
             if (!data && xhr.status === 413) {
                 clearInterval(fakeTimer);
                 overlayHide();
-                showErrors([trf('app.error.toobig', 'That file is larger than %s.', maxSizeLabel())]);
+                showErrors([
+                    trf('app.error.toobig', 'That file is larger than %s.', maxSizeLabel()),
+                    (window.D2MD && window.D2MD.sizeHint) || ''
+                ].filter(Boolean));
                 return;
             }
 
             // Brief pause so the 100% bar is visible
-            setTimeoutfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () {
+            setTimeout(function () {
                 overlayHide();
                 if (data && data.success) {
                     showResult(data);
@@ -373,40 +361,13 @@ function maxSizeLabel() {
         if (!tipEl) return;
         var idx = Math.floor(Math.random() * tips.length);
         tipEl.style.opacity = '0';
-        setTimeoutfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () {
+        setTimeout(function () {
             tipEl.textContent = tips[idx];
             tipEl.style.opacity = '1';
         }, 50);
-        tipTimer = setIntervalfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () {
+        tipTimer = setInterval(function () {
             tipEl.style.opacity = '0';
-            setTimeoutfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () {
+            setTimeout(function () {
                 idx = (idx + 1) % tips.length;
                 tipEl.textContent = tips[idx];
                 tipEl.style.opacity = '1';
@@ -491,39 +452,12 @@ function copyMarkdown() {
         btn.disabled = false;
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(text)
-                .thenfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () { flashCopied(btn, orig); })
-                .catchfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () { legacyCopy(text, btn, orig); });
+                .then(function () { flashCopied(btn, orig); })
+                .catch(function () { legacyCopy(text, btn, orig); });
         } else {
             legacyCopy(text, btn, orig);
         }
-    }).catchfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () {
+    }).catch(function () {
         btn.disabled = false;
         btn.textContent = orig;
         showErrors([tr('app.error.network', 'Network error. Please check your connection and try again.')]);
@@ -545,16 +479,7 @@ function flashCopied(btn, origLabel) {
     var orig = origLabel || btn.textContent;
     btn.textContent = tr('app.result.copied', 'Copied!');
     btn.style.color = '#ea580c';
-    setTimeoutfunction maxUploadBytes() {
-    var n = window.D2MD && window.D2MD.maxBytes;
-    return (typeof n === 'number' && n > 0) ? n : 0;
-}
-
-function maxSizeLabel() {
-    return (window.D2MD && window.D2MD.maxSizeLabel) || '';
-}
-
-(function () { btn.textContent = orig; btn.style.color = ''; }, 2000);
+    setTimeout(function () { btn.textContent = orig; btn.style.color = ''; }, 2000);
 }
 
 document.addEventListener('DOMContentLoaded', function () {

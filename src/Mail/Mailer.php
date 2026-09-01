@@ -57,16 +57,22 @@ final class Mailer
         );
     }
 
-    public function send(string $to, string $subject, string $body): bool
+    /**
+     * @param string      $body plain text, and the alternative part when html is given
+     * @param string|null $html sent alongside the text, never instead of it
+     */
+    public function send(string $to, string $subject, string $body, ?string $html = null): bool
     {
         if ($this->transport === self::TRANSPORT_LOG) {
+            // Only the text part: this channel exists so an operator can read the
+            // link out of it, and a wall of markup buries the one line that matters.
             $this->logger->mail(['to' => $to, 'subject' => $subject, 'body' => $body]);
 
             return true;
         }
 
         try {
-            $this->deliver($to, $subject, $body);
+            $this->deliver($to, $subject, $body, $html);
         } catch (PHPMailerException | \Throwable $e) {
             $this->logger->app('mail.send.fail', [
                 'host'   => $this->host,
@@ -80,7 +86,7 @@ final class Mailer
         return true;
     }
 
-    private function deliver(string $to, string $subject, string $body): void
+    private function deliver(string $to, string $subject, string $body, ?string $html = null): void
     {
         $mail = new PHPMailer(true);
 
@@ -117,7 +123,17 @@ final class Mailer
         $mail->setFrom($this->fromAddress, $this->fromName);
         $mail->addAddress($to);
         $mail->Subject = $subject;
-        $mail->Body    = $body;
+
+        if ($html !== null) {
+            // multipart/alternative. The text part is not a courtesy: a client
+            // that shows only that one still has to be able to sign in, and mail
+            // with no text alternative scores worse with spam filters.
+            $mail->isHTML(true);
+            $mail->Body    = $html;
+            $mail->AltBody = $body;
+        } else {
+            $mail->Body = $body;
+        }
 
         $mail->send();
     }

@@ -19,11 +19,27 @@ header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-in
 
 $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_HEX_APOS;
 
-// What a rejected size can offer this visitor next.
+$freeLabel = $tiers->for(Entitlement::FREE)->maxFileSizeLabel();
+$ceiling   = $tiers->for(Entitlement::PREMIUM)->maxFileSizeLabel();
+
+// What a rejected size can offer this visitor next. Both name the sizes:
+// "a bigger limit" tells someone nothing about whether it is worth doing.
 $sizeHint = match ($viewerTier->plan) {
-    Entitlement::ANON => t('app.error.toobig.anon'),
-    Entitlement::FREE => t('app.error.toobig.free'),
+    Entitlement::ANON => t('app.error.toobig.anon', $freeLabel, $ceiling),
+    Entitlement::FREE => t('app.error.toobig.free', $ceiling),
     default           => '',
+};
+
+// The same offer, standing on the page rather than waiting for a rejection.
+// Nothing to offer a subscriber, and nothing to sell where billing is off.
+$upsell = match (true) {
+    $viewerTier->plan === Entitlement::ANON && BILLING_ENABLED
+        => t('app.upsell.anon', $freeLabel, $ceiling),
+    $viewerTier->plan === Entitlement::ANON
+        => t('app.upsell.anon.free', $freeLabel),
+    $viewerTier->plan === Entitlement::FREE && BILLING_ENABLED
+        => t('app.upsell.free', $ceiling),
+    default => null,
 };
 ?>
 <!DOCTYPE html>
@@ -108,12 +124,21 @@ require BASE_PATH . '/src/View/header.php';
 
                 <p class="app-helper">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <?= t('app.helper.anon') ?>
+                    <?= $session?->isAuthenticated() ? t('app.helper.signedin') : t('app.helper.anon') ?>
                     <span class="app-helper-sep" aria-hidden="true"></span>
                     <?= t('app.helper.streamed') ?>
                     <span class="app-helper-sep" aria-hidden="true"></span>
                     <?= t('app.helper.maxsize', $viewerTier->maxFileSizeLabel()) ?>
                 </p>
+
+                <?php if ($upsell !== null): ?>
+                <p class="app-upsell">
+                    <?= $upsell ?>
+                    <?php if (BILLING_ENABLED): ?>
+                    <a class="app-upsell-link" href="/pricing"><?= t('app.upsell.cta') ?><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+                    <?php endif; ?>
+                </p>
+                <?php endif; ?>
             </section>
 
             <!-- Result (revealed after conversion) -->

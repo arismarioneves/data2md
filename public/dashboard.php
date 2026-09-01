@@ -79,8 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (($_POST['action'] ?? '') === 'token:create') {
+        // No page-level notice: the card renders the token itself, with the
+        // warning attached to it, and a banner saying the same thing higher up
+        // only pushes the thing being announced further down the page.
         $freshToken = $apiTokens->issue($userId);
-        $notice     = t('dash.api.issued');
 
         $logger->app('api.token.issue', ['user' => $userId], 'warning');
     }
@@ -179,6 +181,16 @@ $navCta = ['href' => '/app', 'label' => t('nav.app'), 'icon' => 'arrow'];
 require BASE_PATH . '/src/View/header.php';
 ?>
 
+<div class="dash-modal" id="dash-modal" hidden>
+    <div class="dash-modal-card" role="dialog" aria-modal="true" aria-labelledby="dash-modal-text">
+        <p class="dash-modal-text" id="dash-modal-text"></p>
+        <div class="dash-modal-actions">
+            <button type="button" class="l-btn l-btn--ghost dash-btn-sm" id="dash-modal-cancel"><?= t('dash.modal.cancel') ?></button>
+            <button type="button" class="l-btn l-btn--primary dash-btn-sm" id="dash-modal-ok"></button>
+        </div>
+    </div>
+</div>
+
 <main class="l-main dash-main">
     <div class="l-container">
 
@@ -201,7 +213,7 @@ require BASE_PATH . '/src/View/header.php';
             <div class="dash-account">
                 <div>
                     <p class="dash-email"><?= e($user) ?></p>
-                    <p class="dash-sub"><?= t('dash.account.since', gmdate($dateFmt, $createdAt)) ?></p>
+                    <p class="dash-sub"><?= t('dash.account.since', time_tag($createdAt, $dateFmt)) ?></p>
                 </div>
                 <form method="post" action="/logout">
                     <input type="hidden" name="csrf" value="<?= $csrf ?>">
@@ -221,8 +233,8 @@ require BASE_PATH . '/src/View/header.php';
                 <div>
                     <?php if ($isPremium && ($account['current_period_end'] ?? null) !== null): ?>
                         <p class="dash-email"><?= ((int) $account['cancel_at_period_end']) === 1
-                            ? t('dash.bill.ends', gmdate($dateFmt, (int) $account['current_period_end']))
-                            : t('dash.bill.renews', gmdate($dateFmt, (int) $account['current_period_end'])) ?></p>
+                            ? t('dash.bill.ends', time_tag((int) $account['current_period_end'], $dateFmt))
+                            : t('dash.bill.renews', time_tag((int) $account['current_period_end'], $dateFmt)) ?></p>
                         <p class="dash-sub"><?= ((int) $account['cancel_at_period_end']) === 1
                             ? t('dash.bill.cancelling')
                             : t('dash.bill.active') ?></p>
@@ -295,11 +307,11 @@ require BASE_PATH . '/src/View/header.php';
                 <div>
                     <p class="dash-token-mask"><code><?= e($tokenInfo['prefix']) ?></code>&hellip;<code><?= e($tokenInfo['last4']) ?></code></p>
                     <p class="dash-sub">
-                        <?= t('dash.api.created', gmdate($dateFmt, (int) $tokenInfo['created_at'])) ?>
+                        <?= t('dash.api.created', time_tag((int) $tokenInfo['created_at'], $dateFmt)) ?>
                         &middot;
                         <?= $tokenInfo['last_used_at'] === null
                             ? t('dash.api.unused')
-                            : t('dash.api.used', gmdate($dateFmt, (int) $tokenInfo['last_used_at'])) ?>
+                            : t('dash.api.used', time_tag((int) $tokenInfo['last_used_at'], $dateFmt)) ?>
                     </p>
                 </div>
                 <div class="dash-actions">
@@ -353,7 +365,7 @@ require BASE_PATH . '/src/View/header.php';
                             <tr>
                                 <td class="dash-name" title="<?= e($row['original_name']) ?>"><?= e($row['original_name']) ?></td>
                                 <td class="dash-num"><?= e(\Data2Md\format_bytes($row['size_bytes'])) ?></td>
-                                <td class="dash-date"><?= e(gmdate($dateFmt, $row['created_at'])) ?></td>
+                                <td class="dash-date"><?= time_tag((int) $row['created_at'], $dateFmt) ?></td>
                                 <td class="dash-actions">
                                     <a class="dash-link" href="/download?hash=<?= e($row['hash']) ?>"><?= t('dash.download') ?></a>
                                     <button type="button" class="dash-link" data-copy-value="<?= e(rtrim(APP_URL, '/')) ?>/download?hash=<?= e($row['hash']) ?>"><?= t('dash.copy') ?></button>
@@ -422,11 +434,65 @@ require BASE_PATH . '/src/View/footer.php';
         });
     });
 
+    var modal   = document.getElementById('dash-modal');
+    var modalText = document.getElementById('dash-modal-text');
+    var modalOk = document.getElementById('dash-modal-ok');
+    var pending = null;
+    var lastFocus = null;
+
+    function closeModal(){
+        modal.hidden = true;
+        pending = null;
+        if (lastFocus) lastFocus.focus();
+    }
+
+    document.getElementById('dash-modal-cancel').addEventListener('click', closeModal);
+
+    modal.addEventListener('click', function(event){
+        if (event.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', function(event){
+        if (event.key === 'Escape' && !modal.hidden) closeModal();
+    });
+
+    modalOk.addEventListener('click', function(){
+        var form = pending;
+        pending = null;
+        modal.hidden = true;
+        if (form) form.submit();
+    });
+
     document.querySelectorAll('form[data-confirm]').forEach(function(form){
         form.addEventListener('submit', function(event){
-            if (!window.confirm(form.getAttribute('data-confirm'))) {
-                event.preventDefault();
-            }
+            if (pending === form) return;
+
+            event.preventDefault();
+
+            var submit = form.querySelector('[type=submit]');
+
+            lastFocus = submit;
+            pending = form;
+            modalText.textContent = form.getAttribute('data-confirm');
+            // The action names itself, so the confirm button says what will
+            // happen rather than "OK".
+            modalOk.textContent = submit ? submit.textContent.trim() : modalOk.textContent;
+            modal.hidden = false;
+            modalOk.focus();
+        });
+    });
+
+    // The server renders UTC because it cannot know where the reader is; this
+    // restates it in their own zone and locale. The markup is already correct
+    // without this, just labelled UTC.
+    document.querySelectorAll('time[data-local]').forEach(function(el){
+        var when = new Date(el.getAttribute('datetime'));
+        if (isNaN(when.getTime())) return;
+
+        el.title = el.textContent;
+        el.textContent = when.toLocaleString(undefined, {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit'
         });
     });
 

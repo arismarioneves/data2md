@@ -17,13 +17,13 @@ return [
     'nav.performance'   => 'Performance',
 
     // ── Footer (landing) ───────────────────────────────────────
-    'footer.text'         => '<strong>%s</strong> — the uploaded file is discarded after conversion; the generated Markdown is kept, with no automatic expiry.',
+    'footer.text'         => '<strong>%s</strong> — drop a PDF, get Markdown a model can actually read.',
     'footer.app'        => 'App',
     'footer.api'        => 'API',
     'footer.about_md'   => 'About .md',
     'footer.home'       => 'Home',
     'footer.converter'  => 'Converter',
-    'footer.api.text'     => '<strong>%s</strong> API — no account, no API key.',
+    'footer.api.text'     => '<strong>%s</strong> API — one POST, structured Markdown back.',
 
     // ── Landing — meta ─────────────────────────────────────────
     'landing.title'     => '%s · Documents, distilled into Markdown',
@@ -106,6 +106,11 @@ return [
     'auth.dead.btn'         => 'Request a new link',
 
     'auth.mail.subject'     => 'Sign in to %s',
+    'auth.mail.heading'     => 'Sign in to %s',
+    'auth.mail.lead'        => 'Use the button below. It works once and expires in %d minutes.',
+    'auth.mail.button'      => 'Sign in',
+    'auth.mail.fallback'    => 'If the button does not work, copy this address into your browser:',
+    'auth.mail.ignore'      => 'If you did not ask to sign in, ignore this message. Nothing happens until the link is opened.',
     'auth.mail.body'        => "Open this link to sign in to %s:\n\n%s\n\nIt works once and expires in %d minutes. If you did not ask for it, ignore this message.",
 
     'nav.dashboard'         => 'Dashboard',
@@ -118,7 +123,9 @@ return [
     'dash.heading'          => 'Your <em>conversions</em>.',
 
     'dash.account.head'     => 'Account',
-    'dash.account.since'    => 'Member since %s',
+    'dash.account.since'    => 'Account created %s',
+
+    'dash.modal.cancel'     => 'Cancel',
 
     'dash.bill.head'        => 'Plan',
     'dash.bill.plan.free'   => 'Free',
@@ -196,6 +203,7 @@ return [
     'app.cta'             => 'Convert to Markdown',
 
     'app.helper.anon'     => 'No account needed',
+    'app.helper.signedin' => 'Signed in',
     'app.helper.streamed' => 'Large files, no freezing',
     'app.helper.maxsize'  => 'Up to %s',
 
@@ -332,8 +340,12 @@ return [
 
     // ── Queue / retry ──────────────────────────────────────────
     'app.error.toobig'      => 'That file is larger than %s.',
-    'app.error.toobig.anon' => 'Sign in for a bigger limit, or subscribe for the largest.',
-    'app.error.toobig.free' => 'Subscribe to convert files up to the largest size.',
+    'app.error.toobig.anon' => 'Sign in for %1$s, or subscribe for %2$s.',
+    'app.error.toobig.free' => 'Subscribe to convert files up to %s.',
+    'app.upsell.anon'       => 'Signed in you can convert up to %1$s, and a subscription raises that to %2$s.',
+    'app.upsell.anon.free'  => 'Sign in to convert files up to %s.',
+    'app.upsell.free'       => 'A subscription raises your limit to %s.',
+    'app.upsell.cta'        => 'See plans',
     'app.error.busy'      => 'The server is converting other documents right now. Retrying in %s s…',
     'app.status.queued'   => 'Queued…',
     'app.status.retrying' => 'Retrying (%s of %s)…',
