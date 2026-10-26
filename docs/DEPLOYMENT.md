@@ -1,7 +1,7 @@
 # Deployment reference
 
 This is the reference companion to [`DEPLOY.md`](DEPLOY.md). `DEPLOY.md` is
-the walkthrough — push, Actions, GHCR, EasyPanel, rollback, operator
+the walkthrough — push, Actions, GHCR, the host, rollback, operator
 commands, data lifecycle, common problems. This document is the material
 that walkthrough doesn't repeat: the full configuration schema, the sizing
 arithmetic behind the resource numbers, and how the pieces fit together.
@@ -24,7 +24,7 @@ Inside the container:
   boot. There are no defaults in code; production defaults are declared as
   `ENV` in the Dockerfile, so they're visible without opening a PHP file.
 - **Conversion** — `pdftotext` runs as a subprocess with `nice`/`ionice`
-  applied, so it yields CPU and I/O to the VPS's other services under
+  applied, so it yields CPU and I/O to the server's other services under
   contention rather than competing with them. A semaphore
   (`src/Runtime/ConversionSemaphore.php`) caps how many conversions run at
   once; beyond that, requests queue up to `CONVERT_QUEUE_WAIT_SECONDS` and
@@ -48,10 +48,11 @@ Inside the container:
 of each.
 
 **19 required keys** describe the deployment itself and have no code-level
-default. The Dockerfile declares production `ENV` values for 18 of them;
-`APP_URL` has none, on purpose, because there is no correct generic value and
-deriving it from the request's `Host` header is exactly the behaviour this
-project removed.
+default. The Dockerfile declares production `ENV` values for 16 of them.
+`APP_URL`, `CONTACT_EMAIL` and `TRUSTED_PROXIES` have none, on purpose: only
+the operator knows their domain, the address their legal pages publish, and
+the network their reverse proxy sits on. Deriving `APP_URL` from the request's
+`Host` header is exactly the behaviour this project removed.
 
 **31 optional keys** describe behaviour that is off or conventional by default —
 accounts, billing, per-tier conversion limits, sessions, outbound mail, Stripe.
@@ -76,13 +77,14 @@ the same way as a bad value:
   request never reaches PHP to honour, since Apache's `LimitRequestBody` and
   PHP's `upload_max_filesize` come from the ceiling at boot.
 
-In practice, on a fresh EasyPanel deployment you only need to set two variables
-yourself:
+In practice, on a fresh deployment you only need to set three variables
+yourself — the container refuses to boot without any of them:
 
-- **`APP_URL`** — no default exists; the container refuses to boot without it.
-- **`CONTACT_EMAIL`** — has a default, but it's this project's placeholder
-  address. Set it to a real one — `/terms` and `/privacy` publish whatever
-  this variable holds, verbatim.
+- **`APP_URL`** — the public origin, e.g. `https://convert.example.com`.
+- **`CONTACT_EMAIL`** — `/terms` and `/privacy` publish whatever this variable
+  holds, verbatim, and it is the sender when `MAIL_FROM` is empty.
+- **`TRUSTED_PROXIES`** — the reverse proxy's network; see section 3. Set it
+  empty when nothing sits in front of the container.
 
 Everything else has a workable production default and only needs overriding
 for tuning.
@@ -91,7 +93,7 @@ for tuning.
 |---|---|---|---|
 | `APP_ENV` | `production` | `production` \| `development` | |
 | `APP_URL` | *(none — required)* | absolute `http(s)://` URL | No generic default is correct; boot fails without it |
-| `APP_NAME` | `data2md` | 1–64 chars | |
+| `APP_NAME` | `Data2MD` | 1–64 chars | Shown in titles, e-mail sender name and the legal pages |
 | `APP_VERSION` | stamped by CI | string | Set via `APP_VERSION` build arg, not by hand; see section 4 |
 | `APP_DATA_DIR` | `/var/lib/data2md` | absolute, writable path | Mount the volume here |
 | `MAX_FILE_SIZE_MB` | `200` | 1–2048 | |
@@ -102,19 +104,20 @@ for tuning.
 | `PHP_MEMORY_LIMIT_MB` | `512` | 64–4096 | |
 | `RATE_LIMIT_MAX` | `20` | 1–10000 | Requests per window, per IP |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60` | 1–86400 | |
-| `TRUSTED_PROXIES` | `10.11.0.0/16` | CIDR list, empty allowed | **Confirm this on your VPS — see section 3** |
+| `TRUSTED_PROXIES` | *(none — required)* | CIDR list, empty allowed | **Your reverse proxy's network — see section 3** |
 | `CORS_ALLOWED_ORIGINS` | *(empty)* | origin list, empty allowed | Empty disables CORS entirely; preflight then answers `405` |
 | `LOG_RETENTION_DAYS` | `90` | 1–3650 | Operational log |
 | `AUDIT_LOG_RETENTION_DAYS` | `30` | 1–3650 | Access/audit log |
 | `GC_PROBABILITY` | `0.01` | 0.0–1.0 | Chance GC runs after any given request |
-| `CONTACT_EMAIL` | `support@aiu4.com` | valid e-mail | Published on the Terms and Privacy pages |
+| `CONTACT_EMAIL` | *(none — required)* | valid e-mail | Published on the Terms and Privacy pages |
 
 ### Optional keys
 
-Everything above is required and has a value in the image. Accounts, mail and
-billing add keys that each carry a default in code, so an operator sets only
-what they mean to change — `bin/data2md config:check` prints how many of each
-the running build has, and names every problem at once rather than the first.
+Everything above is required; all but three have a value in the image.
+Accounts, mail and billing add keys that each carry a default in code, so an
+operator sets only what they mean to change — `bin/data2md config:check`
+prints how many of each the running build has, and names every problem at once
+rather than the first.
 
 Three cross-checks refuse to boot rather than degrade quietly:
 
@@ -136,7 +139,7 @@ not expire; a retention variable would imply otherwise. It is removed by
 `bin/data2md delete <hash>`, by `bin/data2md prune --older-than=N`, or by a
 signed-in user deleting their own conversion from the dashboard. Nothing
 removes it on a timer, so the data volume still grows over the life of the
-deployment; a disk-space alert on the VPS is not optional, it's the only
+deployment; a disk-space alert on the server is not optional, it's the only
 thing that will tell you before the volume fills.
 
 Deleting an account does **not** delete its conversions. They are detached
@@ -148,11 +151,12 @@ acts.
 
 ## 3. `TRUSTED_PROXIES`
 
-The Dockerfile default, `10.11.0.0/16`, is this VPS's actual EasyPanel/Traefik
-network — confirmed by `docker network inspect`, not a generic Docker
-default. If you deploy to a different VPS or the network is renumbered,
-confirm it again the same way (`DEPLOY.md` section 5 has the exact command)
-before going live.
+There is no default, because no generic value is correct: it must name the
+network your reverse proxy (Traefik, Caddy, Nginx, a hosting panel) uses to
+reach the container. Find it with `docker network inspect` on the network the
+two share (`DEPLOY.md` section 5 has the exact command), and confirm it again
+whenever you move servers or the network is renumbered. Set it empty when the
+container is exposed directly, with no proxy in front.
 
 Getting this wrong produces no error and no log entry pointing at it: every
 request arrives with an `X-Forwarded-For` from an untrusted hop, so the rate
@@ -168,7 +172,7 @@ the only way to catch it is to check the value against the real network.
 
 ```
 commit → push/merge to main → Actions runs the suite → publishes to GHCR
-       → deploy hook → EasyPanel pulls the image → /health shows the new stamp
+       → deploy hook (optional) → the host pulls the image → /health shows the new stamp
 ```
 
 The test suite is a hard gate on the publish job (`needs: test` in
@@ -183,7 +187,7 @@ and therefore none reaches production.
 
 `GET /health` returns this stamp in its `version` field. That field is the
 only reliable way to confirm which code is actually running after a deploy —
-the deploy log or the EasyPanel "Deploy" click only says that *something*
+the deploy log or the panel's "Deploy" click only says that *something*
 shipped, not what. Check `version` after every deploy, not just when
 something looks wrong.
 
@@ -191,7 +195,7 @@ something looks wrong.
 
 ## 5. Sizing arithmetic
 
-The resource budget is 2 GB memory / 1 CPU (see `DEPLOY.md` section 6 for
+The reference budget is 2 GB memory / 1 CPU (see `DEPLOY.md` section 6 for
 where that's configured). The converting workers are only part of the
 budget — every Apache worker holds a resident mod_php process whether it is
 converting, queued, or idle. The real ceiling is:
@@ -232,7 +236,7 @@ benefit, drop it to 1 — it's an environment variable, not a rebuild.
 ## 6. See also
 
 - [`DEPLOY.md`](DEPLOY.md) — the deployment walkthrough: registry access,
-  EasyPanel setup, rollback, operator commands, data lifecycle, and common
-  problems.
+  service setup (EasyPanel as the worked example), rollback, operator
+  commands, data lifecycle, and common problems.
 - [`.env.example`](../.env.example) — every variable with an inline comment
   where the reasoning isn't obvious from the name.

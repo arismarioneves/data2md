@@ -10,7 +10,7 @@ Todos os comandos rodam no console do container, a partir de `/var/www/html`.
 
 ## 1. Onde ficam os arquivos
 
-Tudo que persiste vive em `/var/lib/data2md/`, o volume montado no EasyPanel:
+Tudo que persiste vive em `/var/lib/data2md/`, o volume nomeado montado no container:
 
 ```
 /var/lib/data2md/
@@ -51,9 +51,9 @@ imutável. Alterações feitas ali pelo console desaparecem no próximo deploy.
 
 ### Pelo painel
 
-O canal operacional é espelhado em stdout, então aparece no visualizador de logs
-do EasyPanel sem nenhuma configuração. É o caminho mais rápido para olhar o que
-está acontecendo agora.
+O canal operacional é espelhado em stdout, então aparece em `docker logs` e no
+visualizador de logs do seu host sem nenhuma configuração. É o caminho mais
+rápido para olhar o que está acontecendo agora.
 
 ### Pelo comando
 
@@ -103,7 +103,7 @@ grep mail.send.fail  app.jsonl        # ninguém consegue entrar
 
 **Nenhum endereço de e-mail entra no `app.jsonl`.** As linhas de cobrança e de
 autenticação identificam a conta por número, não por endereço, justamente porque
-este canal é espelhado no stdout e no visualizador de logs do EasyPanel.
+este canal é espelhado no stdout e no visualizador de logs do host.
 
 ### A diferença entre os canais
 

@@ -84,7 +84,7 @@ return [
 
     // ── Sign in ────────────────────────────────────────────────
     'auth.login.title'      => '%s · Sign in',
-    'auth.login.meta.desc'  => 'Sign in to Data2MD with a single-use link sent to your e-mail. No password to remember.',
+    'auth.login.meta.desc'  => 'Sign in to %s with a single-use link sent to your e-mail. No password to remember.',
     'auth.login.eyebrow'    => '// sign in',
     'auth.login.heading'    => 'Sign in with a <em>link</em>.',
     'auth.login.lead'       => 'Enter your e-mail and we send a single-use link. There is no password, and signing in for the first time creates your account.',
@@ -360,7 +360,8 @@ return [
     'legal.terms.heading' => 'Terms of use',
 
     'legal.terms.service.h' => 'The service',
-    'legal.terms.service.b' => 'Data2MD converts documents into Markdown text. The converter on this site is free to use. An account raises the file size limit; a paid subscription raises it further and is what opens the HTTP API.',
+    'legal.terms.service.b' => '%5$s converts documents into Markdown text. The converter on this site is free to use. An account raises the file size limit; a paid subscription raises it further and is what opens the HTTP API.',
+    'legal.terms.service.granted.b' => '%5$s converts documents into Markdown text. The converter on this site is free to use. An account raises the file size limit; the premium plan, granted by whoever runs this site, raises it further and is what opens the HTTP API.',
 
     'legal.terms.accounts.h' => 'Accounts',
     'legal.terms.accounts.b' => 'An account is optional. Signing in works through a single-use link sent to your e-mail address, so there is no password to choose or lose. An account lists the conversions you made while signed in, so you can download, share or delete them. Because the link is what proves the account is yours, keeping access to that mailbox is your responsibility. To close an account, write to <a href="mailto:%4$s">%4$s</a>.',
@@ -370,6 +371,7 @@ return [
 
     'legal.terms.limits.h' => 'Usage limits',
     'legal.terms.limits.b' => 'File size and how often you may convert both depend on whether you are signed in and whether you subscribe. Without an account the limit is %1$s per file; with a free account, %2$s; with a subscription, %3$s. A limit on how often you may convert also applies, counted per address for anonymous use and per account otherwise. These limits keep the service available to everyone and may change without notice.',
+    'legal.terms.limits.granted.b' => 'File size and how often you may convert both depend on whether you are signed in and on your plan. Without an account the limit is %1$s per file; with a free account, %2$s; with the premium plan, %3$s. A limit on how often you may convert also applies, counted per address for anonymous use and per account otherwise. These limits keep the service available to everyone and may change without notice.',
 
     'legal.terms.subscription.h' => 'Subscription and payment',
     'legal.terms.subscription.b' => 'A subscription is monthly and renews automatically until cancelled. Payment is handled by Stripe, on a page they host: card details are never sent to or stored by this site. The charge is made in the currency of the country your card was issued in, and both amounts are shown on the plans page before you start.',
@@ -382,6 +384,7 @@ return [
 
     'legal.terms.api.h' => 'The API',
     'legal.terms.api.b' => 'The HTTP API is part of the subscription and is used with a token created in your dashboard. Treat the token like a password: anything done with it counts as done by your account. You can replace or revoke it at any time, and the previous token stops working immediately.',
+    'legal.terms.api.granted.b' => 'The HTTP API is part of the premium plan and is used with a token created in your dashboard. Treat the token like a password: anything done with it counts as done by your account. You can replace or revoke it at any time, and the previous token stops working immediately.',
 
     'legal.terms.removal.h' => 'Content and account removal',
     'legal.terms.removal.b' => 'We may remove any conversion at any time, including for operational reasons, without prior notice. We may also suspend an account being used in a way that threatens the availability of the service for others.',
@@ -394,7 +397,7 @@ return [
     'legal.privacy.heading' => 'Privacy',
 
     'legal.privacy.controller.h' => 'Who is responsible',
-    'legal.privacy.controller.b' => 'Data2MD is responsible for handling the data described on this page. Contact: <a href="mailto:%4$s">%4$s</a>.',
+    'legal.privacy.controller.b' => '%5$s is responsible for handling the data described on this page. Contact: <a href="mailto:%4$s">%4$s</a>.',
 
     'legal.privacy.upload.h' => 'The file you upload',
     'legal.privacy.upload.b' => '<strong>It is deleted from the server right after conversion</strong>, including when the conversion fails. It is used only to extract the text and is not retained.',
@@ -415,7 +418,7 @@ return [
     'legal.privacy.token.b' => 'An API token is stored only as a cryptographic hash, so the token itself cannot be read back from our records by anyone, including us. What is kept beside it is enough to recognise which token you are looking at and not enough to use it. We also record when it was last used, so you can tell whether it is still in service.',
 
     'legal.privacy.ip.h' => 'IP address',
-    'legal.privacy.ip.b' => 'It is recorded for security and to enforce the usage limit. In the operational record the address is stored in reduced form, without its final part. In the access record the full address is kept for up to 30 days and then deleted.',
+    'legal.privacy.ip.b' => 'It is recorded for security and to enforce the usage limit. In the operational record the address is stored in reduced form, without its final part. In the access record the full address is kept for up to %6$d days and then deleted.',
 
     'legal.privacy.reach.h' => 'Who can reach your conversion',
     'legal.privacy.reach.b' => 'Anyone holding the download link. The link contains a random identifier and is not listed anywhere, but <strong>do not share links to sensitive documents</strong>.',

@@ -61,9 +61,12 @@ RUN composer dump-autoload --optimize --classmap-authoritative --no-dev \
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Production defaults. APP_URL has none on purpose: there is no correct generic
-# value, and deriving it from the request Host is the behaviour this project
-# removed. Override any of these in the EasyPanel UI without rebuilding.
+# Production defaults. APP_URL, CONTACT_EMAIL and TRUSTED_PROXIES have none on
+# purpose: only the operator knows their domain, the address published on the
+# legal pages, and the network their reverse proxy sits on. The container
+# refuses to boot until all three are set (TRUSTED_PROXIES may be set empty
+# when nothing sits in front of it). Override any of these at runtime without
+# rebuilding.
 ENV APP_ENV=production \
     APP_NAME=Data2MD \
     APP_VERSION=${APP_VERSION} \
@@ -76,12 +79,10 @@ ENV APP_ENV=production \
     PHP_MEMORY_LIMIT_MB=512 \
     RATE_LIMIT_MAX=20 \
     RATE_LIMIT_WINDOW_SECONDS=60 \
-    TRUSTED_PROXIES=10.11.0.0/16 \
     CORS_ALLOWED_ORIGINS= \
     LOG_RETENTION_DAYS=90 \
     AUDIT_LOG_RETENTION_DAYS=30 \
-    GC_PROBABILITY=0.01 \
-    CONTACT_EMAIL=support@aiu4.com
+    GC_PROBABILITY=0.01
 
 VOLUME ["/var/lib/data2md"]
 EXPOSE 80

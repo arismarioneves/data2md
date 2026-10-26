@@ -1,6 +1,6 @@
-# Deploy — do Git ao EasyPanel
+# Deploy — do Git ao servidor
 
-A imagem é construída pelo GitHub Actions e publicada no GHCR. O EasyPanel apenas consome a imagem pronta.
+A imagem é construída pelo GitHub Actions e publicada no GHCR do repositório que a construiu (`ghcr.io/<owner>/data2md`). Qualquer host que rode containers Docker atrás de um proxy reverso com HTTPS serve: Docker Compose com Traefik, Caddy ou Nginx, Coolify, Dokploy, EasyPanel, Kubernetes. Os passos de painel abaixo usam o **EasyPanel como exemplo**; o que importa em qualquer host é a imagem, as variáveis (seção 5), o volume nomeado (seção 6) e o domínio com HTTPS (seção 7).
 
 Este é o passo a passo prático. Para a tabela completa das variáveis, a
 aritmética de dimensionamento e a arquitetura, veja
@@ -8,16 +8,18 @@ aritmética de dimensionamento e a arquitetura, veja
 
 ```
 commit → push em main → Actions roda a suíte → publica no GHCR
-       → EasyPanel puxa a imagem → /health confirma a versão
+       → o host puxa a imagem → /health confirma a versão
 ```
+
+Nos exemplos, troque `<owner>` pelo usuário ou organização dono do seu fork.
 
 ---
 
 ## 1. Pré-requisitos
 
-- Repositório no GitHub com Actions habilitado.
-- Conta no EasyPanel com acesso à VPS.
-- Domínio apontando para a VPS.
+- Repositório (ou fork) no GitHub com Actions habilitado.
+- Um servidor com Docker e um proxy reverso que termine HTTPS.
+- Domínio apontando para esse servidor.
 
 ---
 
@@ -26,8 +28,6 @@ commit → push em main → Actions roda a suíte → publica no GHCR
 O workflow `.github/workflows/image.yml` dispara em push para `main`.
 
 ```bash
-git checkout main
-git merge docker
 git push origin main
 ```
 
@@ -42,7 +42,7 @@ A suíte de testes é o portão: se um teste falha, nenhuma imagem é publicada.
 Ao final, a imagem estará em:
 
 ```
-ghcr.io/arismarioneves/data2md:main
+ghcr.io/<owner>/data2md:main
 ```
 
 Cada publicação gera duas referências:
@@ -52,7 +52,7 @@ Cada publicação gera duas referências:
 | `:main` | sempre o último commit de `main` |
 | `:sha-<commit>` | imutável, aponta para um commit exato |
 
-Fixe `:sha-<commit>` no EasyPanel quando quiser um alvo que não se move.
+Fixe `:sha-<commit>` no host quando quiser um alvo que não se move.
 
 ---
 
@@ -60,19 +60,19 @@ Fixe `:sha-<commit>` no EasyPanel quando quiser um alvo que não se move.
 
 Pacotes do GHCR nascem privados. Escolha uma das duas opções.
 
-**Pacote público** — em `github.com/users/<usuário>/packages/container/data2md/settings`, use *Change visibility* → Public. Apenas a imagem fica pública; o repositório não muda. A imagem não contém segredo: toda configuração sensível é variável de ambiente em runtime.
+**Pacote público** — em `github.com/users/<owner>/packages/container/data2md/settings` (ou `github.com/orgs/<owner>/...`), use *Change visibility* → Public. Apenas a imagem fica pública; o repositório não muda. A imagem não contém segredo: toda configuração sensível é variável de ambiente em runtime.
 
-**Credencial de registry** — crie um Personal Access Token (classic) com escopo `read:packages` e cadastre-o no EasyPanel em *Settings → Registries*.
+**Credencial de registry** — crie um Personal Access Token (classic) com escopo `read:packages` e cadastre-o no host (no EasyPanel, *Settings → Registries*; no Docker puro, `docker login ghcr.io`).
 
 ---
 
-## 4. Criar o app no EasyPanel
+## 4. Criar o serviço
 
-Novo serviço do tipo **App**, origem **Docker Image**.
+Exemplo no EasyPanel: novo serviço do tipo **App**, origem **Docker Image**. Em outros hosts, os mesmos três valores:
 
 | Campo | Valor |
 |---|---|
-| Image | `ghcr.io/arismarioneves/data2md:main` |
+| Image | `ghcr.io/<owner>/data2md:main` |
 | Port | `80` |
 | Health check path | `/health` |
 
@@ -80,25 +80,22 @@ Novo serviço do tipo **App**, origem **Docker Image**.
 
 ## 5. Variáveis de ambiente
 
-Os padrões vêm do Dockerfile. Informe apenas estas duas:
+Os demais padrões vêm do Dockerfile. Estas três não têm padrão — o container não sobe sem elas:
 
 ```
-APP_URL=https://seu-dominio.com.br
-CONTACT_EMAIL=contato@seu-dominio.com.br
+APP_URL=https://seu-dominio.example
+CONTACT_EMAIL=contato@seu-dominio.example
+TRUSTED_PROXIES=<faixa da rede do proxy reverso>
 ```
 
-Confirme a faixa de rede do proxy antes de subir:
+`CONTACT_EMAIL` é publicado nas páginas de Termos e Privacidade. `TRUSTED_PROXIES` lista as faixas CIDR (ou IPs) de onde o proxy reverso fala com o container; só elas podem informar o IP do cliente. Descubra a faixa da rede Docker compartilhada com o proxy:
 
 ```bash
-docker network inspect $(docker network ls --format '{{.Name}}' | grep -i -m1 'easypanel\|traefik') \
-    --format '{{range .IPAM.Config}}{{.Subnet}}{{"\n"}}{{end}}'
+docker network ls                      # identifique a rede do proxy (traefik, easypanel, caddy...)
+docker network inspect <rede> --format '{{range .IPAM.Config}}{{.Subnet}}{{"\n"}}{{end}}'
 ```
 
-Se o resultado não for `10.11.0.0/16`, ajuste:
-
-```
-TRUSTED_PROXIES=<faixa retornada>
-```
+Sem proxy na frente (container exposto direto), defina `TRUSTED_PROXIES=` vazio.
 
 Uma faixa errada não gera erro: todo o tráfego passa a contar como um único endereço e o limite de uso deixa de funcionar.
 
@@ -114,7 +111,7 @@ Demais variáveis e seus domínios estão em [`.env.example`](../.env.example).
 |---|
 | `/var/lib/data2md` |
 
-Tem de ser uma **montagem de volume nomeada** (no EasyPanel, *Armazenamento → Adicionar Montagem de Volume*). Deixar em branco não deixa o diretório sem volume: o `Dockerfile` declara `VOLUME`, então o Docker inventa um **volume anônimo** — um novo e vazio por container, descartado junto com o antigo. Todo check passa, porque um banco vazio é um banco válido, e a perda só aparece quando alguém procura a própria conta.
+Tem de ser uma **montagem de volume nomeada** (no EasyPanel, *Armazenamento → Adicionar Montagem de Volume*; no Compose, um volume declarado em `volumes:`, como no `docker-compose.yml` deste repositório). Deixar em branco não deixa o diretório sem volume: o `Dockerfile` declara `VOLUME`, então o Docker inventa um **volume anônimo** — um novo e vazio por container, descartado junto com o antigo. Todo check passa, porque um banco vazio é um banco válido, e a perda só aparece quando alguém procura a própria conta.
 
 O boot diz em qual dos dois casos o serviço está:
 
@@ -132,20 +129,20 @@ storage EPHEMERAL (anonymous)   ← o próximo deploy apaga tudo
 | Memory | 2 GB |
 | CPU | 1.0 |
 
-O pico de memória não é só das conversões: cada worker do Apache é um processo mod_php residente, esteja convertendo, na fila do semáforo ou ocioso. A fórmula real é `CONVERT_CONCURRENCY × (PHP_MEMORY_LIMIT_MB + ~60 MB) + (MaxRequestWorkers − CONVERT_CONCURRENCY) × ~35 MB`, hoje `2 × (512 + 60) + 22 × 35 ≈ 1,9 GB` de 2 GB — sem margem real, e é por isso que `MaxRequestWorkers` (24, em `docker/apache/mpm.conf`) não pode ser aumentado para dar mais fôlego à fila. A aritmética completa está em [`DEPLOYMENT.md`](DEPLOYMENT.md#5-sizing-arithmetic). A conversão roda com prioridade baixa de CPU e I/O, cedendo espaço aos outros serviços da VPS.
+O pico de memória não é só das conversões: cada worker do Apache é um processo mod_php residente, esteja convertendo, na fila do semáforo ou ocioso. A fórmula real é `CONVERT_CONCURRENCY × (PHP_MEMORY_LIMIT_MB + ~60 MB) + (MaxRequestWorkers − CONVERT_CONCURRENCY) × ~35 MB`, hoje `2 × (512 + 60) + 22 × 35 ≈ 1,9 GB` de 2 GB — sem margem real, e é por isso que `MaxRequestWorkers` (24, em `docker/apache/mpm.conf`) não pode ser aumentado para dar mais fôlego à fila. A aritmética completa está em [`DEPLOYMENT.md`](DEPLOYMENT.md#5-sizing-arithmetic). A conversão roda com prioridade baixa de CPU e I/O, cedendo espaço aos outros serviços do servidor.
 
 ---
 
 ## 7. Domínio
 
-Em *Domains*, adicione o host de `APP_URL` e habilite HTTPS. O EasyPanel provisiona o certificado.
+Aponte o host de `APP_URL` para o serviço e habilite HTTPS no proxy reverso (no EasyPanel, em *Domains*; ele provisiona o certificado).
 
 ---
 
 ## 8. Verificar
 
 ```bash
-curl -sS https://seu-dominio.com.br/health
+curl -sS https://seu-dominio.example/health
 ```
 
 Resposta esperada:
@@ -160,17 +157,17 @@ Conversão de ponta a ponta. O `/api` exige token de assinante, então o teste d
 navegador usa `/convert`:
 
 ```bash
-curl -sS -X POST https://seu-dominio.com.br/convert \
+curl -sS -X POST https://seu-dominio.example/convert \
     -F "file=@documento.pdf" -F "format=pdf"
 ```
 
-Para o caminho da API, crie um token e conceda a assinatura:
+Para o caminho da API, crie um token e conceda o plano premium. Com `BILLING_ENABLED=false` (sem Stripe), `user:premium` é a única forma de liberar a API para uma conta:
 
 ```bash
 data2md token:create voce@exemplo.com
 data2md user:premium voce@exemplo.com --days=1
 
-curl -sS -X POST https://seu-dominio.com.br/api \
+curl -sS -X POST https://seu-dominio.example/api \
     -H "Authorization: Bearer d2md_..." \
     -F "file=@documento.pdf" -F "format=pdf"
 ```
@@ -183,18 +180,18 @@ curl -sS -X POST https://seu-dominio.com.br/api \
 git push origin main
 ```
 
-Quando o Actions concluir, use *Deploy* no EasyPanel para puxar a imagem nova. Confirme pelo `version` em `/health`.
+Quando o Actions concluir, puxe a imagem nova no host (no EasyPanel, *Deploy*; no Compose, `docker compose pull && docker compose up -d`). Confirme pelo `version` em `/health`.
 
-Para deploy automático, crie o secret `EASYPANEL_DEPLOY_HOOK` no repositório com a URL de webhook do serviço.
+Para deploy automático, crie o secret `EASYPANEL_DEPLOY_HOOK` no repositório com a URL de webhook do serviço. Apesar do nome, o workflow só faz um `POST` nessa URL, então qualquer host com webhook de deploy serve. Sem o secret, o passo é pulado.
 
 ---
 
 ## 10. Rollback
 
-Troque a imagem no EasyPanel para o `sha` anterior e faça *Deploy*:
+Troque a imagem no host para o `sha` anterior e refaça o deploy:
 
 ```
-ghcr.io/arismarioneves/data2md:sha-a1b2c3d
+ghcr.io/<owner>/data2md:sha-a1b2c3d
 ```
 
 Os `sha` disponíveis aparecem na página do pacote no GHCR, ou via
@@ -218,7 +215,7 @@ bin/data2md delete <hash>   # remove uma conversão
 bin/data2md prune --older-than=90
 ```
 
-O log operacional também aparece no visualizador de logs do EasyPanel.
+O log operacional também sai no stdout do container (`docker logs`, ou o visualizador de logs do seu host).
 
 ---
 
@@ -305,9 +302,9 @@ assinatura paga deixar de ser registrada em silêncio.
 | Log operacional | 90 dias |
 | Registro de acesso | 30 dias |
 
-O Markdown não expira sozinho, então o volume cresce continuamente. Configure um alerta de espaço em disco na VPS.
+O Markdown não expira sozinho, então o volume cresce continuamente. Configure um alerta de espaço em disco no servidor.
 
-A coleta oportunista (`gc`) roda a cada requisição de conversão, mas uma falha recorrente é engolida e só aparece no log operacional como o evento `gc.fail` — o disco continua crescendo sem aviso até o alerta de espaço disparar. Monitore o evento `gc.fail` no visualizador de logs do EasyPanel; um coletor parado é o sintoma que precede o disco cheio, não uma consequência dele.
+A coleta oportunista (`gc`) roda a cada requisição de conversão, mas uma falha recorrente é engolida e só aparece no log operacional como o evento `gc.fail` — o disco continua crescendo sem aviso até o alerta de espaço disparar. Monitore o evento `gc.fail` nos logs do container; um coletor parado é o sintoma que precede o disco cheio, não uma consequência dele.
 
 ---
 
@@ -329,6 +326,6 @@ A coleta oportunista (`gc`) roda a cada requisição de conversão, mas uma falh
 
 **Alguém pagou e continua sem premium.** Procure `billing.reconcile.drift` (a resposta guardada estava errada, ou seja um webhook não chegou) e `billing.reconcile.recovered` (a assinatura foi encontrada sem nenhum webhook ter chegado). Ambos são nível de erro. Reentregue o evento pelo painel da Stripe, ou rode `bin/data2md billing:reconcile`. Se aparecer `billing.webhook.unmatched`, a assinatura não pertence a nenhuma conta — foi criada fora do checkout do app.
 
-**Os hashes de download aparecem no registro de acesso do EasyPanel.** É esperado: o `combined` registra a linha de requisição inteira, e `/download?hash=...` leva o identificador. Quem tem o identificador tem o arquivo, então trate esse visualizador de logs como material sensível. A exceção é `/login`, cujo formato de log omite a query string justamente porque ela carrega o token.
+**Os hashes de download aparecem no registro de acesso do Apache (stdout do container).** É esperado: o `combined` registra a linha de requisição inteira, e `/download?hash=...` leva o identificador. Quem tem o identificador tem o arquivo, então trate o visualizador de logs do host como material sensível. A exceção é `/login`, cujo formato de log omite a query string justamente porque ela carrega o token.
 
-**Falha ao puxar a imagem.** O pacote é privado e não há credencial cadastrada. Veja a seção 3.
+**Falha ao puxar a imagem.** O pacote no GHCR é privado e não há credencial cadastrada no host. Veja a seção 3.

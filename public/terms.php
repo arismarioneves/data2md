@@ -33,17 +33,27 @@ if (BILLING_ENABLED) {
 
 $sections = [...$sections, 'availability', 'api', 'removal', 'changes'];
 
+// Without billing there is nothing to subscribe to: the premium tier exists only
+// as an operator grant (`bin/data2md user:premium`), so these say that instead.
+$planAware = ['service', 'limits', 'api'];
+
 $legalSections = [];
 
 foreach ($sections as $name) {
+    $body = !BILLING_ENABLED && in_array($name, $planAware, true)
+        ? "legal.terms.$name.granted.b"
+        : "legal.terms.$name.b";
+
     $legalSections[] = [
         'h' => t("legal.terms.$name.h"),
         'b' => t(
-            "legal.terms.$name.b",
+            $body,
             $tiers->for(Entitlement::ANON)->maxFileSizeLabel(),
             $tiers->for(Entitlement::FREE)->maxFileSizeLabel(),
             $tiers->for(Entitlement::PREMIUM)->maxFileSizeLabel(),
-            CONTACT_EMAIL
+            CONTACT_EMAIL,
+            e(APP_NAME),
+            $config->int('AUDIT_LOG_RETENTION_DAYS')
         ),
     ];
 }

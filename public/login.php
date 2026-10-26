@@ -127,7 +127,7 @@ header('Content-Type: text/html; charset=utf-8');
 header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:");
 
 $metaTitle = t('auth.login.title', APP_NAME);
-$metaDesc  = t('auth.login.meta.desc');
+$metaDesc  = t('auth.login.meta.desc', APP_NAME);
 ?>
 <!DOCTYPE html>
 <html lang="<?= \Data2Md\I18n\I18n::current() ?>">
