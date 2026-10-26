@@ -84,7 +84,7 @@ return [
 
     // ── Entrar ─────────────────────────────────────────────────
     'auth.login.title'      => '%s · Entrar',
-    'auth.login.meta.desc'  => 'Entre no Data2MD com um link de uso único enviado por e-mail. Sem senha pra lembrar.',
+    'auth.login.meta.desc'  => 'Entre no %s com um link de uso único enviado por e-mail. Sem senha pra lembrar.',
     'auth.login.eyebrow'    => '// entrar',
     'auth.login.heading'    => 'Entre com um <em>link</em>.',
     'auth.login.lead'       => 'Informe seu e-mail e enviamos um link de uso único. Não existe senha, e entrar pela primeira vez cria sua conta.',
@@ -360,7 +360,8 @@ return [
     'legal.terms.heading' => 'Termos de uso',
 
     'legal.terms.service.h' => 'O serviço',
-    'legal.terms.service.b' => 'O Data2MD converte documentos em texto Markdown. O conversor deste site é gratuito. Uma conta aumenta o limite de tamanho de arquivo; a assinatura paga aumenta mais e é o que abre a API HTTP.',
+    'legal.terms.service.b' => 'O %5$s converte documentos em texto Markdown. O conversor deste site é gratuito. Uma conta aumenta o limite de tamanho de arquivo; a assinatura paga aumenta mais e é o que abre a API HTTP.',
+    'legal.terms.service.granted.b' => 'O %5$s converte documentos em texto Markdown. O conversor deste site é gratuito. Uma conta aumenta o limite de tamanho de arquivo; o plano premium, concedido por quem opera este site, aumenta mais e é o que abre a API HTTP.',
 
     'legal.terms.accounts.h' => 'Contas',
     'legal.terms.accounts.b' => 'A conta é opcional. Entrar funciona por um link de uso único enviado ao seu e-mail, então não há senha para escolher nem perder. A conta lista as conversões feitas enquanto você estava logado, para baixar, compartilhar ou excluir. Como é o link que prova que a conta é sua, manter o acesso a essa caixa de e-mail é responsabilidade sua. Para encerrar uma conta, escreva para <a href="mailto:%4$s">%4$s</a>.',
@@ -370,6 +371,7 @@ return [
 
     'legal.terms.limits.h' => 'Limites de uso',
     'legal.terms.limits.b' => 'O tamanho do arquivo e a frequência de conversão dependem de você estar logado e de assinar. Sem conta, o limite é %1$s por arquivo; com conta gratuita, %2$s; com assinatura, %3$s. Também há limite de frequência, contado por endereço no uso anônimo e por conta nos demais casos. Esses limites mantêm o serviço disponível para todos e podem mudar sem aviso.',
+    'legal.terms.limits.granted.b' => 'O tamanho do arquivo e a frequência de conversão dependem de você estar logado e do seu plano. Sem conta, o limite é %1$s por arquivo; com conta gratuita, %2$s; com o plano premium, %3$s. Também há limite de frequência, contado por endereço no uso anônimo e por conta nos demais casos. Esses limites mantêm o serviço disponível para todos e podem mudar sem aviso.',
 
     'legal.terms.subscription.h' => 'Assinatura e pagamento',
     'legal.terms.subscription.b' => 'A assinatura é mensal e renova automaticamente até ser cancelada. O pagamento é processado pela Stripe, numa página hospedada por eles: os dados do cartão nunca são enviados para este site nem guardados por ele. A cobrança sai na moeda do país onde o cartão foi emitido, e os dois valores aparecem na página de planos antes de você começar.',
@@ -382,6 +384,7 @@ return [
 
     'legal.terms.api.h' => 'A API',
     'legal.terms.api.b' => 'A API HTTP faz parte da assinatura e é usada com um token criado no seu painel. Trate o token como uma senha: o que for feito com ele conta como feito pela sua conta. Você pode substituí-lo ou revogá-lo quando quiser, e o token anterior para de funcionar na hora.',
+    'legal.terms.api.granted.b' => 'A API HTTP faz parte do plano premium e é usada com um token criado no seu painel. Trate o token como uma senha: o que for feito com ele conta como feito pela sua conta. Você pode substituí-lo ou revogá-lo quando quiser, e o token anterior para de funcionar na hora.',
 
     'legal.terms.removal.h' => 'Remoção de conteúdo e de contas',
     'legal.terms.removal.b' => 'Podemos remover qualquer conversão a qualquer momento, inclusive por motivos operacionais, sem aviso prévio. Também podemos suspender uma conta usada de forma que ameace a disponibilidade do serviço para os demais.',
@@ -394,7 +397,7 @@ return [
     'legal.privacy.heading' => 'Privacidade',
 
     'legal.privacy.controller.h' => 'Quem é o responsável',
-    'legal.privacy.controller.b' => 'O Data2MD é responsável pelo tratamento dos dados descritos nesta página. Contato: <a href="mailto:%4$s">%4$s</a>.',
+    'legal.privacy.controller.b' => 'O %5$s é responsável pelo tratamento dos dados descritos nesta página. Contato: <a href="mailto:%4$s">%4$s</a>.',
 
     'legal.privacy.upload.h' => 'O arquivo que você envia',
     'legal.privacy.upload.b' => '<strong>Ele é apagado do servidor logo após a conversão</strong>, inclusive quando a conversão falha. É usado apenas para extrair o texto e não é retido.',
@@ -415,7 +418,7 @@ return [
     'legal.privacy.token.b' => 'O token de API é guardado apenas como hash criptográfico, então o token em si não pode ser lido de volta dos nossos registros por ninguém, inclusive por nós. O que fica ao lado dele é suficiente para reconhecer de qual token se trata e insuficiente para usá-lo. Também registramos quando foi usado por último, para você saber se ainda está em uso.',
 
     'legal.privacy.ip.h' => 'Endereço IP',
-    'legal.privacy.ip.b' => 'É registrado por segurança e para aplicar o limite de uso. No registro operacional o endereço é guardado de forma reduzida, sem a parte final. No registro de acesso o endereço completo fica por até 30 dias e depois é apagado.',
+    'legal.privacy.ip.b' => 'É registrado por segurança e para aplicar o limite de uso. No registro operacional o endereço é guardado de forma reduzida, sem a parte final. No registro de acesso o endereço completo fica por até %6$d dias e depois é apagado.',
 
     'legal.privacy.reach.h' => 'Quem consegue acessar sua conversão',
     'legal.privacy.reach.b' => 'Qualquer pessoa que tenha o link de download. O link contém um identificador aleatório e não é listado em lugar nenhum, mas <strong>não compartilhe links de documentos sensíveis</strong>.',

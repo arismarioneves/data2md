@@ -34,19 +34,19 @@ cd data2md
 docker compose up -d app
 ```
 
-`docker-compose.yml` already sets a working `APP_URL` for local use; the app listens on `http://localhost:8080`. Confirm it's up:
+`docker-compose.yml` already sets a working `APP_URL`, `CONTACT_EMAIL` and `TRUSTED_PROXIES` for local use; the app listens on `http://localhost:8080`. Confirm it's up:
 
 ```bash
 curl -sS http://localhost:8080/health
 ```
 
-For a real deployment (GHCR image, EasyPanel, rollback, operator commands), see [`docs/DEPLOY.md`](docs/DEPLOY.md).
+For a real deployment (GHCR image, any Docker host behind a reverse proxy, rollback, operator commands), see [`docs/DEPLOY.md`](docs/DEPLOY.md). Three variables have no default and must be set: `APP_URL`, `CONTACT_EMAIL` (published on the legal pages) and `TRUSTED_PROXIES` (your reverse proxy's network, or empty with no proxy).
 
 ---
 
 ## Configuration
 
-There is no `config.php` — configuration is environment variables only, validated at container boot; a missing or invalid one aborts startup and names the problem in the log. `APP_URL` has no default and must always be set. The rest split in two: keys the `Dockerfile` declares as production `ENV`, and optional keys that default in code and only need setting to change behaviour. `bin/data2md config:check` reports the count of each.
+There is no `config.php` — configuration is environment variables only, validated at container boot; a missing or invalid one aborts startup and names the problem in the log. `APP_URL`, `CONTACT_EMAIL` and `TRUSTED_PROXIES` have no default and must always be set. The rest split in two: keys the `Dockerfile` declares as production `ENV`, and optional keys that default in code and only need setting to change behaviour. `bin/data2md config:check` reports the count of each.
 
 See [`.env.example`](.env.example) for every variable with its default, and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full reference — variable table, sizing arithmetic, and architecture.
 
@@ -64,11 +64,13 @@ Open the root URL in a browser, select or drop a PDF file, and click **Convert t
 
 **Endpoint:** `POST /api`  
 **Content-Type:** `multipart/form-data`  
-**Authentication:** `Authorization: Bearer d2md_…` — the API is part of the subscription
+**Authentication:** `Authorization: Bearer d2md_…` — the API belongs to the premium plan
 
 Tokens are created in the dashboard, or with `bin/data2md token:create <email>`. Without one the
-endpoint answers `401`; with one on an account that has no subscription, `403` and
-`"code": "plan_required"`. The browser uses `POST /convert`, which reads the session cookie
+endpoint answers `401`; with one on an account that is not premium, `403` and
+`"code": "plan_required"`. Premium comes from a Stripe subscription when `BILLING_ENABLED=true`,
+or from the operator with `bin/data2md user:premium <email> --days=N` — the only way on a
+deployment without billing. The browser uses `POST /convert`, which reads the session cookie
 instead.
 
 | Field | Required | Description |

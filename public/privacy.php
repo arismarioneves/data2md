@@ -42,7 +42,9 @@ foreach ($sections as $name) {
             $tiers->for(Entitlement::ANON)->maxFileSizeLabel(),
             $tiers->for(Entitlement::FREE)->maxFileSizeLabel(),
             $tiers->for(Entitlement::PREMIUM)->maxFileSizeLabel(),
-            CONTACT_EMAIL
+            CONTACT_EMAIL,
+            e(APP_NAME),
+            $config->int('AUDIT_LOG_RETENTION_DAYS')
         ),
     ];
 }

@@ -7,11 +7,12 @@ namespace Data2Md\Config;
 /**
  * A missing or invalid key aborts boot, reporting every problem at once.
  *
- * The keys that describe the deployment itself are required, and production
- * values for them are declared as ENV in the Dockerfile. Keys that describe
- * optional behaviour carry a 'default', so an operator sets only what they mean
- * to change; an empty string is read as absent for those, because control
- * panels routinely leave a declared variable blank.
+ * The keys that describe the deployment itself are required. The Dockerfile
+ * declares production values for most of them as ENV; APP_URL, CONTACT_EMAIL
+ * and TRUSTED_PROXIES have none, because only the operator knows them. Keys
+ * that describe optional behaviour carry a 'default', so an operator sets only
+ * what they mean to change; an empty string is read as absent for those,
+ * because control panels routinely leave a declared variable blank.
  */
 final class Config
 {

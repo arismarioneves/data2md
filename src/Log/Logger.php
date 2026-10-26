@@ -8,7 +8,7 @@ namespace Data2Md\Log;
  * Three log channels:
  *
  *   app.jsonl   — operational, no PII. Mirrored to stderr, which the official
- *                 PHP image forwards to `docker logs` and the EasyPanel log
+ *                 PHP image forwards to `docker logs` and so to any host's log
  *                 viewer.
  *   audit.jsonl — who converted what, when. Mode 0640, short retention.
  *   mail.jsonl  — sign-in links, when MAIL_TRANSPORT=log. Mode 0600 and never
