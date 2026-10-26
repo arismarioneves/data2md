@@ -1,8 +1,31 @@
-<img src="public/assets/img/logo.png" alt="Data2MD" width="300">
+<p align="center">
+  <img src="public/assets/img/logo.png" alt="Data2MD" width="300">
+</p>
+
+<p align="center">
+  Convert large PDFs into clean, AI-ready Markdown — through a web UI or an HTTP API.
+</p>
+
+<p align="center">
+  <a href="https://aiu4.com"><b>Try it online</b></a> ·
+  <a href="#quick-start">Self-host</a> ·
+  <a href="#api">API</a> ·
+  <a href="LICENSE">MIT License</a>
+</p>
 
 # Data2MD
 
-Convert documents to clean, structured Markdown via a web interface or HTTP API.
+## Two ways to use it
+
+| | Hosted — [aiu4.com](https://aiu4.com) | Self-hosted |
+|---|---|---|
+| Setup | None | `docker compose up` |
+| Web converter | Free, no account | Free, limits you configure |
+| HTTP API | Included in the subscription | Grant access with `bin/data2md user:premium` |
+| Billing | Stripe subscription | Optional (`BILLING_ENABLED`); off by default |
+| Your files | Deleted right after conversion | Never leave your server |
+
+The hosted version runs this same code. Subscribing there supports the project.
 
 ## Features
 
@@ -29,7 +52,7 @@ Everything else — PHP, Poppler, the web server — is baked into the image; th
 ## Quick start
 
 ```bash
-git clone <repo-url> data2md
+git clone https://github.com/arismarioneves/data2md.git
 cd data2md
 docker compose up -d app
 ```
